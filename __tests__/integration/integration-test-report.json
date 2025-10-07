@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-10-06T03:35:24.839Z",
+  "environment": "development",
+  "apiUrl": "http://192.168.50.21:3000/api",
+  "phases": [],
+  "totalTests": 0,
+  "passedTests": 0,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "duration": 4405,
+  "productionReadinessScore": 0,
+  "criticalIssues": [],
+  "recommendations": [
+    "Increase test pass rate to at least 80% for production readiness"
+  ]
+}

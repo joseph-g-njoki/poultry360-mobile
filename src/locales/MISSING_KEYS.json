@@ -1,0 +1,183 @@
+{
+  "NOTE": "These are the missing translation keys that need to be added to en.json, sw.json, and lg.json",
+
+  "dropdowns": {
+    "selectFarm": "Select a farm",
+    "selectBatch": "-- Select Batch --",
+    "noFarms": "No farms available - Create a farm first",
+    "noBatches": "No batches available for this farm",
+    "noBatchesCreate": "No batches available - Create a batch first",
+    "walkInCustomer": "Walk-in Customer",
+    "noCustomers": "No customers - Walk-in sale",
+    "noBatch": "No Batch"
+  },
+
+  "farmTypes": {
+    "broiler": "Broiler",
+    "layer": "Layer",
+    "breeder": "Breeder",
+    "mixed": "Mixed"
+  },
+
+  "batchStatus": {
+    "active": "Active",
+    "completed": "Completed",
+    "inactive": "Inactive"
+  },
+
+  "healthStatus": {
+    "healthy": "Healthy",
+    "sick": "Sick",
+    "underTreatment": "Under Treatment",
+    "recovered": "Recovered"
+  },
+
+  "waterSource": {
+    "borehole": "Borehole",
+    "municipal": "Municipal",
+    "well": "Well",
+    "river": "River",
+    "rainwater": "Rainwater",
+    "other": "Other"
+  },
+
+  "waterQuality": {
+    "clean": "Clean",
+    "slightlyTurbid": "Slightly Turbid",
+    "turbid": "Turbid",
+    "contaminated": "Contaminated"
+  },
+
+  "placeholders": {
+    "enterBatchName": "Enter batch name",
+    "enterFarmName": "Enter farm name",
+    "enterFarmLocation": "Enter farm location",
+    "enterBirdType": "Enter bird type (e.g., Broiler, Layer)",
+    "numberOfBirds": "Number of birds",
+    "currentCount": "Current count",
+    "searchCustomers": "Search customers...",
+    "enterCustomerName": "Enter customer name",
+    "enterEmailAddress": "Enter email address",
+    "enterPhoneNumber": "Enter phone number",
+    "enterAddress": "Enter address (optional)",
+    "enterExpenseDesc": "Enter expense description",
+    "supplierName": "Supplier name",
+    "receiptNumber": "Receipt/Invoice number",
+    "additionalNotes": "Additional notes...",
+    "optional": "Optional",
+    "treatment": "Treatment given (optional)",
+    "cause": "Cause (optional)",
+    "numberOfEggs": "Number of eggs",
+    "totalWeight": "Total weight",
+    "farmDescription": "Enter farm description (optional)",
+    "birdsWeighed": "Number of birds weighed",
+    "searchBySupplier": "Search by supplier..."
+  },
+
+  "kpi": {
+    "totalBirds": "Total Birds",
+    "mortalityRate": "Mortality Rate",
+    "eggProduction": "Egg Production",
+    "revenue": "Revenue",
+    "totalRevenue": "Total Revenue",
+    "totalExpenses": "Total Expenses",
+    "netProfit": "Net Profit",
+    "profitMargin": "Profit Margin",
+    "activeBirds": "Active birds across all farms",
+    "averageAcrossBatches": "Average across all batches",
+    "totalEggsPeriod": "Total eggs this period",
+    "totalRevenuePeriod": "Total revenue this period",
+    "totalIncome": "Total income this period",
+    "totalCosts": "Total costs this period",
+    "revenueMinusExpenses": "Revenue minus expenses",
+    "netProfitPercent": "Net profit as % of revenue",
+    "returnOnInvestment": "Return on Investment",
+    "avgFCR": "Average FCR",
+    "avgMortality": "Average Mortality",
+    "activeFlocks": "Active Flocks",
+    "feedConversionRatio": "Feed Conversion Ratio",
+    "currentlyMonitored": "Currently monitored",
+    "todayStats": "Today's Stats",
+    "myRecords": "My Records",
+    "recordsToday": "Records today"
+  },
+
+  "charts": {
+    "productionTrend": "Production Trend",
+    "mortalityTrend": "Mortality Rate Trend",
+    "costDistribution": "Cost Distribution by Category",
+    "revenueOverTime": "Revenue Over Time",
+    "expensesOverTime": "Expenses Over Time",
+    "netProfitOverTime": "Net Profit Over Time",
+    "mortalityComparison": "Mortality Comparison by Flock",
+    "avgDailyGrowth": "Average Daily Growth"
+  },
+
+  "messages": {
+    "loadingDashboard": "Loading Dashboard...",
+    "loadingExpenses": "Loading expenses...",
+    "loadingContext": "Loading dashboard context...",
+    "walkInSale": "Walk-in Customer",
+    "noCustomersWalkIn": "No customers - Walk-in sale",
+    "noBatchesAvailable": "No batches available - Create a batch first"
+  },
+
+  "customers": {
+    "title": "Customers",
+    "addCustomer": "Add Customer",
+    "editCustomer": "Edit Customer",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "address": "Address",
+    "searchCustomers": "Search customers...",
+    "noCustomers": "No customers yet",
+    "createSuccess": "Customer created successfully",
+    "updateSuccess": "Customer updated successfully",
+    "deleteSuccess": "Customer deleted successfully",
+    "createError": "Failed to create customer"
+  },
+
+  "financialSummary": {
+    "title": "Financial Summary",
+    "period": "Period",
+    "income": "Income",
+    "expenses": "Expenses",
+    "profit": "Profit",
+    "totalSales": "Total Sales",
+    "avgSale": "Average Sale",
+    "totalCost": "Total Cost",
+    "profitMargin": "Profit Margin"
+  },
+
+  "flockPerformance": {
+    "title": "Flock Performance",
+    "avgFCR": "Average FCR",
+    "avgMortality": "Average Mortality",
+    "activeFlocks": "Active Flocks",
+    "feedConversion": "Feed Conversion Ratio",
+    "acrossAllFlocks": "Across all active flocks",
+    "mortalityComparison": "Mortality Comparison by Flock",
+    "avgDailyGrowth": "Average Daily Growth"
+  },
+
+  "backup": {
+    "title": "Data Backup",
+    "export": "Export Data",
+    "import": "Import Data",
+    "exportDesc": "Create a backup file with your current data and settings",
+    "importDesc": "Restore data from a backup file",
+    "backupSuccess": "Backup created successfully",
+    "restoreSuccess": "Data restored successfully",
+    "backupError": "Failed to create backup",
+    "restoreError": "Failed to restore data"
+  },
+
+  "notificationSettings": {
+    "title": "Notification Settings",
+    "pushDesc": "Receive push notifications on your device",
+    "emailDesc": "Receive notifications via email",
+    "alertDesc": "Receive urgent alerts and warnings",
+    "updateDesc": "Get notified about app updates and new features"
+  }
+}

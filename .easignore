@@ -1,0 +1,4 @@
+# Ignore everything outside mobile app
+../../backend
+../../admin
+../../docs

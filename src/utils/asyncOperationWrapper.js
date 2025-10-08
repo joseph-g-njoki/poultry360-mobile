@@ -40,14 +40,15 @@ class AsyncOperationWrapper {
         critical
       });
 
-      // Create timeout promise
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Operation ${operationName} timed out after ${timeout}ms`)), timeout)
-      );
-
       // Create retry wrapper
       const retryWrapper = async (attempt = 1) => {
         try {
+          // CRASH FIX: Create a fresh timeout promise for EACH retry attempt
+          // Previous bug: timeout promise was shared across retries, causing cumulative timeout
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Operation ${operationName} timed out after ${timeout}ms (attempt ${attempt}/${retries})`)), timeout)
+          );
+
           // Execute the operation with timeout
           const result = await Promise.race([
             operation(),

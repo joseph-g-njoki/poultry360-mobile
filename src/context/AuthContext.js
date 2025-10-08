@@ -332,6 +332,7 @@ export const AuthProvider = ({ children }) => {
 
           return {
             success: true,
+            data: response, // Include data object for LoginScreen validation
             isOffline: false,
             source: 'api'
           };
@@ -433,6 +434,7 @@ export const AuthProvider = ({ children }) => {
 
           return {
             success: true,
+            data: response.data, // Include data object for LoginScreen validation
             isOffline: response.isOffline || true,
             isDemoMode: true,
             source: response.source,

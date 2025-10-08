@@ -5,7 +5,10 @@
   },
   "build": {
     "base": {
-      "node": "22.11.0"
+      "node": "22.11.0",
+      "env": {
+        "EXPO_USE_FAST_RESOLVER": "1"
+      }
     },
     "development": {
       "extends": "base",
@@ -22,7 +25,8 @@
     "production": {
       "extends": "base",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "ios": {
         "buildConfiguration": "Release"

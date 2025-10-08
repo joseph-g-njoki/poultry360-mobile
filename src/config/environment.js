@@ -28,7 +28,7 @@ const ENV = {
     logLevel: 'info',
   },
   prod: {
-    apiUrl: process.env.EXPO_PUBLIC_PROD_API_URL || 'https://api.poultry360.com/api',
+    apiUrl: process.env.EXPO_PUBLIC_PROD_API_URL || 'https://poultry360-api.onrender.com/api',
     enableOfflineMode: true,
     enableNotifications: true,
     logLevel: 'error',
@@ -37,9 +37,24 @@ const ENV = {
 
 /**
  * Get the current environment configuration based on the app environment
- * Priority: EXPO_PUBLIC_APP_ENV > __DEV__ flag
+ * Priority:
+ * 1. Constants.expoConfig.extra.apiUrl (from app.json) - PRODUCTION BUILDS
+ * 2. EXPO_PUBLIC_APP_ENV environment variable
+ * 3. __DEV__ flag for development
  */
 const getEnvVars = () => {
+  // CRITICAL FIX: For production builds, use app.json extra config FIRST
+  // This ensures the correct API URL is used in production APKs
+  if (Constants.expoConfig?.extra?.apiUrl) {
+    console.log('🔧 Using API URL from app.json:', Constants.expoConfig.extra.apiUrl);
+    return {
+      apiUrl: Constants.expoConfig.extra.apiUrl,
+      enableOfflineMode: Constants.expoConfig.extra.enableOfflineMode ?? true,
+      enableNotifications: Constants.expoConfig.extra.enableNotifications ?? true,
+      logLevel: 'info',
+    };
+  }
+
   const appEnv = process.env.EXPO_PUBLIC_APP_ENV || 'dev';
 
   // Use __DEV__ flag as fallback
@@ -48,6 +63,12 @@ const getEnvVars = () => {
   } else if (appEnv === 'staging') {
     return ENV.staging;
   } else if (appEnv === 'prod') {
+    return ENV.prod;
+  }
+
+  // CRITICAL FIX: Default to prod for production builds, not dev
+  if (!__DEV__) {
+    console.log('🚀 Production build detected - using prod config');
     return ENV.prod;
   }
 

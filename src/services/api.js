@@ -8,11 +8,22 @@ import { apiCircuitBreaker } from '../utils/circuitBreaker';
 // To change the API URL, update the .env file (see .env.example for template)
 const API_BASE_URL = ENV.apiUrl;
 
+// CRITICAL DEBUG: Log the API URL being used
+console.log('═══════════════════════════════════════════════════');
+console.log('🌐 API SERVICE INITIALIZATION');
+console.log('═══════════════════════════════════════════════════');
+console.log('📍 API Base URL:', API_BASE_URL);
+console.log('📱 Platform:', Platform.OS);
+console.log('🔧 Environment Config:', ENV);
+console.log('═══════════════════════════════════════════════════');
+
 class ApiService {
   constructor() {
     this.retryCount = 3; // Number of retries for failed requests
     this.retryDelay = 1000; // Initial retry delay in ms
     this.requestsInFlight = new Map(); // Track in-flight requests to prevent duplicates
+
+    console.log('🏗️  Creating Axios instance with base URL:', API_BASE_URL);
 
     this.api = axios.create({
       baseURL: API_BASE_URL,
@@ -22,6 +33,8 @@ class ApiService {
         'User-Agent': Platform.OS === 'ios' ? 'Poultry360-iOS' : 'Poultry360-Android',
       },
     });
+
+    console.log('✅ Axios instance created successfully');
 
     // Add request interceptor to include auth token and organization context
     this.api.interceptors.request.use(
@@ -188,11 +201,16 @@ class ApiService {
 
   async register(userData) {
     try {
-      console.log('API Service: Sending registration request...', {
-        email: userData.email,
-        username: userData.username,
-        organizationType: userData.organizationName ? 'create' : 'join'
-      });
+      console.log('═══════════════════════════════════════════════════');
+      console.log('📝 REGISTRATION REQUEST DETAILS');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('📧 Email:', userData.email);
+      console.log('👤 Username:', userData.username);
+      console.log('🏢 Organization Type:', userData.organizationName ? 'create' : 'join');
+      console.log('📍 Full API URL:', `${API_BASE_URL}/auth/register`);
+      console.log('📦 Request Data:', JSON.stringify(userData, null, 2));
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🚀 Sending request now...');
 
       // CRASH FIX: Add timeout override for registration (40 seconds for slow DB operations)
       const response = await this.api.post('/auth/register', userData, {
@@ -200,7 +218,12 @@ class ApiService {
         retry: 2 // CRASH FIX: Allow 2 retries for registration
       });
 
-      console.log('API Service: Registration successful', response.data);
+      console.log('═══════════════════════════════════════════════════');
+      console.log('✅ REGISTRATION SUCCESSFUL');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('📥 Response Status:', response.status);
+      console.log('📦 Response Data:', JSON.stringify(response.data, null, 2));
+      console.log('═══════════════════════════════════════════════════');
 
       // CRASH FIX: Validate response data before returning
       if (!response.data) {
@@ -596,6 +619,21 @@ class ApiService {
   // Error handler
   handleError(error) {
     try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('❌ ERROR HANDLER DETAILS');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🔍 Error Type:', error?.constructor?.name || typeof error);
+      console.log('📦 Error Object:', error);
+      console.log('📡 Has Response:', !!error?.response);
+      console.log('🌐 Has Request:', !!error?.request);
+      console.log('💬 Error Message:', error?.message);
+      console.log('📍 Error Code:', error?.code);
+      if (error?.response) {
+        console.log('📥 Response Status:', error.response.status);
+        console.log('📦 Response Data:', error.response.data);
+      }
+      console.log('═══════════════════════════════════════════════════');
+
       // CRASH FIX: Add null checks for error object
       if (!error) {
         return new Error('Unknown error occurred');

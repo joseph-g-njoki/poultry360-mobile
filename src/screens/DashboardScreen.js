@@ -29,8 +29,9 @@ const DashboardScreen = ({ navigation }) => {
 
   // CRASH FIX: Validate contexts are available
   if (!authContext || !themeContext || !offlineContext || !dashboardRefreshContext) {
+    // Fallback loading without theme context
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#f8f9fa' }}>
         <ActivityIndicator size="large" color="#2E8B57" />
         <Text style={{ fontSize: 14, color: '#666', marginTop: 10, textAlign: 'center' }}>
           Loading dashboard context...
@@ -656,11 +657,11 @@ const getActivityIcon = (type) => {
 
 const getAlertColor = (severity) => {
   const colors = {
-    high: '#FF3B30',
-    medium: '#FF9500',
-    low: '#FFCC00',
+    high: '#FF3B30',    // Red for high severity
+    medium: '#FF9500',  // Orange for medium severity
+    low: '#FFCC00',     // Yellow for low severity
   };
-  return colors[severity] || '#FFCC00';
+  return colors[severity] || '#FFCC00';  // These are always bright colors for alerts, not theme-dependent
 };
 
 const formatTime = (timestamp) => {

@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
 
 const SalesScreen = () => {
+  const { theme } = useTheme();
   const navigation = useNavigation();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,19 +102,19 @@ const SalesScreen = () => {
 
   const renderSaleItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.saleCard}
+      style={styles(theme).saleCard}
       onPress={() => navigation.navigate('SaleDetails', { saleId: item.id })}
     >
-      <View style={styles.saleHeader}>
-        <View style={styles.saleHeaderLeft}>
-          <Text style={styles.saleInvoice}>
+      <View style={styles(theme).saleHeader}>
+        <View style={styles(theme).saleHeaderLeft}>
+          <Text style={styles(theme).saleInvoice}>
             {item.invoiceNumber || `#${item.id.substring(0, 8)}`}
           </Text>
-          <Text style={styles.saleDate}>{formatDate(item.saleDate)}</Text>
+          <Text style={styles(theme).saleDate}>{formatDate(item.saleDate)}</Text>
         </View>
         <View
           style={[
-            styles.statusBadge,
+            styles(theme).statusBadge,
             { backgroundColor: getPaymentStatusColor(item.paymentStatus) },
           ]}
         >
@@ -121,46 +123,46 @@ const SalesScreen = () => {
             size={14}
             color="#FFFFFF"
           />
-          <Text style={styles.statusText}>
+          <Text style={styles(theme).statusText}>
             {item.paymentStatus.toUpperCase()}
           </Text>
         </View>
       </View>
 
-      <View style={styles.saleDetails}>
-        <View style={styles.detailRow}>
-          <Ionicons name="person-outline" size={16} color="#6B7280" />
-          <Text style={styles.detailText}>
+      <View style={styles(theme).saleDetails}>
+        <View style={styles(theme).detailRow}>
+          <Ionicons name="person-outline" size={16} color={theme.colors.textSecondary} />
+          <Text style={styles(theme).detailText}>
             {item.customer?.name || 'Walk-in Customer'}
           </Text>
         </View>
 
-        <View style={styles.detailRow}>
-          <Ionicons name="cube-outline" size={16} color="#6B7280" />
-          <Text style={styles.detailText}>
+        <View style={styles(theme).detailRow}>
+          <Ionicons name="cube-outline" size={16} color={theme.colors.textSecondary} />
+          <Text style={styles(theme).detailText}>
             {item.quantity} {item.unit} ({item.productType})
           </Text>
         </View>
 
-        <View style={styles.detailRow}>
-          <Ionicons name="card-outline" size={16} color="#6B7280" />
-          <Text style={styles.detailText}>
+        <View style={styles(theme).detailRow}>
+          <Ionicons name="card-outline" size={16} color={theme.colors.textSecondary} />
+          <Text style={styles(theme).detailText}>
             {item.paymentMethod.replace('_', ' ')}
           </Text>
         </View>
       </View>
 
-      <View style={styles.amountSection}>
-        <View style={styles.amountRow}>
-          <Text style={styles.amountLabel}>Total:</Text>
-          <Text style={styles.amountValue}>
+      <View style={styles(theme).amountSection}>
+        <View style={styles(theme).amountRow}>
+          <Text style={styles(theme).amountLabel}>Total:</Text>
+          <Text style={styles(theme).amountValue}>
             {formatCurrency(item.totalAmount)}
           </Text>
         </View>
         {item.amountDue > 0 && (
-          <View style={styles.amountRow}>
-            <Text style={[styles.amountLabel, { color: '#EF4444' }]}>Due:</Text>
-            <Text style={[styles.amountValue, { color: '#EF4444' }]}>
+          <View style={styles(theme).amountRow}>
+            <Text style={[styles(theme).amountLabel, { color: '#EF4444' }]}>Due:</Text>
+            <Text style={[styles(theme).amountValue, { color: '#EF4444' }]}>
               {formatCurrency(item.amountDue)}
             </Text>
           </View>
@@ -173,34 +175,34 @@ const SalesScreen = () => {
     if (!summary) return null;
 
     return (
-      <View style={styles.summaryContainer}>
-        <Text style={styles.summaryTitle}>Sales Summary</Text>
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryItem}>
+      <View style={styles(theme).summaryContainer}>
+        <Text style={styles(theme).summaryTitle}>Sales Summary</Text>
+        <View style={styles(theme).summaryGrid}>
+          <View style={styles(theme).summaryItem}>
             <Ionicons name="receipt-outline" size={24} color="#3B82F6" />
-            <Text style={styles.summaryValue}>{summary.totalSales}</Text>
-            <Text style={styles.summaryLabel}>Total Sales</Text>
+            <Text style={styles(theme).summaryValue}>{summary.totalSales}</Text>
+            <Text style={styles(theme).summaryLabel}>Total Sales</Text>
           </View>
-          <View style={styles.summaryItem}>
+          <View style={styles(theme).summaryItem}>
             <Ionicons name="cash-outline" size={24} color="#22C55E" />
-            <Text style={styles.summaryValue}>
+            <Text style={styles(theme).summaryValue}>
               {formatCurrency(summary.totalRevenue)}
             </Text>
-            <Text style={styles.summaryLabel}>Revenue</Text>
+            <Text style={styles(theme).summaryLabel}>Revenue</Text>
           </View>
-          <View style={styles.summaryItem}>
-            <Ionicons name="card-outline" size={24} color="#10B981" />
-            <Text style={styles.summaryValue}>
+          <View style={styles(theme).summaryItem}>
+            <Ionicons name="card-outline" size={24} color={theme.colors.primary} />
+            <Text style={styles(theme).summaryValue}>
               {formatCurrency(summary.totalPaid)}
             </Text>
-            <Text style={styles.summaryLabel}>Paid</Text>
+            <Text style={styles(theme).summaryLabel}>Paid</Text>
           </View>
-          <View style={styles.summaryItem}>
+          <View style={styles(theme).summaryItem}>
             <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
-            <Text style={styles.summaryValue}>
+            <Text style={styles(theme).summaryValue}>
               {formatCurrency(summary.totalDue)}
             </Text>
-            <Text style={styles.summaryLabel}>Due</Text>
+            <Text style={styles(theme).summaryLabel}>Due</Text>
           </View>
         </View>
       </View>
@@ -209,25 +211,25 @@ const SalesScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10B981" />
-        <Text style={styles.loadingText}>Loading sales...</Text>
+      <View style={styles(theme).loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles(theme).loadingText}>Loading sales...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles(theme).container}>
       <FlatList
         data={sales}
         renderItem={renderSaleItem}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderSummaryCard}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <View style={styles(theme).emptyContainer}>
             <Ionicons name="receipt-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No sales recorded yet</Text>
-            <Text style={styles.emptySubtext}>
+            <Text style={styles(theme).emptyText}>No sales recorded yet</Text>
+            <Text style={styles(theme).emptySubtext}>
               Tap the + button to record your first sale
             </Text>
           </View>
@@ -235,11 +237,11 @@ const SalesScreen = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles(theme).listContent}
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        style={styles(theme).fab}
         onPress={() => navigation.navigate('AddSale')}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -248,28 +250,28 @@ const SalesScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.background,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   listContent: {
     padding: 16,
     paddingBottom: 80,
   },
   summaryContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -282,7 +284,7 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.text,
     marginBottom: 16,
   },
   summaryGrid: {
@@ -292,7 +294,7 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     width: '48%',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.background,
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
@@ -301,16 +303,16 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: theme.colors.text,
     marginTop: 8,
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
     marginTop: 4,
   },
   saleCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -332,12 +334,12 @@ const styles = StyleSheet.create({
   saleInvoice: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   saleDate: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -363,11 +365,11 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: '#374151',
+    color: theme.colors.text,
   },
   amountSection: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.colors.border,
     paddingTop: 12,
     gap: 6,
   },
@@ -378,13 +380,13 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
   amountValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: theme.colors.text,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -394,12 +396,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: theme.colors.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#10B981',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

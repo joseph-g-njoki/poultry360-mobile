@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import analyticsService from '../services/analyticsService';
 import KPICard from '../components/charts/KPICard';
 import PieChart from '../components/charts/PieChart';
@@ -33,6 +34,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
  */
 const FinancialAnalyticsScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -110,7 +112,7 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
       name: key.charAt(0).toUpperCase() + key.slice(1),
       value: value,
       color: colors[key] || '#999999',
-      legendFontColor: '#666',
+      legendFontColor: theme.colors.textSecondary,
       legendFontSize: 12,
     }));
   };
@@ -258,8 +260,8 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
   const renderCostBreakdown = () => {
     if (!financialData || !financialData.breakdown) {
       return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No cost breakdown available</Text>
+        <View style={[styles.emptyContainer, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles.emptyText, { color: theme.colors.textLight }]}>No cost breakdown available</Text>
         </View>
       );
     }
@@ -268,22 +270,22 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
     const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
 
     return (
-      <View style={styles.breakdownContainer}>
+      <View style={[styles.breakdownContainer, { backgroundColor: theme.colors.surface }]}>
         {Object.entries(breakdown).map(([category, amount]) => {
           const percentage = total > 0 ? ((amount / total) * 100).toFixed(1) : 0;
           return (
             <View key={category} style={styles.breakdownItem}>
               <View style={styles.breakdownHeader}>
-                <Text style={styles.breakdownCategory}>
+                <Text style={[styles.breakdownCategory, { color: theme.colors.text }]}>
                   {category.charAt(0).toUpperCase() + category.slice(1)}
                 </Text>
-                <Text style={styles.breakdownPercentage}>{percentage}%</Text>
+                <Text style={[styles.breakdownPercentage, { color: theme.colors.textSecondary }]}>{percentage}%</Text>
               </View>
               <View style={styles.breakdownDetails}>
-                <Text style={styles.breakdownAmount}>${amount.toLocaleString()}</Text>
-                <View style={styles.breakdownBar}>
+                <Text style={[styles.breakdownAmount, { color: theme.colors.textSecondary }]}>${amount.toLocaleString()}</Text>
+                <View style={[styles.breakdownBar, { backgroundColor: theme.colors.border }]}>
                   <View
-                    style={[styles.breakdownBarFill, { width: `${percentage}%` }]}
+                    style={[styles.breakdownBarFill, { width: `${percentage}%`, backgroundColor: theme.colors.primary }]}
                   />
                 </View>
               </View>
@@ -299,9 +301,9 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
    */
   if (loading && !financialData) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2E8B57" />
-        <Text style={styles.loadingText}>Loading financial data...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading financial data...</Text>
       </View>
     );
   }
@@ -311,26 +313,26 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
    */
   return (
     <ErrorBoundary>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#2E8B57']} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} />
           }
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Financial Analytics</Text>
-            <Text style={styles.subtitle}>Last 30 days</Text>
+            <Text style={[styles.title, { color: theme.colors.text }]}>Financial Analytics</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Last 30 days</Text>
           </View>
 
           {/* KPI Cards */}
-          <Text style={styles.sectionTitle}>Financial Summary</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Financial Summary</Text>
           {renderKPICards()}
 
           {/* Expense Breakdown Pie Chart */}
-          <Text style={styles.sectionTitle}>Expense Breakdown</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Expense Breakdown</Text>
           <PieChart
             title="Cost Distribution by Category"
             data={prepareExpenseBreakdownData()}
@@ -343,7 +345,7 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
           {renderCostBreakdown()}
 
           {/* Revenue Trend */}
-          <Text style={styles.sectionTitle}>Revenue Trend</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Revenue Trend</Text>
           <LineChart
             title="Revenue Over Time"
             data={prepareRevenueTrendData()}
@@ -355,7 +357,7 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
           />
 
           {/* Expense Trend */}
-          <Text style={styles.sectionTitle}>Expense Trend</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Expense Trend</Text>
           <LineChart
             title="Expenses Over Time"
             data={prepareExpenseTrendData()}
@@ -367,7 +369,7 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
           />
 
           {/* Profit Trend */}
-          <Text style={styles.sectionTitle}>Profit Trend</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Profit Trend</Text>
           <LineChart
             title="Net Profit Over Time"
             data={prepareProfitTrendData()}
@@ -386,7 +388,6 @@ const FinancialAnalyticsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   scrollView: {
     flex: 1,
@@ -399,12 +400,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666',
   },
   header: {
     marginBottom: 20,
@@ -412,32 +411,26 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
     marginTop: 4,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
     marginTop: 16,
     marginBottom: 12,
   },
   emptyContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 32,
     alignItems: 'center',
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
   },
   breakdownContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -459,29 +452,24 @@ const styles = StyleSheet.create({
   breakdownCategory: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
   },
   breakdownPercentage: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
   },
   breakdownDetails: {
     gap: 8,
   },
   breakdownAmount: {
     fontSize: 14,
-    color: '#666',
   },
   breakdownBar: {
     height: 8,
-    backgroundColor: '#E0E0E0',
     borderRadius: 4,
     overflow: 'hidden',
   },
   breakdownBarFill: {
     height: '100%',
-    backgroundColor: '#2E8B57',
     borderRadius: 4,
   },
 });

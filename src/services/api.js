@@ -175,9 +175,13 @@ class ApiService {
         status: response.status,
         hasData: !!response.data,
         hasAccessToken: !!response.data?.access_token,
-        hasUser: !!response.data?.user
+        hasUser: !!response.data?.user,
+        responseDataType: typeof response.data,
+        responseDataKeys: response.data ? Object.keys(response.data) : [],
+        fullResponseData: JSON.stringify(response.data)
       });
 
+      console.log('🔍 [DEBUG] Returning from api.login():', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ API Service: Login request failed', {

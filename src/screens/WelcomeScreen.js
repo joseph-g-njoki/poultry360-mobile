@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, languages } from '../context/LanguageContext';
-import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../components/CustomPicker';
 
 const { width, height } = Dimensions.get('window');
 

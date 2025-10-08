@@ -237,6 +237,15 @@ export const AuthProvider = ({ children }) => {
           { operationName: 'auth_login_api', timeout: 15000, retries: 1 }
         );
 
+        console.log('🔍 [DEBUG] Response after asyncOperationWrapper:', {
+          isNull: response === null,
+          isUndefined: response === undefined,
+          type: typeof response,
+          hasAccessToken: response?.access_token,
+          hasUser: response?.user,
+          keys: response ? Object.keys(response) : []
+        });
+
         // CRASH FIX: Check if response is null or invalid
         if (!response || typeof response !== 'object') {
           console.error('❌ Invalid API response:', response);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,11 @@ import {
   TextInput,
   ActivityIndicator,
   Switch,
+  Image,
+  Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -25,11 +29,169 @@ const ProfileScreen = () => {
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [profilePicture, setProfilePicture] = useState(null);
   const [editData, setEditData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     phone: user?.phone || '',
   });
+
+  // Load profile picture from AsyncStorage on mount
+  useEffect(() => {
+    loadProfilePicture();
+  }, [user?.id]);
+
+  const loadProfilePicture = async () => {
+    try {
+      if (user?.id) {
+        const savedPicture = await AsyncStorage.getItem(`@profile_picture_${user.id}`);
+        if (savedPicture) {
+          setProfilePicture(savedPicture);
+          console.log('Profile picture loaded from storage');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile picture:', error);
+    }
+  };
+
+  const saveProfilePicture = async (uri) => {
+    try {
+      if (user?.id) {
+        await AsyncStorage.setItem(`@profile_picture_${user.id}`, uri);
+        setProfilePicture(uri);
+
+        // Update user object in AuthContext to include profilePicture field
+        const updatedUser = {
+          ...user,
+          profilePicture: uri,
+        };
+        await updateUser(updatedUser);
+
+        console.log('Profile picture saved to storage');
+      }
+    } catch (error) {
+      console.error('Error saving profile picture:', error);
+      Alert.alert('Error', 'Failed to save profile picture');
+    }
+  };
+
+  const requestPermissions = async () => {
+    try {
+      // Request camera permissions
+      const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+
+      // Request media library permissions
+      const mediaStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      return {
+        camera: cameraStatus.status === 'granted',
+        media: mediaStatus.status === 'granted',
+      };
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      return { camera: false, media: false };
+    }
+  };
+
+  const pickImageFromCamera = async () => {
+    try {
+      setImageLoading(true);
+
+      // Request camera permission
+      const permissions = await requestPermissions();
+
+      if (!permissions.camera) {
+        Alert.alert(
+          'Camera Permission Required',
+          'Please enable camera access in your device settings to take photos.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Launch camera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        await saveProfilePicture(imageUri);
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
+  const pickImageFromGallery = async () => {
+    try {
+      setImageLoading(true);
+
+      // Request media library permission
+      const permissions = await requestPermissions();
+
+      if (!permissions.media) {
+        Alert.alert(
+          'Media Library Permission Required',
+          'Please enable photo library access in your device settings to choose photos.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        await saveProfilePicture(imageUri);
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
+  const handleProfilePicturePress = () => {
+    Alert.alert(
+      'Change Profile Picture',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: pickImageFromCamera,
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: pickImageFromGallery,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   const handleLogout = useCallback(() => {
     try {
@@ -203,11 +365,37 @@ const ProfileScreen = () => {
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Profile Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
-        <View style={styles.avatar}>
-          <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
-            {String(user?.firstName || 'U').charAt(0)}{String(user?.lastName || 'U').charAt(0)}
-          </Text>
-        </View>
+        {/* Profile Picture with Edit Button */}
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={handleProfilePicturePress}
+          activeOpacity={0.8}
+          disabled={imageLoading}
+        >
+          {profilePicture ? (
+            <Image
+              source={{ uri: profilePicture }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
+                {String(user?.firstName || 'U').charAt(0)}{String(user?.lastName || 'U').charAt(0)}
+              </Text>
+            </View>
+          )}
+
+          {/* Camera Icon Badge */}
+          <View style={[styles.cameraIconBadge, { backgroundColor: theme.colors.primary }]}>
+            {imageLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.cameraIconText}>📷</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+
         <Text style={[styles.userName, { color: theme.colors.headerText }]}>
           {String(user?.firstName || 'User')} {String(user?.lastName || '')}
         </Text>
@@ -461,18 +649,50 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     paddingHorizontal: 20,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 15,
+  },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 15,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
+  },
+  cameraIconBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  cameraIconText: {
+    fontSize: 16,
   },
   userName: {
     fontSize: 24,

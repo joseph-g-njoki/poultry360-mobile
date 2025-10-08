@@ -62,7 +62,8 @@ class AnalyticsService {
       if (params.farmId) queryParams.append('farmId', params.farmId);
 
       const queryString = queryParams.toString();
-      const url = `/api/v1/analytics/dashboard${queryString ? `?${queryString}` : ''}`;
+      // FIX: Use correct backend endpoint - /analytics/production-trends instead of /analytics/dashboard
+      const url = `/analytics/production-trends${queryString ? `?${queryString}` : ''}`;
 
       const response = await api.api.get(url);
 
@@ -121,7 +122,8 @@ class AnalyticsService {
       if (params.batchId) queryParams.append('batchId', params.batchId);
 
       const queryString = queryParams.toString();
-      const url = `/api/v1/analytics/flocks/performance${queryString ? `?${queryString}` : ''}`;
+      // FIX: Use correct backend endpoint - remove /v1 prefix
+      const url = `/analytics/flocks/performance${queryString ? `?${queryString}` : ''}`;
 
       const response = await api.api.get(url);
 
@@ -183,7 +185,8 @@ class AnalyticsService {
       if (params.farmId) queryParams.append('farmId', params.farmId);
 
       const queryString = queryParams.toString();
-      const url = `/api/v1/analytics/financial${queryString ? `?${queryString}` : ''}`;
+      // FIX: Use correct backend endpoint - remove /v1 prefix
+      const url = `/analytics/financial${queryString ? `?${queryString}` : ''}`;
 
       const response = await api.api.get(url);
 
@@ -245,7 +248,8 @@ class AnalyticsService {
       if (params.interval) queryParams.append('interval', params.interval);
 
       const queryString = queryParams.toString();
-      const url = `/api/v1/analytics/trends${queryString ? `?${queryString}` : ''}`;
+      // FIX: Use correct backend endpoint - remove /v1 prefix
+      const url = `/analytics/trends${queryString ? `?${queryString}` : ''}`;
 
       const response = await api.api.get(url);
 

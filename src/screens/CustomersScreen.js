@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
 
 const CustomersScreen = () => {
   const navigation = useNavigation();
+  const { theme } = useTheme();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,74 +78,74 @@ const CustomersScreen = () => {
 
   const renderCustomerItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.customerCard}
+      style={styles(theme).customerCard}
       onPress={() => navigation.navigate('CustomerDetails', { customerId: item.id })}
     >
-      <View style={styles.customerHeader}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
+      <View style={styles(theme).customerHeader}>
+        <View style={styles(theme).avatarContainer}>
+          <Text style={styles(theme).avatarText}>
             {item.name.substring(0, 2).toUpperCase()}
           </Text>
         </View>
 
-        <View style={styles.customerInfo}>
-          <Text style={styles.customerName}>{item.name}</Text>
-          <View style={styles.contactRow}>
-            <Ionicons name="call-outline" size={14} color="#6B7280" />
-            <Text style={styles.contactText}>{item.phone}</Text>
+        <View style={styles(theme).customerInfo}>
+          <Text style={styles(theme).customerName}>{item.name}</Text>
+          <View style={styles(theme).contactRow}>
+            <Ionicons name="call-outline" size={14} color={theme.colors.textSecondary} />
+            <Text style={styles(theme).contactText}>{item.phone}</Text>
           </View>
           {item.email && (
-            <View style={styles.contactRow}>
-              <Ionicons name="mail-outline" size={14} color="#6B7280" />
-              <Text style={styles.contactText}>{item.email}</Text>
+            <View style={styles(theme).contactRow}>
+              <Ionicons name="mail-outline" size={14} color={theme.colors.textSecondary} />
+              <Text style={styles(theme).contactText}>{item.email}</Text>
             </View>
           )}
         </View>
 
         <View
           style={[
-            styles.typeBadge,
+            styles(theme).typeBadge,
             { backgroundColor: getCustomerTypeColor(item.customerType) },
           ]}
         >
-          <Text style={styles.typeText}>
+          <Text style={styles(theme).typeText}>
             {item.customerType.toUpperCase()}
           </Text>
         </View>
       </View>
 
-      <View style={styles.statsSection}>
-        <View style={styles.statItem}>
-          <Ionicons name="receipt-outline" size={20} color="#6B7280" />
-          <Text style={styles.statLabel}>Orders</Text>
-          <Text style={styles.statValue}>{item.totalOrders || 0}</Text>
+      <View style={styles(theme).statsSection}>
+        <View style={styles(theme).statItem}>
+          <Ionicons name="receipt-outline" size={20} color={theme.colors.textSecondary} />
+          <Text style={styles(theme).statLabel}>Orders</Text>
+          <Text style={styles(theme).statValue}>{item.totalOrders || 0}</Text>
         </View>
 
-        <View style={styles.statDivider} />
+        <View style={styles(theme).statDivider} />
 
-        <View style={styles.statItem}>
+        <View style={styles(theme).statItem}>
           <Ionicons name="cash-outline" size={20} color="#22C55E" />
-          <Text style={styles.statLabel}>Total Sales</Text>
-          <Text style={styles.statValue}>
+          <Text style={styles(theme).statLabel}>Total Sales</Text>
+          <Text style={styles(theme).statValue}>
             {formatCurrency(item.totalSales || 0)}
           </Text>
         </View>
 
-        <View style={styles.statDivider} />
+        <View style={styles(theme).statDivider} />
 
-        <View style={styles.statItem}>
+        <View style={styles(theme).statItem}>
           <Ionicons name="wallet-outline" size={20} color="#F59E0B" />
-          <Text style={styles.statLabel}>Balance</Text>
-          <Text style={styles.statValue}>
+          <Text style={styles(theme).statLabel}>Balance</Text>
+          <Text style={styles(theme).statValue}>
             {formatCurrency(item.balance || 0)}
           </Text>
         </View>
       </View>
 
       {item.lastPurchaseDate && (
-        <View style={styles.lastPurchaseRow}>
-          <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-          <Text style={styles.lastPurchaseText}>
+        <View style={styles(theme).lastPurchaseRow}>
+          <Ionicons name="time-outline" size={14} color={theme.colors.textSecondary} />
+          <Text style={styles(theme).lastPurchaseText}>
             Last purchase: {new Date(item.lastPurchaseDate).toLocaleDateString('en-GB')}
           </Text>
         </View>
@@ -153,26 +155,27 @@ const CustomersScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10B981" />
-        <Text style={styles.loadingText}>Loading customers...</Text>
+      <View style={styles(theme).loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles(theme).loadingText}>Loading customers...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={20} color="#6B7280" />
+    <View style={styles(theme).container}>
+      <View style={styles(theme).searchContainer}>
+        <Ionicons name="search-outline" size={20} color={theme.colors.textSecondary} />
         <TextInput
-          style={styles.searchInput}
+          style={styles(theme).searchInput}
           placeholder="Search customers..."
+          placeholderTextColor={theme.colors.placeholder}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#6B7280" />
+            <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -182,12 +185,12 @@ const CustomersScreen = () => {
         renderItem={renderCustomerItem}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyText}>
+          <View style={styles(theme).emptyContainer}>
+            <Ionicons name="people-outline" size={64} color={theme.colors.border} />
+            <Text style={styles(theme).emptyText}>
               {searchQuery ? 'No customers found' : 'No customers yet'}
             </Text>
-            <Text style={styles.emptySubtext}>
+            <Text style={styles(theme).emptySubtext}>
               {searchQuery
                 ? 'Try adjusting your search'
                 : 'Tap the + button to add your first customer'}
@@ -197,11 +200,11 @@ const CustomersScreen = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles(theme).listContent}
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        style={styles(theme).fab}
         onPress={() => setShowAddModal(true)}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -220,6 +223,7 @@ const CustomersScreen = () => {
 };
 
 const AddCustomerModal = ({ visible, onClose, onSuccess }) => {
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -269,75 +273,79 @@ const AddCustomerModal = ({ visible, onClose, onSuccess }) => {
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Customer</Text>
+      <View style={styles(theme).modalOverlay}>
+        <View style={styles(theme).modalContent}>
+          <View style={styles(theme).modalHeader}>
+            <Text style={styles(theme).modalTitle}>Add New Customer</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#6B7280" />
+              <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalBody}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Name *</Text>
+          <View style={styles(theme).modalBody}>
+            <View style={styles(theme).inputGroup}>
+              <Text style={styles(theme).label}>Name *</Text>
               <TextInput
-                style={styles.input}
+                style={styles(theme).input}
                 value={formData.name}
                 onChangeText={(value) => setFormData({ ...formData, name: value })}
                 placeholder="Enter customer name"
+                placeholderTextColor={theme.colors.placeholder}
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email *</Text>
+            <View style={styles(theme).inputGroup}>
+              <Text style={styles(theme).label}>Email *</Text>
               <TextInput
-                style={styles.input}
+                style={styles(theme).input}
                 value={formData.email}
                 onChangeText={(value) => setFormData({ ...formData, email: value })}
                 placeholder="Enter email address"
+                placeholderTextColor={theme.colors.placeholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone *</Text>
+            <View style={styles(theme).inputGroup}>
+              <Text style={styles(theme).label}>Phone *</Text>
               <TextInput
-                style={styles.input}
+                style={styles(theme).input}
                 value={formData.phone}
                 onChangeText={(value) => setFormData({ ...formData, phone: value })}
                 placeholder="Enter phone number"
+                placeholderTextColor={theme.colors.placeholder}
                 keyboardType="phone-pad"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Address</Text>
+            <View style={styles(theme).inputGroup}>
+              <Text style={styles(theme).label}>Address</Text>
               <TextInput
-                style={styles.input}
+                style={styles(theme).input}
                 value={formData.address}
                 onChangeText={(value) => setFormData({ ...formData, address: value })}
                 placeholder="Enter address (optional)"
+                placeholderTextColor={theme.colors.placeholder}
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Customer Type</Text>
-              <View style={styles.typeButtons}>
+            <View style={styles(theme).inputGroup}>
+              <Text style={styles(theme).label}>Customer Type</Text>
+              <View style={styles(theme).typeButtons}>
                 {['retail', 'wholesale', 'distributor'].map((type) => (
                   <TouchableOpacity
                     key={type}
                     style={[
-                      styles.typeButton,
-                      formData.customerType === type && styles.typeButtonActive,
+                      styles(theme).typeButton,
+                      formData.customerType === type && styles(theme).typeButtonActive,
                     ]}
                     onPress={() => setFormData({ ...formData, customerType: type })}
                   >
                     <Text
                       style={[
-                        styles.typeButtonText,
-                        formData.customerType === type && styles.typeButtonTextActive,
+                        styles(theme).typeButtonText,
+                        formData.customerType === type && styles(theme).typeButtonTextActive,
                       ]}
                     >
                       {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -348,24 +356,24 @@ const AddCustomerModal = ({ visible, onClose, onSuccess }) => {
             </View>
           </View>
 
-          <View style={styles.modalFooter}>
+          <View style={styles(theme).modalFooter}>
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={styles(theme).cancelButton}
               onPress={onClose}
               disabled={loading}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles(theme).cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+              style={[styles(theme).submitButton, loading && styles(theme).submitButtonDisabled]}
               onPress={handleSubmit}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Add Customer</Text>
+                <Text style={styles(theme).submitButtonText}>Add Customer</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -375,26 +383,26 @@ const AddCustomerModal = ({ visible, onClose, onSuccess }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.background,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     margin: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -409,7 +417,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
+    color: theme.colors.text,
   },
   listContent: {
     padding: 16,
@@ -417,7 +425,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   customerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -436,7 +444,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#10B981',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -452,7 +460,7 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: theme.colors.text,
   },
   contactRow: {
     flexDirection: 'row',
@@ -461,7 +469,7 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   typeBadge: {
     paddingHorizontal: 10,
@@ -477,7 +485,7 @@ const styles = StyleSheet.create({
   statsSection: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.colors.border,
     paddingTop: 12,
     marginBottom: 8,
   },
@@ -488,16 +496,16 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.colors.border,
   },
   statLabel: {
     fontSize: 11,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   statValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.text,
   },
   lastPurchaseRow: {
     flexDirection: 'row',
@@ -506,7 +514,7 @@ const styles = StyleSheet.create({
   },
   lastPurchaseText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: theme.colors.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -516,12 +524,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: theme.colors.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -532,7 +540,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#10B981',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -547,7 +555,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
@@ -558,12 +566,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: theme.colors.border,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: theme.colors.text,
   },
   modalBody: {
     padding: 20,
@@ -575,16 +583,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: theme.colors.text,
   },
   input: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.inputBackground,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#111827',
+    color: theme.colors.inputText,
   },
   typeButtons: {
     flexDirection: 'row',
@@ -592,18 +600,18 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.background,
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   typeButtonActive: {
-    backgroundColor: '#10B981',
+    backgroundColor: theme.colors.primary,
   },
   typeButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   typeButtonTextActive: {
     color: '#FFFFFF',
@@ -612,12 +620,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.colors.border,
     gap: 12,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.background,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -626,11 +634,11 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   submitButton: {
     flex: 2,
-    backgroundColor: '#10B981',
+    backgroundColor: theme.colors.primary,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',

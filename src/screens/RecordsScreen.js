@@ -12,7 +12,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../components/CustomPicker';
 import fastApiService from '../services/fastApiService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -544,31 +544,31 @@ const RecordsScreen = ({ route, navigation }) => {
     };
 
     return (
-      <View style={[styles.recordCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
-        <View style={styles.recordHeader}>
-          <View style={styles.recordHeaderLeft}>
-            <Text style={[styles.recordDate, { color: theme.colors.text }]}>{formatDate(item.date)}</Text>
-            <Text style={[styles.recordType, { color: theme.colors.primary, backgroundColor: theme.colors.demoBackground }]}>{activeTab.toUpperCase()}</Text>
+      <View style={[styles(theme).recordCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
+        <View style={styles(theme).recordHeader}>
+          <View style={styles(theme).recordHeaderLeft}>
+            <Text style={[styles(theme).recordDate, { color: theme.colors.text }]}>{formatDate(item.date)}</Text>
+            <Text style={[styles(theme).recordType, { color: theme.colors.primary, backgroundColor: theme.colors.demoBackground }]}>{activeTab.toUpperCase()}</Text>
           </View>
           {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') && (
             <TouchableOpacity
-              style={styles.deleteRecordButton}
+              style={styles(theme).deleteRecordButton}
               onPress={() => handleDeleteRecord(item)}
             >
-              <Text style={styles.deleteRecordButtonText}>🗑️</Text>
+              <Text style={styles(theme).deleteRecordButtonText}>🗑️</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <View style={styles.recordDetails}>
-          <Text style={[styles.recordFarm, { color: theme.colors.textSecondary }]}>🏠 {getFarmName(item.farmId)}</Text>
-          <Text style={[styles.recordBatch, { color: theme.colors.textSecondary }]}>🐔 {getBatchName(item.batchId)}</Text>
+        <View style={styles(theme).recordDetails}>
+          <Text style={[styles(theme).recordFarm, { color: theme.colors.textSecondary }]}>🏠 {getFarmName(item.farmId)}</Text>
+          <Text style={[styles(theme).recordBatch, { color: theme.colors.textSecondary }]}>🐔 {getBatchName(item.batchId)}</Text>
         </View>
 
         {renderContent()}
 
         {item.notes && (
-          <Text style={[styles.recordNotes, { color: theme.colors.textSecondary, borderTopColor: theme.colors.border }]}>📝 {item.notes}</Text>
+          <Text style={[styles(theme).recordNotes, { color: theme.colors.textSecondary, borderTopColor: theme.colors.border }]}>📝 {item.notes}</Text>
         )}
       </View>
     );
@@ -674,23 +674,19 @@ const RecordsScreen = ({ route, navigation }) => {
           <>
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: theme.colors.text }]}>Health Status *</Text>
-              <View style={[styles.pickerContainer, {
-                backgroundColor: theme.colors.inputBackground,
-                borderColor: theme.colors.inputBorder
-              }]}>
-                <Picker
-                  selectedValue={formData.healthStatus}
-                  onValueChange={(itemValue) =>
-                    setFormData(prev => ({ ...prev, healthStatus: itemValue }))
-                  }
-                  style={[styles.picker, { color: theme.colors.inputText }]}
-                >
-                  <Picker.Item label="Healthy" value="healthy" color={theme.colors.inputText} />
-                  <Picker.Item label="Sick" value="sick" color={theme.colors.inputText} />
-                  <Picker.Item label="Under Treatment" value="under_treatment" color={theme.colors.inputText} />
-                  <Picker.Item label="Recovered" value="recovered" color={theme.colors.inputText} />
-                </Picker>
-              </View>
+              <CustomPicker
+                selectedValue={formData.healthStatus}
+                onValueChange={(itemValue) =>
+                  setFormData(prev => ({ ...prev, healthStatus: itemValue }))
+                }
+                items={[
+                  { label: 'Healthy', value: 'healthy' },
+                  { label: 'Sick', value: 'sick' },
+                  { label: 'Under Treatment', value: 'under_treatment' },
+                  { label: 'Recovered', value: 'recovered' }
+                ]}
+                placeholder="Select health status"
+              />
             </View>
 
             <View style={styles.formGroup}>
@@ -821,46 +817,38 @@ const RecordsScreen = ({ route, navigation }) => {
             <View style={styles.row}>
               <View style={[styles.formGroup, styles.halfWidth]}>
                 <Text style={[styles.formLabel, { color: theme.colors.text }]}>Water Source</Text>
-                <View style={[styles.pickerContainer, {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.inputBorder
-                }]}>
-                  <Picker
-                    selectedValue={formData.waterSource}
-                    onValueChange={(itemValue) =>
-                      setFormData(prev => ({ ...prev, waterSource: itemValue }))
-                    }
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item label="Borehole" value="Borehole" color={theme.colors.inputText} />
-                    <Picker.Item label="Municipal" value="Municipal" color={theme.colors.inputText} />
-                    <Picker.Item label="Well" value="Well" color={theme.colors.inputText} />
-                    <Picker.Item label="River" value="River" color={theme.colors.inputText} />
-                    <Picker.Item label="Rainwater" value="Rainwater" color={theme.colors.inputText} />
-                    <Picker.Item label="Other" value="Other" color={theme.colors.inputText} />
-                  </Picker>
-                </View>
+                <CustomPicker
+                  selectedValue={formData.waterSource}
+                  onValueChange={(itemValue) =>
+                    setFormData(prev => ({ ...prev, waterSource: itemValue }))
+                  }
+                  items={[
+                    { label: 'Borehole', value: 'Borehole' },
+                    { label: 'Municipal', value: 'Municipal' },
+                    { label: 'Well', value: 'Well' },
+                    { label: 'River', value: 'River' },
+                    { label: 'Rainwater', value: 'Rainwater' },
+                    { label: 'Other', value: 'Other' }
+                  ]}
+                  placeholder="Select water source"
+                />
               </View>
 
               <View style={[styles.formGroup, styles.halfWidth]}>
                 <Text style={[styles.formLabel, { color: theme.colors.text }]}>Quality</Text>
-                <View style={[styles.pickerContainer, {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.inputBorder
-                }]}>
-                  <Picker
-                    selectedValue={formData.quality}
-                    onValueChange={(itemValue) =>
-                      setFormData(prev => ({ ...prev, quality: itemValue }))
-                    }
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item label="Clean" value="Clean" color={theme.colors.inputText} />
-                    <Picker.Item label="Slightly Turbid" value="Slightly Turbid" color={theme.colors.inputText} />
-                    <Picker.Item label="Turbid" value="Turbid" color={theme.colors.inputText} />
-                    <Picker.Item label="Contaminated" value="Contaminated" color={theme.colors.inputText} />
-                  </Picker>
-                </View>
+                <CustomPicker
+                  selectedValue={formData.quality}
+                  onValueChange={(itemValue) =>
+                    setFormData(prev => ({ ...prev, quality: itemValue }))
+                  }
+                  items={[
+                    { label: 'Clean', value: 'Clean' },
+                    { label: 'Slightly Turbid', value: 'Slightly Turbid' },
+                    { label: 'Turbid', value: 'Turbid' },
+                    { label: 'Contaminated', value: 'Contaminated' }
+                  ]}
+                  placeholder="Select water quality"
+                />
               </View>
             </View>
 
@@ -1024,66 +1012,38 @@ const RecordsScreen = ({ route, navigation }) => {
               {/* Common fields */}
               <View style={styles.formGroup}>
                 <Text style={[styles.formLabel, { color: theme.colors.text }]}>Farm *</Text>
-                <View style={[styles.pickerContainer, {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.inputBorder
-                }]}>
-                  <Picker
-                    selectedValue={String(formData.farmId)}
-                    onValueChange={(itemValue) =>
-                      setFormData(prev => ({ ...prev, farmId: itemValue === '' ? '' : parseInt(itemValue) }))
-                    }
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item
-                      label={Array.isArray(farms) && farms.length === 0 ? "No farms available - Create a farm first" : "Select a farm"}
-                      value=""
-                      color={theme.colors.inputText}
-                    />
-                    {Array.isArray(farms) && farms.map((farm) => (
-                      farm && farm.id ? (
-                        <Picker.Item
-                          key={farm.id}
-                          label={farm.location ? `${farm.name} - ${farm.location}` : farm.name || 'Unnamed Farm'}
-                          value={String(farm.id)}
-                          color={theme.colors.inputText}
-                        />
-                      ) : null
-                    ))}
-                  </Picker>
-                </View>
+                <CustomPicker
+                  selectedValue={String(formData.farmId)}
+                  onValueChange={(itemValue) =>
+                    setFormData(prev => ({ ...prev, farmId: itemValue === '' ? '' : parseInt(itemValue) }))
+                  }
+                  items={[
+                    { label: Array.isArray(farms) && farms.length === 0 ? "No farms available - Create a farm first" : "Select a farm", value: "" },
+                    ...((Array.isArray(farms) ? farms : []).filter(farm => farm && farm.id).map(farm => ({
+                      label: farm.location ? `${farm.name} - ${farm.location}` : farm.name || 'Unnamed Farm',
+                      value: String(farm.id)
+                    })))
+                  ]}
+                  placeholder="Select a farm"
+                />
               </View>
 
               <View style={styles.formGroup}>
                 <Text style={[styles.formLabel, { color: theme.colors.text }]}>Batch *</Text>
-                <View style={[styles.pickerContainer, {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.inputBorder
-                }]}>
-                  <Picker
-                    selectedValue={String(formData.batchId)}
-                    onValueChange={(itemValue) =>
-                      setFormData(prev => ({ ...prev, batchId: itemValue === '' ? '' : parseInt(itemValue) }))
-                    }
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item
-                      label={Array.isArray(batches) && batches.length === 0 ? "No batches available - Create a batch first" : "Select a batch"}
-                      value=""
-                      color={theme.colors.inputText}
-                    />
-                    {Array.isArray(batches) && batches.map((batch) => (
-                      batch && batch.id ? (
-                        <Picker.Item
-                          key={batch.id}
-                          label={batch.breed && batch.quantity ? `${batch.name || batch.batchName} - ${batch.breed} (${batch.quantity} birds)` : (batch.name || batch.batchName || 'Unnamed Batch')}
-                          value={String(batch.id)}
-                          color={theme.colors.inputText}
-                        />
-                      ) : null
-                    ))}
-                  </Picker>
-                </View>
+                <CustomPicker
+                  selectedValue={String(formData.batchId)}
+                  onValueChange={(itemValue) =>
+                    setFormData(prev => ({ ...prev, batchId: itemValue === '' ? '' : parseInt(itemValue) }))
+                  }
+                  items={[
+                    { label: Array.isArray(batches) && batches.length === 0 ? "No batches available - Create a batch first" : "Select a batch", value: "" },
+                    ...((Array.isArray(batches) ? batches : []).filter(batch => batch && batch.id).map(batch => ({
+                      label: batch.breed && batch.quantity ? `${batch.name || batch.batchName} - ${batch.breed} (${batch.quantity} birds)` : (batch.name || batch.batchName || 'Unnamed Batch'),
+                      value: String(batch.id)
+                    })))
+                  ]}
+                  placeholder="Select a batch"
+                />
               </View>
 
               <View style={styles.formGroup}>

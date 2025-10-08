@@ -13,11 +13,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../components/CustomPicker';
 import api from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 const AddSaleScreen = () => {
   const navigation = useNavigation();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -182,23 +184,16 @@ const AddSaleScreen = () => {
   const renderPicker = (label, field, options) => (
     <View style={styles.inputGroup}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={formData[field]}
-          onValueChange={(value) => setFormData({ ...formData, [field]: value })}
-          style={styles.picker}
-        >
-          {options.map((option) => (
-            <Picker.Item
-              key={option.value}
-              label={option.label}
-              value={option.value}
-            />
-          ))}
-        </Picker>
-      </View>
+      <CustomPicker
+        selectedValue={formData[field]}
+        onValueChange={(value) => setFormData({ ...formData, [field]: value })}
+        items={options}
+        placeholder={`Select ${label.toLowerCase()}`}
+      />
     </View>
   );
+
+  const styles = getStyles(theme);
 
   return (
     <View style={styles.container}>
@@ -211,56 +206,38 @@ const AddSaleScreen = () => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Customer (Optional)</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={String(formData.customerId)}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, customerId: value === '' ? '' : parseInt(value) })
-                }
-                style={styles.picker}
-              >
-                <Picker.Item
-                  label={Array.isArray(customers) && customers.length === 0 ? "No customers - Walk-in sale" : "Walk-in Customer"}
-                  value=""
-                />
-                {Array.isArray(customers) && customers.map((customer) => (
-                  customer && customer.id ? (
-                    <Picker.Item
-                      key={customer.id}
-                      label={customer.phone ? `${customer.name} - ${customer.phone}` : customer.name}
-                      value={String(customer.id)}
-                    />
-                  ) : null
-                ))}
-              </Picker>
-            </View>
+            <CustomPicker
+              selectedValue={String(formData.customerId)}
+              onValueChange={(value) =>
+                setFormData({ ...formData, customerId: value === '' ? '' : parseInt(value) })
+              }
+              items={[
+                { label: Array.isArray(customers) && customers.length === 0 ? "No customers - Walk-in sale" : "Walk-in Customer", value: "" },
+                ...((Array.isArray(customers) ? customers : []).filter(customer => customer && customer.id).map(customer => ({
+                  label: customer.phone ? `${customer.name} - ${customer.phone}` : customer.name,
+                  value: String(customer.id)
+                })))
+              ]}
+              placeholder="Select customer"
+            />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Batch (Optional)</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={String(formData.batchId)}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, batchId: value === '' ? '' : parseInt(value) })
-                }
-                style={styles.picker}
-              >
-                <Picker.Item
-                  label={Array.isArray(batches) && batches.length === 0 ? "No batches available - Create a batch first" : "No Batch"}
-                  value=""
-                />
-                {Array.isArray(batches) && batches.map((batch) => (
-                  batch && batch.id ? (
-                    <Picker.Item
-                      key={batch.id}
-                      label={batch.batchNumber && batch.breed ? `${batch.batchNumber} - ${batch.breed} (${batch.currentQuantity || batch.quantity || 0} birds)` : `Batch ${batch.id}`}
-                      value={String(batch.id)}
-                    />
-                  ) : null
-                ))}
-              </Picker>
-            </View>
+            <CustomPicker
+              selectedValue={String(formData.batchId)}
+              onValueChange={(value) =>
+                setFormData({ ...formData, batchId: value === '' ? '' : parseInt(value) })
+              }
+              items={[
+                { label: Array.isArray(batches) && batches.length === 0 ? "No batches available - Create a batch first" : "No Batch", value: "" },
+                ...((Array.isArray(batches) ? batches : []).filter(batch => batch && batch.id).map(batch => ({
+                  label: batch.batchNumber && batch.breed ? `${batch.batchNumber} - ${batch.breed} (${batch.currentQuantity || batch.quantity || 0} birds)` : `Batch ${batch.id}`,
+                  value: String(batch.id)
+                })))
+              ]}
+              placeholder="Select batch"
+            />
           </View>
 
           {renderPicker('Product Type', 'productType', [
@@ -276,7 +253,7 @@ const AddSaleScreen = () => {
               style={styles.dateButton}
               onPress={() => setShowDatePicker(true)}
             >
-              <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+              <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
               <Text style={styles.dateText}>
                 {formData.saleDate.toLocaleDateString('en-GB')}
               </Text>
@@ -349,7 +326,7 @@ const AddSaleScreen = () => {
                 style={styles.dateButton}
                 onPress={() => setShowPaymentDatePicker(true)}
               >
-                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+                <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
                 <Text style={styles.dateText}>
                   {formData.paymentDate.toLocaleDateString('en-GB')}
                 </Text>
@@ -394,7 +371,7 @@ const AddSaleScreen = () => {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
@@ -407,10 +384,10 @@ const AddSaleScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.background,
   },
   scrollView: {
     flex: 1,
@@ -420,11 +397,11 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadowColor,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -433,7 +410,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: theme.colors.text,
     marginBottom: 16,
   },
   inputGroup: {
@@ -442,36 +419,37 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: theme.colors.textSecondary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.inputBackground,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.colors.inputBorder,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#111827',
+    color: theme.colors.inputText,
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
   pickerContainer: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.inputBackground,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.colors.inputBorder,
     borderRadius: 8,
     overflow: 'hidden',
   },
   picker: {
     height: 50,
+    color: theme.colors.inputText,
   },
   dateButton: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.inputBackground,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.colors.inputBorder,
     borderRadius: 8,
     padding: 12,
     flexDirection: 'row',
@@ -480,10 +458,10 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 16,
-    color: '#111827',
+    color: theme.colors.inputText,
   },
   totalAmountContainer: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: theme.colors.primary + '20',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -491,10 +469,10 @@ const styles = StyleSheet.create({
   totalAmountText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1E40AF',
+    color: theme.colors.primary,
   },
   amountDueContainer: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: theme.colors.error + '20',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -502,7 +480,7 @@ const styles = StyleSheet.create({
   amountDueText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#DC2626',
+    color: theme.colors.error,
   },
   footer: {
     position: 'absolute',
@@ -511,14 +489,14 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.colors.border,
     gap: 12,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.inputBackground,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -527,11 +505,11 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   submitButton: {
     flex: 2,
-    backgroundColor: '#10B981',
+    backgroundColor: theme.colors.success,
     borderRadius: 8,
     padding: 16,
     flexDirection: 'row',

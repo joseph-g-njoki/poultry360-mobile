@@ -12,17 +12,19 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '../context/ThemeContext';
 import { useOffline } from '../context/OfflineContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
+import { useLanguage } from '../context/LanguageContext';
 import fastApiService from '../services/fastApiService';
 import OfflineIndicator, { SyncStatusBadge } from '../components/OfflineIndicator';
+import CustomPicker from '../components/CustomPicker';
 
 const FarmsScreen = () => {
   const { theme } = useTheme();
   const { isConnected, performSync } = useOffline();
   const { triggerDashboardRefresh } = useDashboardRefresh();
+  const { t } = useLanguage();
   const [farms, setFarms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -184,7 +186,7 @@ const FarmsScreen = () => {
 
   const handleSaveFarm = async () => {
     if (!formData.name.trim() || !formData.location.trim()) {
-      Alert.alert('Error', 'Please fill in farm name and location');
+      Alert.alert(t('common.error'), t('validation.required'));
       return;
     }
 
@@ -196,17 +198,17 @@ const FarmsScreen = () => {
         console.log('🔄 Updating existing farm:', editingFarm.name);
         response = await fastApiService.updateFarm(editingFarm.id, formData);
         if (response.success) {
-          Alert.alert('Success', 'Updated successfully!');
+          Alert.alert(t('common.success'), t('farms.farmUpdated'));
         } else {
-          throw new Error(response.error || 'Failed to update farm');
+          throw new Error(response.error || t('farms.createError'));
         }
       } else {
         console.log('🔄 Creating new farm:', formData.name);
         response = await fastApiService.createFarm(formData);
         if (response.success) {
-          Alert.alert('Success', 'Farm created successfully!');
+          Alert.alert(t('common.success'), t('farms.farmCreated'));
         } else {
-          throw new Error(response.error || 'Failed to create farm');
+          throw new Error(response.error || t('farms.createError'));
         }
       }
 
@@ -220,18 +222,18 @@ const FarmsScreen = () => {
 
     } catch (error) {
       console.error('Save farm error:', error);
-      Alert.alert('Error', error.message || 'Failed to save farm');
+      Alert.alert(t('common.error'), error.message || t('farms.createError'));
     }
   };
 
   const handleDeleteFarm = (farm) => {
     Alert.alert(
-      'Delete Farm',
-      `Are you sure you want to delete "${farm.name}"? This will also delete all associated batches and records.`,
+      t('common.delete') + ' ' + t('farms.title'),
+      `${t('common.confirm')} "${farm.name}"?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -239,7 +241,7 @@ const FarmsScreen = () => {
               const response = await fastApiService.deleteFarm(farm.id);
 
               if (response.success) {
-                Alert.alert('Success', 'Deleted successfully!');
+                Alert.alert(t('common.success'), t('farms.farmDeleted'));
                 console.log('✅ Farm deleted successfully');
                 await loadFarms(); // Reload farms to reflect deletion
 
@@ -247,11 +249,11 @@ const FarmsScreen = () => {
                 triggerDashboardRefresh();
                 console.log('🔄 Farm deleted - dashboard refresh triggered');
               } else {
-                throw new Error(response.error || 'Failed to delete farm');
+                throw new Error(response.error || t('farms.createError'));
               }
             } catch (error) {
               console.error('Delete farm error:', error);
-              Alert.alert('Error', error.message || 'Failed to delete farm');
+              Alert.alert(t('common.error'), error.message || t('farms.createError'));
             }
           },
         },
@@ -287,18 +289,18 @@ const FarmsScreen = () => {
 
       <View style={styles.farmDetails}>
         <View style={styles.farmDetailRow}>
-          <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>📍 Location:</Text>
-          <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.location || 'Unknown Location'}</Text>
+          <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>📍 {t('farms.location')}:</Text>
+          <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.location || t('farms.location')}</Text>
         </View>
 
         <View style={styles.farmDetailRow}>
-          <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>🏭 Type:</Text>
-          <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.farmType ? item.farmType.charAt(0).toUpperCase() + item.farmType.slice(1) : 'Broiler'}</Text>
+          <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>🏭 {t('farms.farmType')}:</Text>
+          <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.farmType ? t(`farmTypes.${item.farmType}`) : t('farmTypes.broiler')}</Text>
         </View>
 
         {(item.description || item.notes) && (
           <View style={styles.farmDetailRow}>
-            <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>📝 Description:</Text>
+            <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>📝 {t('expenses.description')}:</Text>
             <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.description || item.notes}</Text>
           </View>
         )}
@@ -306,17 +308,17 @@ const FarmsScreen = () => {
         <View style={styles.farmStats}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.primary }]}>{item.batchCount || 0}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Batches</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>{t('batches.title')}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.primary }]}>{item.totalBirds || 0}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Birds</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>{t('placeholders.numberOfBirds')}</Text>
           </View>
         </View>
 
         <View style={[styles.farmMeta, { borderTopColor: theme.colors.border }]}>
           <Text style={[styles.farmDate, { color: theme.colors.textLight }]}>
-            Created: {formatDate(item.createdAt)}
+            {formatDate(item.createdAt)}
           </Text>
         </View>
       </View>
@@ -333,7 +335,7 @@ const FarmsScreen = () => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading Farms...</Text>
+        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>{t('common.loading')}</Text>
       </View>
     );
   }
@@ -342,12 +344,12 @@ const FarmsScreen = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>My Farms</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('farms.title')}</Text>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => openModal()}
         >
-          <Text style={styles.addButtonText}>+ Add Farm</Text>
+          <Text style={styles.addButtonText}>+ {t('farms.addFarm')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -355,15 +357,15 @@ const FarmsScreen = () => {
       {farms.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🏠</Text>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>No Farms Yet</Text>
+          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>{t('dropdowns.noFarms')}</Text>
           <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-            Start by creating your first farm to manage your poultry operations
+            {t('farms.enterFarmName')}
           </Text>
           <TouchableOpacity
             style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => openModal()}
           >
-            <Text style={styles.emptyButtonText}>Create First Farm</Text>
+            <Text style={styles.emptyButtonText}>{t('farms.addFarm')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -397,18 +399,18 @@ const FarmsScreen = () => {
           <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
             <ScrollView>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-                {editingFarm ? 'Edit Farm' : 'Add New Farm'}
+                {editingFarm ? t('farms.editFarm') : t('farms.addFarm')}
               </Text>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Farm Name *</Text>
+                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('farms.farmName')} *</Text>
                 <TextInput
                   style={[styles.formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
                   }]}
-                  placeholder="Enter farm name"
+                  placeholder={t('placeholders.enterFarmName')}
                   placeholderTextColor={theme.colors.placeholder}
                   value={formData.name}
                   onChangeText={(text) =>
@@ -418,14 +420,14 @@ const FarmsScreen = () => {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Location *</Text>
+                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('farms.location')} *</Text>
                 <TextInput
                   style={[styles.formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
                   }]}
-                  placeholder="Enter farm location"
+                  placeholder={t('placeholders.enterFarmLocation')}
                   placeholderTextColor={theme.colors.placeholder}
                   value={formData.location}
                   onChangeText={(text) =>
@@ -435,35 +437,29 @@ const FarmsScreen = () => {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Farm Type</Text>
-                <View style={[styles.pickerContainer, {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.inputBorder
-                }]}>
-                  <Picker
-                    selectedValue={formData.farmType}
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                    onValueChange={(itemValue) =>
-                      setFormData(prev => ({ ...prev, farmType: itemValue }))
-                    }
-                  >
-                    <Picker.Item label="Broiler" value="broiler" color={theme.colors.inputText} />
-                    <Picker.Item label="Layer" value="layer" color={theme.colors.inputText} />
-                    <Picker.Item label="Breeder" value="breeder" color={theme.colors.inputText} />
-                    <Picker.Item label="Mixed" value="mixed" color={theme.colors.inputText} />
-                  </Picker>
-                </View>
+                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('farms.farmType')}</Text>
+                <CustomPicker
+                  selectedValue={formData.farmType}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, farmType: value }))}
+                  items={[
+                    { label: t('farmTypes.broiler'), value: 'broiler' },
+                    { label: t('farmTypes.layer'), value: 'layer' },
+                    { label: t('farmTypes.breeder'), value: 'breeder' },
+                    { label: t('farmTypes.mixed'), value: 'mixed' },
+                  ]}
+                  placeholder={t('farms.farmType')}
+                />
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Description</Text>
+                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('expenses.description')}</Text>
                 <TextInput
                   style={[styles.formInput, styles.textArea, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
                   }]}
-                  placeholder="Enter farm description (optional)"
+                  placeholder={t('placeholders.farmDescription')}
                   placeholderTextColor={theme.colors.placeholder}
                   value={formData.description}
                   onChangeText={(text) =>
@@ -479,14 +475,14 @@ const FarmsScreen = () => {
                   style={[styles.cancelButton, { backgroundColor: theme.colors.borderSecondary }]}
                   onPress={closeModal}
                 >
-                  <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
+                  <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                   onPress={handleSaveFarm}
                 >
                   <Text style={styles.saveButtonText}>
-                    {editingFarm ? 'Update' : 'Create'}
+                    {editingFarm ? t('common.save') : t('common.add')}
                   </Text>
                 </TouchableOpacity>
               </View>

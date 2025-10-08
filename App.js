@@ -229,7 +229,7 @@ import CrashPreventionWrapper from './src/components/CrashPreventionWrapper';
 
 // Import context providers
 import { AuthProvider } from './src/context/AuthContext';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { OfflineProvider } from './src/context/OfflineContext';
 import { DashboardRefreshProvider } from './src/context/DashboardRefreshContext';
@@ -243,6 +243,35 @@ import iosOptimizations from './src/services/iosOptimizations';
 import memoryManager from './src/utils/memoryManager';
 import unifiedApiService from './src/services/unifiedApiService';
 import DatabaseInitializationError from './src/components/DatabaseInitializationError';
+
+// Loading screen component with theme support
+const LoadingScreen = () => {
+  const { theme, isDarkMode } = useTheme();
+  return (
+    <>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.loadingBackground }]}>
+        <View style={styles.loadingContent}>
+          <Text style={styles.appTitle}>Poultry360</Text>
+          <ActivityIndicator size="large" color={theme.colors.loadingText} style={styles.spinner} />
+          <Text style={[styles.loadingText, { color: theme.colors.loadingText }]}>Starting...</Text>
+        </View>
+      </View>
+    </>
+  );
+};
+
+// Main app navigation with theme-aware StatusBar
+const AppContent = () => {
+  const { isDarkMode } = useTheme();
+  return (
+    <>
+      <AppNavigator />
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+      <Toast />
+    </>
+  );
+};
 
 export default function App() {
   const [isAppReady, setIsAppReady] = useState(false);
@@ -344,16 +373,12 @@ export default function App() {
     setIsAppReady(true);
   };
 
-  // Simple loading screen
+  // Simple loading screen with theme support
   if (!isAppReady) {
     return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingContent}>
-          <Text style={styles.appTitle}>Poultry360</Text>
-          <ActivityIndicator size="large" color="#2E8B57" style={styles.spinner} />
-          <Text style={styles.loadingText}>Starting...</Text>
-        </View>
-      </View>
+      <ThemeProvider>
+        <LoadingScreen />
+      </ThemeProvider>
     );
   }
 
@@ -377,9 +402,7 @@ export default function App() {
             <OfflineProvider>
               <DashboardRefreshProvider>
                 <AuthProvider>
-                  <AppNavigator />
-                  <StatusBar style="auto" />
-                  <Toast />
+                  <AppContent />
                 </AuthProvider>
               </DashboardRefreshProvider>
             </OfflineProvider>
@@ -393,7 +416,6 @@ export default function App() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -416,44 +438,37 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: '#333333',
     textAlign: 'center',
     marginBottom: 8,
     fontWeight: '500',
   },
   detailText: {
     fontSize: 14,
-    color: '#666666',
     textAlign: 'center',
     marginBottom: 20,
   },
   errorContainer: {
     marginTop: 20,
     padding: 20,
-    backgroundColor: '#fff3cd',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ffc107',
     maxWidth: 320,
     width: '100%',
   },
   errorTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#856404',
     marginBottom: 8,
     textAlign: 'center',
   },
   errorText: {
     fontSize: 13,
-    color: '#856404',
     marginBottom: 8,
     textAlign: 'center',
     lineHeight: 18,
   },
   errorSubtext: {
     fontSize: 12,
-    color: '#6c757d',
     fontStyle: 'italic',
     textAlign: 'center',
   },

@@ -182,36 +182,36 @@ const ExpensesScreen = ({ navigation, route }) => {
 
   const renderExpenseCard = ({ item }) => (
     <TouchableOpacity
-      style={[styles.expenseCard, { backgroundColor: theme.cardBackground }]}
+      style={styles(theme).expenseCard}
       onPress={() => navigation.navigate('AddExpense', { expense: item })}
     >
-      <View style={styles.expenseHeader}>
-        <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(item.category) + '20' }]}>
+      <View style={styles(theme).expenseHeader}>
+        <View style={[styles(theme).categoryBadge, { backgroundColor: getCategoryColor(item.category) + '20' }]}>
           <Ionicons name={getCategoryIcon(item.category)} size={24} color={getCategoryColor(item.category)} />
         </View>
-        <View style={styles.expenseInfo}>
-          <Text style={[styles.expenseDescription, { color: theme.text }]}>{item.description}</Text>
-          <Text style={[styles.expenseCategory, { color: theme.secondaryText }]}>
+        <View style={styles(theme).expenseInfo}>
+          <Text style={styles(theme).expenseDescription}>{item.description}</Text>
+          <Text style={styles(theme).expenseCategory}>
             {item.category.toUpperCase()} {item.subcategory ? `• ${item.subcategory}` : ''}
           </Text>
         </View>
-        <View style={styles.expenseActions}>
-          <Text style={[styles.expenseAmount, { color: theme.text }]}>{formatCurrency(item.amount)}</Text>
+        <View style={styles(theme).expenseActions}>
+          <Text style={styles(theme).expenseAmount}>{formatCurrency(item.amount)}</Text>
           <TouchableOpacity onPress={() => handleDeleteExpense(item.id)}>
             <Ionicons name="trash-outline" size={20} color="#F44336" />
           </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.expenseFooter}>
-        <Text style={[styles.expenseDate, { color: theme.secondaryText }]}>
+      <View style={styles(theme).expenseFooter}>
+        <Text style={styles(theme).expenseDate}>
           <Ionicons name="calendar-outline" size={12} /> {formatDate(item.expenseDate)}
         </Text>
         {item.supplier && (
-          <Text style={[styles.expenseSupplier, { color: theme.secondaryText }]}>
+          <Text style={styles(theme).expenseSupplier}>
             <Ionicons name="person-outline" size={12} /> {item.supplier}
           </Text>
         )}
-        <Text style={[styles.paymentMethod, { color: theme.secondaryText }]}>
+        <Text style={styles(theme).paymentMethod}>
           <Ionicons name="card-outline" size={12} /> {item.paymentMethod?.replace('_', ' ').toUpperCase()}
         </Text>
       </View>
@@ -224,20 +224,20 @@ const ExpensesScreen = ({ navigation, route }) => {
     const totalExpenses = summary.reduce((sum, cat) => sum + parseFloat(cat.totalAmount || 0), 0);
 
     return (
-      <View style={[styles.summaryCard, { backgroundColor: theme.cardBackground }]}>
-        <Text style={[styles.summaryTitle, { color: theme.text }]}>Expense Summary</Text>
-        <View style={styles.totalExpenseContainer}>
-          <Text style={[styles.totalExpenseLabel, { color: theme.secondaryText }]}>Total Expenses</Text>
-          <Text style={[styles.totalExpenseAmount, { color: '#F44336' }]}>{formatCurrency(totalExpenses)}</Text>
+      <View style={styles(theme).summaryCard}>
+        <Text style={styles(theme).summaryTitle}>Expense Summary</Text>
+        <View style={styles(theme).totalExpenseContainer}>
+          <Text style={styles(theme).totalExpenseLabel}>Total Expenses</Text>
+          <Text style={styles(theme).totalExpenseAmount}>{formatCurrency(totalExpenses)}</Text>
         </View>
-        <View style={styles.categoryBreakdown}>
+        <View style={styles(theme).categoryBreakdown}>
           {summary.slice(0, 3).map((cat, index) => (
-            <View key={index} style={styles.categoryItem}>
-              <View style={styles.categoryItemHeader}>
+            <View key={index} style={styles(theme).categoryItem}>
+              <View style={styles(theme).categoryItemHeader}>
                 <Ionicons name={getCategoryIcon(cat.category)} size={16} color={getCategoryColor(cat.category)} />
-                <Text style={[styles.categoryItemName, { color: theme.text }]}>{cat.category}</Text>
+                <Text style={styles(theme).categoryItemName}>{cat.category}</Text>
               </View>
-              <Text style={[styles.categoryItemAmount, { color: theme.secondaryText }]}>
+              <Text style={styles(theme).categoryItemAmount}>
                 {formatCurrency(cat.totalAmount)}
               </Text>
             </View>

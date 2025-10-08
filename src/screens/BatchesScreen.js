@@ -12,7 +12,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../components/CustomPicker';
 import fastApiService from '../services/fastApiService';
 import fastDatabase from '../services/fastDatabase';
 import { useAuth } from '../context/AuthContext';

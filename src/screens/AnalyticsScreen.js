@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import analyticsService from '../services/analyticsService';
 import KPICard from '../components/charts/KPICard';
 import LineChart from '../components/charts/LineChart';
@@ -34,6 +35,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
  */
 const AnalyticsScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -204,22 +206,22 @@ const AnalyticsScreen = ({ navigation }) => {
    * Render date range selector
    */
   const renderDateRangeSelector = () => (
-    <View style={styles.dateRangeContainer}>
-      <Text style={styles.sectionTitle}>Time Period</Text>
-      <View style={styles.dateRangeButtons}>
+    <View style={styles(theme).dateRangeContainer}>
+      <Text style={styles(theme).sectionTitle}>Time Period</Text>
+      <View style={styles(theme).dateRangeButtons}>
         {['7d', '30d', '90d'].map((range) => (
           <TouchableOpacity
             key={range}
             style={[
-              styles.dateRangeButton,
-              dateRange === range && styles.dateRangeButtonActive,
+              styles(theme).dateRangeButton,
+              dateRange === range && styles(theme).dateRangeButtonActive,
             ]}
             onPress={() => handleDateRangeChange(range)}
           >
             <Text
               style={[
-                styles.dateRangeButtonText,
-                dateRange === range && styles.dateRangeButtonTextActive,
+                styles(theme).dateRangeButtonText,
+                dateRange === range && styles(theme).dateRangeButtonTextActive,
               ]}
             >
               {range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'Last 90 Days'}
@@ -346,9 +348,9 @@ const AnalyticsScreen = ({ navigation }) => {
    */
   if (loading && !dashboardData) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2E8B57" />
-        <Text style={styles.loadingText}>Loading analytics...</Text>
+      <View style={styles(theme).loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles(theme).loadingText}>Loading analytics...</Text>
       </View>
     );
   }
@@ -358,19 +360,19 @@ const AnalyticsScreen = ({ navigation }) => {
    */
   return (
     <ErrorBoundary>
-      <View style={styles.container}>
+      <View style={styles(theme).container}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={styles(theme).scrollView}
+          contentContainerStyle={styles(theme).scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#2E8B57']} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} />
           }
         >
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Analytics Dashboard</Text>
-            <TouchableOpacity style={styles.exportButton} onPress={handleExport}>
-              <Text style={styles.exportButtonText}>📊 Export</Text>
+          <View style={styles(theme).header}>
+            <Text style={styles(theme).title}>Analytics Dashboard</Text>
+            <TouchableOpacity style={styles(theme).exportButton} onPress={handleExport}>
+              <Text style={styles(theme).exportButtonText}>📊 Export</Text>
             </TouchableOpacity>
           </View>
 
@@ -378,27 +380,27 @@ const AnalyticsScreen = ({ navigation }) => {
           {renderDateRangeSelector()}
 
           {/* KPI Cards */}
-          <Text style={styles.sectionTitle}>Key Metrics</Text>
+          <Text style={styles(theme).sectionTitle}>Key Metrics</Text>
           {renderKPICards()}
 
           {/* Charts */}
-          <Text style={styles.sectionTitle}>Trends</Text>
+          <Text style={styles(theme).sectionTitle}>Trends</Text>
           {renderCharts()}
 
           {/* Navigation to detailed screens */}
-          <View style={styles.navigationContainer}>
+          <View style={styles(theme).navigationContainer}>
             <TouchableOpacity
-              style={styles.navigationButton}
+              style={styles(theme).navigationButton}
               onPress={() => navigation.navigate('FlockPerformance')}
             >
-              <Text style={styles.navigationButtonText}>📈 Flock Performance</Text>
+              <Text style={styles(theme).navigationButtonText}>📈 Flock Performance</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.navigationButton}
+              style={styles(theme).navigationButton}
               onPress={() => navigation.navigate('FinancialAnalytics')}
             >
-              <Text style={styles.navigationButtonText}>💰 Financial Analytics</Text>
+              <Text style={styles(theme).navigationButtonText}>💰 Financial Analytics</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -407,10 +409,10 @@ const AnalyticsScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.colors.background,
   },
   scrollView: {
     flex: 1,
@@ -423,12 +425,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.colors.background,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   header: {
     flexDirection: 'row',
@@ -439,10 +441,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
   },
   exportButton: {
-    backgroundColor: '#2E8B57',
+    backgroundColor: theme.colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -455,7 +457,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginTop: 16,
     marginBottom: 12,
   },
@@ -472,19 +474,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: theme.colors.border,
     alignItems: 'center',
   },
   dateRangeButtonActive: {
-    backgroundColor: '#2E8B57',
-    borderColor: '#2E8B57',
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   dateRangeButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   dateRangeButtonTextActive: {
     color: '#FFFFFF',
@@ -494,11 +496,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   navigationButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#2E8B57',
+    borderLeftColor: theme.colors.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -508,7 +510,7 @@ const styles = StyleSheet.create({
   navigationButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
   },
 });
 

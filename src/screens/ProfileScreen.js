@@ -357,8 +357,20 @@ const ProfileScreen = () => {
       admin: `⭐ ${String(t('profile.admin') || 'Admin')}`,
       owner: `👑 ${String(t('profile.owner') || 'Owner')}`,
       worker: `👷 ${String(t('profile.worker') || 'Worker')}`,
+      super_admin: `🔐 ${String(t('profile.superAdmin') || 'Super Admin')}`,
     };
     return roleMap[role] || `👷 ${String(t('profile.worker') || 'Worker')}`;
+  };
+
+  const getRoleBadgeColor = (role) => {
+    const colorMap = {
+      owner: '#FFD700',      // Gold
+      admin: '#FF6B35',      // Orange
+      manager: '#4CAF50',    // Green
+      worker: '#2196F3',     // Blue
+      super_admin: '#9C27B0', // Purple
+    };
+    return colorMap[role] || '#2196F3';
   };
 
   return (
@@ -400,8 +412,8 @@ const ProfileScreen = () => {
           {String(user?.firstName || 'User')} {String(user?.lastName || '')}
         </Text>
         <Text style={[styles.userEmail, { color: theme.colors.headerText }]}>{String(user?.email || '')}</Text>
-        <View style={styles.roleContainer}>
-          <Text style={[styles.roleText, { color: theme.colors.headerText }]}>
+        <View style={[styles.roleBadge, { backgroundColor: getRoleBadgeColor(user?.role) }]}>
+          <Text style={styles.roleBadgeText}>
             {getRoleDisplay(user?.role)}
           </Text>
         </View>
@@ -500,7 +512,11 @@ const ProfileScreen = () => {
         <MenuItem
           icon="🔒"
           title={String(t('profile.privacyPolicy') || 'Privacy Policy')}
-          onPress={() => Alert.alert('Privacy', 'Privacy policy coming soon!')}
+          onPress={() => {
+            const { Linking } = require('react-native');
+            Linking.openURL('https://raw.githubusercontent.com/joseph-g-njoki/poultry360/master/mobile/poultry360-mobile/privacy-policy.html')
+              .catch(err => Alert.alert('Error', 'Unable to open privacy policy'));
+          }}
         />
         <MenuItem
           icon="ℹ️"
@@ -714,6 +730,26 @@ const styles = StyleSheet.create({
   roleText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  roleBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  roleBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   editProfileButton: {
     paddingHorizontal: 20,

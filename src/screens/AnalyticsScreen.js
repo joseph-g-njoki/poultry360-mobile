@@ -54,8 +54,9 @@ const AnalyticsScreen = ({ navigation }) => {
   const [dateRange, setDateRange] = useState('30d'); // 7d, 30d, 90d, custom
 
   /**
-   * Load analytics data using offlineFirstService (handles online/offline automatically)
-   * PERFORMANCE FIX: Add 5-second timeout and fallback to offline computation
+   * Load analytics data - TRUE OFFLINE-FIRST approach
+   * 1. Load from local data IMMEDIATELY (fast, always works)
+   * 2. Try to fetch from server in background (optional, updates if available)
    */
   const loadAnalytics = useCallback(async (showLoader = true) => {
     try {
@@ -87,42 +88,50 @@ const AnalyticsScreen = ({ navigation }) => {
         endDate: endDate.toISOString().split('T')[0],
       };
 
-      console.log('[AnalyticsScreen] Fetching analytics with params:', params);
+      console.log('[AnalyticsScreen] Loading analytics OFFLINE-FIRST approach');
 
-      // PERFORMANCE FIX: Create timeout promise (2 seconds for faster fallback)
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Analytics loading timeout')), 2000)
-      );
+      // STEP 1: Load from local data IMMEDIATELY (fast path - always succeeds)
+      const localData = await offlineDataService.getCachedAnalytics('dashboard', params);
 
-      // PERFORMANCE FIX: Race between analytics loading and timeout
-      let dashboardResponse;
+      if (localData) {
+        console.log('[AnalyticsScreen] ✅ Local analytics data loaded immediately');
+        const dashboard = localData.data || localData;
+        setDashboardData(dashboard);
+        setTrendData(dashboard);
+        setLoading(false); // Show data immediately!
+      } else {
+        console.warn('[AnalyticsScreen] No local data available');
+      }
+
+      // STEP 2: Try to fetch fresh data from server in background (slow path - optional)
+      // This runs AFTER we've already shown local data to user
       try {
-        dashboardResponse = await Promise.race([
+        console.log('[AnalyticsScreen] 🌐 Attempting background server fetch...');
+
+        // 2-second timeout for server fetch (don't make user wait)
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Server timeout')), 2000)
+        );
+
+        const serverResponse = await Promise.race([
           offlineFirstService.getDashboardAnalytics(params),
           timeoutPromise
         ]);
-      } catch (timeoutError) {
-        console.warn('[AnalyticsScreen] Server timeout - computing from local data immediately');
-        // CRITICAL FIX: On timeout, compute directly from local data (skip server retry)
-        dashboardResponse = await offlineDataService.getCachedAnalytics('dashboard', params);
+
+        if (serverResponse) {
+          console.log('[AnalyticsScreen] ✅ Server data received, updating display');
+          const dashboard = serverResponse.data || serverResponse;
+          setDashboardData(dashboard);
+          setTrendData(dashboard);
+        }
+      } catch (serverError) {
+        // Server fetch failed - that's OK, we already showed local data
+        console.log('[AnalyticsScreen] ℹ️ Server fetch failed (using local data):', serverError.message);
       }
 
-      // Extract data from response - backend returns { success: true, data: {...} }
-      const dashboard = dashboardResponse?.data || dashboardResponse;
-
-      console.log('[AnalyticsScreen] Analytics loaded successfully');
-
-      setDashboardData(dashboard);
-      setTrendData(dashboard); // Use same data for trends
     } catch (err) {
-      console.error('[AnalyticsScreen] Load error:', err);
-      const errorMessage = err.message || 'Failed to load analytics data';
-      setError(errorMessage);
-
-      // Show user-friendly message only for actual errors, not for cached data
-      if (!errorMessage.includes('cached') && !errorMessage.includes('timeout')) {
-        console.warn('[AnalyticsScreen] Analytics error (using cached data):', errorMessage);
-      }
+      console.error('[AnalyticsScreen] Critical error:', err);
+      setError('Unable to load analytics data');
     } finally {
       setLoading(false);
       setRefreshing(false);

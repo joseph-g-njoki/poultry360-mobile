@@ -609,6 +609,84 @@ class FastApiService {
       total: 2
     };
   }
+
+  // ANALYTICS METHODS - Calculate from local data
+  async getAnalytics(params = {}) {
+    try {
+      // Get all records from database
+      const farms = fastDatabase.getFarms() || [];
+      const batches = fastDatabase.getBatches() || [];
+      const feedRecords = fastDatabase.getAllRecords('feed') || [];
+      const productionRecords = fastDatabase.getAllRecords('production') || [];
+      const mortalityRecords = fastDatabase.getAllRecords('mortality') || [];
+      const healthRecords = fastDatabase.getAllRecords('health') || [];
+
+      // Calculate analytics
+      const totalFarms = farms.length;
+      const totalBatches = batches.length;
+      const activeBatches = batches.filter(b => b.status === 'active').length;
+
+      // Production analytics
+      const totalEggsCollected = productionRecords.reduce((sum, r) => sum + (r.eggs_collected || 0), 0);
+      const avgDailyProduction = productionRecords.length > 0
+        ? totalEggsCollected / productionRecords.length
+        : 0;
+
+      // Mortality analytics
+      const totalDeaths = mortalityRecords.reduce((sum, r) => sum + (r.count || 0), 0);
+      const mortalityRate = batches.length > 0
+        ? (totalDeaths / batches.reduce((sum, b) => sum + (b.initial_count || 0), 0)) * 100
+        : 0;
+
+      // Feed analytics
+      const totalFeedCost = feedRecords.reduce((sum, r) => sum + (r.cost || 0), 0);
+
+      return {
+        success: true,
+        data: {
+          overview: {
+            totalFarms,
+            totalBatches,
+            activeBatches,
+            totalBirds: batches.reduce((sum, b) => sum + (b.current_count || 0), 0)
+          },
+          production: {
+            totalEggsCollected,
+            avgDailyProduction: Math.round(avgDailyProduction),
+            productionTrend: 'stable'
+          },
+          mortality: {
+            totalDeaths,
+            mortalityRate: mortalityRate.toFixed(2),
+            trend: mortalityRate < 5 ? 'good' : 'concerning'
+          },
+          feed: {
+            totalCost: totalFeedCost,
+            avgCostPerBird: batches.length > 0
+              ? (totalFeedCost / batches.reduce((sum, b) => sum + (b.current_count || 0), 1)).toFixed(2)
+              : 0
+          },
+          health: {
+            totalIssues: healthRecords.length,
+            resolvedIssues: healthRecords.filter(h => h.status === 'resolved').length
+          }
+        },
+        source: 'local'
+      };
+    } catch (error) {
+      return {
+        success: true,
+        data: {
+          overview: { totalFarms: 0, totalBatches: 0, activeBatches: 0, totalBirds: 0 },
+          production: { totalEggsCollected: 0, avgDailyProduction: 0, productionTrend: 'stable' },
+          mortality: { totalDeaths: 0, mortalityRate: '0.00', trend: 'good' },
+          feed: { totalCost: 0, avgCostPerBird: '0.00' },
+          health: { totalIssues: 0, resolvedIssues: 0 }
+        },
+        source: 'fallback'
+      };
+    }
+  }
 }
 
 // Export singleton instance

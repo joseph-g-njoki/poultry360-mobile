@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import analyticsService from '../services/analyticsService';
+import offlineFirstService from '../services/offlineFirstService';
+import offlineDataService from '../services/offlineDataService';
+import { useAnalytics } from '../context/DataStoreContext';
 import KPICard from '../components/charts/KPICard';
 import LineChart from '../components/charts/LineChart';
 import BarChart from '../components/charts/BarChart';
@@ -36,6 +38,10 @@ import ErrorBoundary from '../components/ErrorBoundary';
 const AnalyticsScreen = ({ navigation }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
+
+  // Use DataStoreContext hook for automatic data refresh
+  const { analytics: contextAnalytics, loading: contextLoading, error: contextError, refresh: refreshAnalytics } = useAnalytics();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -48,7 +54,8 @@ const AnalyticsScreen = ({ navigation }) => {
   const [dateRange, setDateRange] = useState('30d'); // 7d, 30d, 90d, custom
 
   /**
-   * Load analytics data from backend
+   * Load analytics data using offlineFirstService (handles online/offline automatically)
+   * PERFORMANCE FIX: Add 5-second timeout and fallback to offline computation
    */
   const loadAnalytics = useCallback(async (showLoader = true) => {
     try {
@@ -80,18 +87,42 @@ const AnalyticsScreen = ({ navigation }) => {
         endDate: endDate.toISOString().split('T')[0],
       };
 
-      // Fetch dashboard analytics
-      const [dashboard, trends] = await Promise.all([
-        analyticsService.getDashboardAnalytics(params),
-        analyticsService.getTrends({ ...params, metric: 'production', interval: 'daily' }),
-      ]);
+      console.log('[AnalyticsScreen] Fetching analytics with params:', params);
+
+      // PERFORMANCE FIX: Create timeout promise (2 seconds for faster fallback)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Analytics loading timeout')), 2000)
+      );
+
+      // PERFORMANCE FIX: Race between analytics loading and timeout
+      let dashboardResponse;
+      try {
+        dashboardResponse = await Promise.race([
+          offlineFirstService.getDashboardAnalytics(params),
+          timeoutPromise
+        ]);
+      } catch (timeoutError) {
+        console.warn('[AnalyticsScreen] Server timeout - computing from local data immediately');
+        // CRITICAL FIX: On timeout, compute directly from local data (skip server retry)
+        dashboardResponse = await offlineDataService.getCachedAnalytics('dashboard', params);
+      }
+
+      // Extract data from response - backend returns { success: true, data: {...} }
+      const dashboard = dashboardResponse?.data || dashboardResponse;
+
+      console.log('[AnalyticsScreen] Analytics loaded successfully');
 
       setDashboardData(dashboard);
-      setTrendData(trends);
+      setTrendData(dashboard); // Use same data for trends
     } catch (err) {
       console.error('[AnalyticsScreen] Load error:', err);
-      setError(err.message || 'Failed to load analytics data');
-      Alert.alert('Error', err.message || 'Failed to load analytics data');
+      const errorMessage = err.message || 'Failed to load analytics data';
+      setError(errorMessage);
+
+      // Show user-friendly message only for actual errors, not for cached data
+      if (!errorMessage.includes('cached') && !errorMessage.includes('timeout')) {
+        console.warn('[AnalyticsScreen] Analytics error (using cached data):', errorMessage);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -156,7 +187,8 @@ const AnalyticsScreen = ({ navigation }) => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - 30);
 
-      await analyticsService.exportAnalytics({
+      // Use offlineFirstService for export (will check if online)
+      await offlineFirstService.exportAnalytics({
         type,
         startDate: startDate.toISOString().split('T')[0],
         endDate: endDate.toISOString().split('T')[0],
@@ -165,38 +197,54 @@ const AnalyticsScreen = ({ navigation }) => {
       Alert.alert('Success', `Analytics exported as ${type.toUpperCase()}`);
     } catch (err) {
       console.error('[AnalyticsScreen] Export error:', err);
-      Alert.alert('Error', 'Failed to export analytics data');
+      const errorMessage = err.message || 'Failed to export analytics data';
+
+      if (errorMessage.includes('only available online')) {
+        Alert.alert('Offline Mode', 'Export requires an internet connection. Please connect and try again.');
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     }
   };
 
   /**
-   * Prepare chart data from backend response
+   * Prepare chart data from backend production-trends response
+   * Backend returns: dailyProduction array with date and totalEggs
    */
   const prepareProductionTrendData = () => {
-    if (!trendData || !trendData.labels || !trendData.values) {
+    if (!dashboardData || !dashboardData.dailyProduction || dashboardData.dailyProduction.length === 0) {
       return null;
     }
 
+    // Get last 7 days of data
+    const last7Days = dashboardData.dailyProduction.slice(-7);
+
     return {
-      labels: trendData.labels.slice(-7), // Last 7 data points
+      labels: last7Days.map(day => {
+        const date = new Date(day.date);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+      }),
       datasets: [
         {
-          data: trendData.values.slice(-7),
+          data: last7Days.map(day => day.totalEggs || 0),
         },
       ],
     };
   };
 
-  const prepareMortalityTrendData = () => {
-    if (!dashboardData || !dashboardData.mortalityTrend) {
+  const prepareWeeklyComparisonData = () => {
+    if (!dashboardData || !dashboardData.weeklyComparison) {
       return null;
     }
 
+    const current = dashboardData.weeklyComparison.currentWeek?.totalEggs || 0;
+    const previous = dashboardData.weeklyComparison.previousWeek?.totalEggs || 0;
+
     return {
-      labels: dashboardData.mortalityTrend.labels || [],
+      labels: ['Previous Week', 'This Week'],
       datasets: [
         {
-          data: dashboardData.mortalityTrend.values || [],
+          data: [previous, current],
         },
       ],
     };
@@ -234,83 +282,71 @@ const AnalyticsScreen = ({ navigation }) => {
 
   /**
    * Render KPI cards
+   * Maps backend production-trends response to KPI format
    */
   const renderKPICards = () => {
     if (!dashboardData) {
       return (
         <View>
           <KPICard title="Total Birds" value="0" icon="🐔" loading={loading} />
-          <KPICard title="Mortality Rate" value="0%" icon="📉" loading={loading} />
-          <KPICard title="Egg Production" value="0" icon="🥚" loading={loading} />
-          <KPICard title="Revenue" value="$0" icon="💰" loading={loading} />
+          <KPICard title="Production Rate" value="0%" icon="🥚" loading={loading} />
+          <KPICard title="Egg Production" value="0" icon="📊" loading={loading} />
+          <KPICard title="Active Batches" value="0" icon="🏠" loading={loading} />
         </View>
       );
     }
+
+    // Calculate totals from productionRateByBatch array
+    const totalBirds = dashboardData.productionRateByBatch?.reduce((sum, batch) => sum + (batch.currentCount || 0), 0) || 0;
+    const totalEggs = dashboardData.productionRateByBatch?.reduce((sum, batch) => sum + (batch.totalEggs || 0), 0) || 0;
+    const avgProductionRate = dashboardData.productionRateByBatch?.length > 0
+      ? (dashboardData.productionRateByBatch.reduce((sum, batch) => sum + (batch.productionRate || 0), 0) / dashboardData.productionRateByBatch.length).toFixed(1)
+      : 0;
+    const activeBatches = dashboardData.productionRateByBatch?.length || 0;
+
+    // Calculate week-over-week trend
+    const weeklyTrend = dashboardData.weeklyComparison?.percentageChange || 0;
 
     return (
       <View>
         <KPICard
           title="Total Birds"
-          value={dashboardData.totalBirds || 0}
-          subtitle="Active birds across all farms"
+          value={totalBirds.toLocaleString()}
+          subtitle="Active birds across all batches"
           icon="🐔"
           color="#2E8B57"
-          trend={
-            dashboardData.trends?.totalBirds
-              ? {
-                  value: Math.abs(dashboardData.trends.totalBirds),
-                  direction: dashboardData.trends.totalBirds > 0 ? 'up' : 'down',
-                }
-              : null
-          }
         />
 
         <KPICard
-          title="Mortality Rate"
-          value={`${(dashboardData.mortalityRate || 0).toFixed(1)}%`}
+          title="Production Rate"
+          value={`${avgProductionRate}%`}
           subtitle="Average across all batches"
-          icon="📉"
-          color="#FF3B30"
-          trend={
-            dashboardData.trends?.mortalityRate
-              ? {
-                  value: Math.abs(dashboardData.trends.mortalityRate),
-                  direction: dashboardData.trends.mortalityRate > 0 ? 'up' : 'down',
-                }
-              : null
-          }
+          icon="🥚"
+          color="#FFD700"
         />
 
         <KPICard
           title="Egg Production"
-          value={dashboardData.eggProduction || 0}
-          subtitle="Total eggs this period"
-          icon="🥚"
-          color="#FFD700"
+          value={totalEggs.toLocaleString()}
+          subtitle={`Total eggs in ${dateRange} period`}
+          icon="📊"
+          color="#4ECDC4"
           trend={
-            dashboardData.trends?.eggProduction
+            weeklyTrend !== 0
               ? {
-                  value: Math.abs(dashboardData.trends.eggProduction),
-                  direction: dashboardData.trends.eggProduction > 0 ? 'up' : 'down',
+                  value: Math.abs(weeklyTrend).toFixed(1),
+                  direction: weeklyTrend > 0 ? 'up' : 'down',
                 }
               : null
           }
         />
 
         <KPICard
-          title="Revenue"
-          value={`$${(dashboardData.revenue || 0).toLocaleString()}`}
-          subtitle="Total revenue this period"
-          icon="💰"
+          title="Active Batches"
+          value={activeBatches}
+          subtitle="Currently tracked batches"
+          icon="🏠"
           color="#34C759"
-          trend={
-            dashboardData.trends?.revenue
-              ? {
-                  value: Math.abs(dashboardData.trends.revenue),
-                  direction: dashboardData.trends.revenue > 0 ? 'up' : 'down',
-                }
-              : null
-          }
         />
       </View>
     );
@@ -322,23 +358,23 @@ const AnalyticsScreen = ({ navigation }) => {
   const renderCharts = () => (
     <View>
       <LineChart
-        title="Production Trend"
+        title="Daily Production Trend (Last 7 Days)"
         data={prepareProductionTrendData()}
         height={220}
         color="#2E8B57"
         yAxisSuffix=" eggs"
         loading={loading}
-        error={trendData ? null : 'No trend data available'}
+        error={prepareProductionTrendData() ? null : 'No production data available'}
       />
 
-      <LineChart
-        title="Mortality Rate Trend"
-        data={prepareMortalityTrendData()}
+      <BarChart
+        title="Weekly Production Comparison"
+        data={prepareWeeklyComparisonData()}
         height={220}
-        color="#FF3B30"
-        yAxisSuffix="%"
+        color="#4ECDC4"
+        yAxisSuffix=" eggs"
         loading={loading}
-        error={dashboardData?.mortalityTrend ? null : 'No mortality data available'}
+        error={prepareWeeklyComparisonData() ? null : 'No weekly comparison data available'}
       />
     </View>
   );

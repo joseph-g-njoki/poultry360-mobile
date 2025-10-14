@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import fastDatabase from './fastDatabase';
+import dataEventBus, { EventTypes } from './dataEventBus';
 
 class FastApiService {
   constructor() {
@@ -332,6 +333,14 @@ class FastApiService {
   async createFarm(farmData) {
     try {
       const result = fastDatabase.createFarm(farmData);
+
+      // CRITICAL FIX: Emit FARM_CREATED event to trigger dashboard refresh
+      console.log('✅ Farm created, emitting FARM_CREATED event');
+      dataEventBus.emit(EventTypes.FARM_CREATED, {
+        farm: result,
+        source: 'fastApiService'
+      });
+
       return {
         success: true,
         data: result,
@@ -348,6 +357,14 @@ class FastApiService {
   async updateFarm(farmId, farmData) {
     try {
       const result = fastDatabase.updateFarm(farmId, farmData);
+
+      // CRITICAL FIX: Emit FARM_UPDATED event to trigger dashboard refresh
+      console.log('✅ Farm updated, emitting FARM_UPDATED event');
+      dataEventBus.emit(EventTypes.FARM_UPDATED, {
+        farm: result,
+        source: 'fastApiService'
+      });
+
       return {
         success: true,
         data: result,
@@ -364,6 +381,14 @@ class FastApiService {
   async deleteFarm(farmId) {
     try {
       fastDatabase.deleteFarm(farmId);
+
+      // CRITICAL FIX: Emit FARM_DELETED event to trigger dashboard refresh
+      console.log('✅ Farm deleted, emitting FARM_DELETED event');
+      dataEventBus.emit(EventTypes.FARM_DELETED, {
+        farmId,
+        source: 'fastApiService'
+      });
+
       return {
         success: true,
         source: 'local'
@@ -380,6 +405,14 @@ class FastApiService {
   async createFlock(flockData) {
     try {
       const result = fastDatabase.createBatch(flockData);
+
+      // CRITICAL FIX: Emit BATCH_CREATED event to trigger dashboard refresh
+      console.log('✅ Batch created, emitting BATCH_CREATED event');
+      dataEventBus.emit(EventTypes.BATCH_CREATED, {
+        batch: result,
+        source: 'fastApiService'
+      });
+
       return {
         success: true,
         data: result,
@@ -396,6 +429,14 @@ class FastApiService {
   async updateFlock(flockId, flockData) {
     try {
       const result = fastDatabase.updateBatch(flockId, flockData);
+
+      // CRITICAL FIX: Emit BATCH_UPDATED event to trigger dashboard refresh
+      console.log('✅ Batch updated, emitting BATCH_UPDATED event');
+      dataEventBus.emit(EventTypes.BATCH_UPDATED, {
+        batch: result,
+        source: 'fastApiService'
+      });
+
       return {
         success: true,
         data: result,
@@ -412,6 +453,14 @@ class FastApiService {
   async deleteFlock(flockId) {
     try {
       fastDatabase.deleteBatch(flockId);
+
+      // CRITICAL FIX: Emit BATCH_DELETED event to trigger dashboard refresh
+      console.log('✅ Batch deleted, emitting BATCH_DELETED event');
+      dataEventBus.emit(EventTypes.BATCH_DELETED, {
+        batchId: flockId,
+        source: 'fastApiService'
+      });
+
       return {
         success: true,
         source: 'local'

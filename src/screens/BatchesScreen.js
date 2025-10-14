@@ -12,6 +12,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import CustomPicker from '../components/CustomPicker';
 import fastApiService from '../services/fastApiService';
 import fastDatabase from '../services/fastDatabase';
@@ -20,6 +21,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useOffline } from '../context/OfflineContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
 import { useOptimizedFlatList } from '../hooks/useOptimizedFlatList';
+import { useFarms } from '../context/DataStoreContext';
 
 const BatchesScreen = ({ route, navigation }) => {
   const { user } = useAuth();
@@ -27,7 +29,7 @@ const BatchesScreen = ({ route, navigation }) => {
   const { isConnected } = useOffline();
   const { triggerDashboardRefresh, refreshTrigger } = useDashboardRefresh();
   const [batches, setBatches] = useState([]);
-  const [farms, setFarms] = useState([]);
+  const { farms, loading: farmsLoading, refresh: refreshFarms } = useFarms();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -132,12 +134,10 @@ const BatchesScreen = ({ route, navigation }) => {
       }
 
       console.log('🔄 BatchesScreen: Starting data load...');
+      console.log(`🔄 BatchesScreen: Using ${farms.length} farms from context`);
 
-      // Load real data from database
-      const [batchesResponse, farmsResponse] = await Promise.all([
-        fastApiService.getFlocks(),
-        fastApiService.getFarms(),
-      ]);
+      // Load batches (farms come from context)
+      const batchesResponse = await fastApiService.getFlocks();
 
       // CRASH FIX: Check mount status after async operations
       if (!isMountedRef.current) {
@@ -145,7 +145,6 @@ const BatchesScreen = ({ route, navigation }) => {
         return;
       }
 
-      console.log('🔄 BatchesScreen: Raw farms response:', farmsResponse);
       console.log('🔄 BatchesScreen: Raw batches response:', batchesResponse);
 
       // Update batches with real data
@@ -162,60 +161,12 @@ const BatchesScreen = ({ route, navigation }) => {
         }));
 
         setBatches(batchesData);
+        setDataSource('database');
         console.log(`✅ Loaded ${batchesData.length} batches from database`);
       } else {
         setBatches([]);
+        setDataSource('database');
         console.log('ℹ️ No batches found in database');
-      }
-
-      // Update farms with real data
-      if (farmsResponse?.success && Array.isArray(farmsResponse.data) && farmsResponse.data.length > 0) {
-        const farmsData = farmsResponse.data.map(farm => ({
-          id: farm.id,
-          name: farm.farmName || farm.name || 'Unnamed Farm',
-          location: farm.location || 'Unknown Location'
-        }));
-
-        setFarms(farmsData);
-        setDataSource(farmsResponse.source || 'database');
-        console.log(`✅ Loaded ${farmsData.length} farms from database:`, farmsData);
-      } else {
-        // If no farms exist, try to initialize database and create demo farm
-        console.log('⚠️ No farms found, attempting to ensure database is initialized...');
-        try {
-          // Re-initialize the database service
-          await fastApiService.init();
-
-          // Try to get farms again after initialization
-          const retryFarmsResponse = await fastApiService.getFarms();
-          console.log('🔄 Retry farms response:', retryFarmsResponse);
-
-          // CRASH FIX: Check mount status before retry state updates
-          if (!isMountedRef.current) {
-            console.log('Component unmounted during retry, skipping state update');
-            return;
-          }
-
-          if (retryFarmsResponse?.success && Array.isArray(retryFarmsResponse.data) && retryFarmsResponse.data.length > 0) {
-            const farmsData = retryFarmsResponse.data.map(farm => ({
-              id: farm.id,
-              name: farm.farmName || farm.name || 'Unnamed Farm',
-              location: farm.location || 'Unknown Location'
-            }));
-
-            setFarms(farmsData);
-            setDataSource(retryFarmsResponse.source || 'database');
-            console.log(`✅ Loaded ${farmsData.length} farms after retry:`, farmsData);
-          } else {
-            setFarms([]);
-            console.log('ℹ️ Still no farms found after retry - response:', retryFarmsResponse);
-          }
-        } catch (retryError) {
-          console.warn('⚠️ Farm retry error:', retryError.message);
-          if (isMountedRef.current) {
-            setFarms([]);
-          }
-        }
       }
 
       if (showLoadingIndicator && isMountedRef.current) {
@@ -240,10 +191,10 @@ const BatchesScreen = ({ route, navigation }) => {
       }
 
       // CRASH FIX: Show user-friendly error only if data is completely empty
-      if (batches.length === 0 && farms.length === 0) {
+      if (batches.length === 0) {
         Alert.alert(
           'Data Load Error',
-          'Unable to load data. Please check your connection and try refreshing.',
+          'Unable to load batches. Please check your connection and try refreshing.',
           [{ text: 'OK' }]
         );
       }
@@ -260,6 +211,9 @@ const BatchesScreen = ({ route, navigation }) => {
         setRefreshing(true);
       }
       console.log('🔄 Batches refresh initiated...');
+
+      // Refresh farms from context
+      refreshFarms(true);
 
       // Ensure database is initialized before refreshing
       await fastApiService.init();
@@ -279,7 +233,6 @@ const BatchesScreen = ({ route, navigation }) => {
 
       // On error, show empty state - no mock data
       setBatches([]);
-      setFarms([]);
       setDataSource('error');
     } finally {
       if (isMountedRef.current) {
@@ -340,42 +293,6 @@ const BatchesScreen = ({ route, navigation }) => {
     console.log('🟢 Setting modalVisible to TRUE');
     setModalVisible(true);
     console.log('🟢 Modal should be visible now');
-
-    // BACKGROUND OPERATION: Refresh farms list after modal is open (non-blocking)
-    // This ensures we have the latest farms without blocking the UI
-    if (currentFarms.length === 0) {
-      console.log('🔄 Background: Refreshing farms list...');
-      refreshFarmsInBackground();
-    }
-  };
-
-  // NEW HELPER FUNCTION: Non-blocking farm refresh that runs in background
-  const refreshFarmsInBackground = async () => {
-    try {
-      await fastApiService.init();
-      const farmsResponse = await fastApiService.getFarms();
-
-      if (farmsResponse?.success && Array.isArray(farmsResponse.data) && farmsResponse.data.length > 0) {
-        const farmsData = farmsResponse.data.map(farm => ({
-          id: farm.id,
-          name: farm.farmName || farm.name || 'Unnamed Farm',
-          location: farm.location || 'Unknown Location'
-        }));
-
-        // Only update state if component is still mounted and modal is still open
-        if (isMountedRef.current && modalVisible) {
-          setFarms(farmsData);
-          // Auto-select first farm if no farm is selected
-          if (!formData.farmId && farmsData.length > 0) {
-            setFormData(prev => ({ ...prev, farmId: String(farmsData[0].id) }));
-          }
-          console.log(`✅ Background: Loaded ${farmsData.length} farms`);
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️ Background farm refresh failed:', error.message);
-      // Silent failure - user already sees the helper text in modal
-    }
   };
 
   const closeModal = () => {
@@ -852,20 +769,20 @@ const BatchesScreen = ({ route, navigation }) => {
                     style={[styles.picker, { color: theme.colors.inputText }]}
                   >
                     <Picker.Item
-                      label={farms.length === 0 ? "No farms available - Create a farm first" : "Select a farm"}
+                      label={Array.isArray(farms) && farms.length === 0 ? "No farms - Create a farm first" : "-- Select a farm --"}
                       value=""
                       color={theme.colors.placeholder}
                     />
-                    {Array.isArray(farms) && farms.map((farm) => (
-                      farm && farm.id ? (
+                    {Array.isArray(farms) && farms
+                      .filter(farm => farm && (farm.id || farm._id))
+                      .map((farm) => (
                         <Picker.Item
-                          key={farm.id}
-                          label={`${farm.name || 'Unnamed Farm'} - ${farm.location || 'No location'}`}
-                          value={String(farm.id)}
+                          key={farm.id || farm._id}
+                          label={farm.location ? `${farm.farmName || farm.name || 'Unnamed Farm'} - ${farm.location}` : (farm.farmName || farm.name || 'Unnamed Farm')}
+                          value={String(farm.id || farm._id)}
                           color={theme.colors.inputText}
                         />
-                      ) : null
-                    ))}
+                      ))}
                   </Picker>
                 </View>
                 {farms.length === 0 && (

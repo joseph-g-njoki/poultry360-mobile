@@ -119,6 +119,7 @@ class OfflineDataService {
         ...data,
         organization_id: orgId || data.organization_id, // Use provided org_id or current user's org
         needs_sync: skipSync ? 0 : 1,
+        is_synced: skipSync ? 1 : 0, // Add is_synced flag for offline-first sync
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -470,10 +471,33 @@ class OfflineDataService {
     }
   }
 
+  async getUnsyncedRecords(tableName) {
+    try {
+      // EMERGENCY FIX: Check if database is initialized
+      if (!databaseService || !databaseService.db || !databaseService.isInitialized) {
+        console.warn(`Database not initialized for getUnsyncedRecords on ${tableName}`);
+        return [];
+      }
+
+      return await databaseService.select(
+        tableName,
+        '*',
+        'is_synced = 0 AND is_deleted = 0',
+        [0, 0],
+        'created_at ASC'
+      );
+    } catch (error) {
+      console.error(`Error getting unsynced records from ${tableName}:`, error);
+      // Return empty array instead of throwing
+      return [];
+    }
+  }
+
   async markAsSynced(tableName, localId, serverId = null) {
     try {
       const updateData = {
         needs_sync: 0,
+        is_synced: 1, // Mark as synced for offline-first system
         last_sync: new Date().toISOString()
       };
 
@@ -1026,6 +1050,329 @@ class OfflineDataService {
       warnings: [`Validation failed: ${errorMessage}`],
       error: errorMessage
     };
+  }
+
+  // ==================== ANALYTICS CACHING ====================
+
+  /**
+   * Generate cache key from analytics type and parameters
+   */
+  _generateAnalyticsCacheKey(type, params = {}) {
+    const sortedParams = Object.keys(params)
+      .sort()
+      .map((key) => `${key}=${params[key]}`)
+      .join('&');
+    return `${type}_${sortedParams}`;
+  }
+
+  /**
+   * Cache dashboard data (for offline access)
+   */
+  async cacheDashboard(dashboardData) {
+    try {
+      await AsyncStorage.setItem(
+        '@dashboard_cache',
+        JSON.stringify({
+          data: dashboardData,
+          timestamp: Date.now(),
+        })
+      );
+      console.log('[OfflineDataService] Dashboard data cached');
+    } catch (error) {
+      console.error('[OfflineDataService] Failed to cache dashboard:', error);
+    }
+  }
+
+  /**
+   * Get cached dashboard data
+   */
+  async getCachedDashboard() {
+    try {
+      const cached = await AsyncStorage.getItem('@dashboard_cache');
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // Cache is valid for 1 hour
+        if (Date.now() - timestamp < 60 * 60 * 1000) {
+          console.log('[OfflineDataService] Using cached dashboard data');
+          return data;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('[OfflineDataService] Failed to get cached dashboard:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Cache analytics data (production trends, flock performance, financial, etc.)
+   */
+  async cacheAnalytics(type, params, analyticsData) {
+    try {
+      const cacheKey = this._generateAnalyticsCacheKey(type, params);
+      await AsyncStorage.setItem(
+        `@analytics_${cacheKey}`,
+        JSON.stringify({
+          data: analyticsData,
+          timestamp: Date.now(),
+          type,
+          params,
+        })
+      );
+      console.log(`[OfflineDataService] Analytics data cached: ${type}`);
+    } catch (error) {
+      console.error(`[OfflineDataService] Failed to cache analytics ${type}:`, error);
+    }
+  }
+
+  /**
+   * Get cached analytics data
+   */
+  async getCachedAnalytics(type, params = {}) {
+    try {
+      const cacheKey = this._generateAnalyticsCacheKey(type, params);
+      const cached = await AsyncStorage.getItem(`@analytics_${cacheKey}`);
+
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // Cache is valid for 30 minutes
+        if (Date.now() - timestamp < 30 * 60 * 1000) {
+          console.log(`[OfflineDataService] Using cached analytics data: ${type}`);
+          return data;
+        } else {
+          console.log(`[OfflineDataService] Analytics cache expired: ${type}`);
+        }
+      }
+
+      // If no valid cache, return computed analytics from local data
+      return await this._computeAnalyticsFromLocalData(type, params);
+    } catch (error) {
+      console.error(`[OfflineDataService] Failed to get cached analytics ${type}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Compute analytics from local SQLite data when no cache is available
+   * This ensures analytics work even without internet connection
+   */
+  async _computeAnalyticsFromLocalData(type, params = {}) {
+    try {
+      console.log(`[OfflineDataService] Computing analytics from local data: ${type}`);
+
+      switch (type) {
+        case 'analytics':
+        case 'dashboard':
+          return await this._computeDashboardAnalytics(params);
+
+        case 'trends':
+          return await this._computeTrends(params);
+
+        case 'flockPerformance':
+          return await this._computeFlockPerformance(params);
+
+        case 'financial':
+          return await this._computeFinancialAnalytics(params);
+
+        default:
+          console.warn(`[OfflineDataService] Unknown analytics type: ${type}`);
+          return null;
+      }
+    } catch (error) {
+      console.error(`[OfflineDataService] Failed to compute analytics from local data:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Compute dashboard analytics from local production and batch data
+   */
+  async _computeDashboardAnalytics(params = {}) {
+    try {
+      const batches = await this.getBatches();
+      const productionRecords = await this.getProductionRecords();
+
+      // Calculate production rate by batch
+      const productionRateByBatch = batches.map(batch => {
+        const batchProduction = productionRecords
+          .filter(r => r.batch_id === batch.id)
+          .reduce((sum, r) => sum + (r.eggs_collected || 0), 0);
+
+        const productionRate = batch.current_count > 0
+          ? (batchProduction / batch.current_count) * 100
+          : 0;
+
+        return {
+          batchId: batch.id,
+          batchName: batch.batch_name,
+          currentCount: batch.current_count || 0,
+          totalEggs: batchProduction,
+          productionRate: Math.round(productionRate * 10) / 10,
+        };
+      });
+
+      // Calculate daily production for last 30 days
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const dailyProduction = [];
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+        const dateStr = date.toISOString().split('T')[0];
+
+        const totalEggs = productionRecords
+          .filter(r => r.date && r.date.startsWith(dateStr))
+          .reduce((sum, r) => sum + (r.eggs_collected || 0), 0);
+
+        dailyProduction.push({
+          date: dateStr,
+          totalEggs,
+        });
+      }
+
+      // Calculate weekly comparison
+      const thisWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const lastWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+      const thisWeekEggs = productionRecords
+        .filter(r => new Date(r.date) >= thisWeekStart)
+        .reduce((sum, r) => sum + (r.eggs_collected || 0), 0);
+
+      const lastWeekEggs = productionRecords
+        .filter(r => {
+          const recordDate = new Date(r.date);
+          return recordDate >= lastWeekStart && recordDate < thisWeekStart;
+        })
+        .reduce((sum, r) => sum + (r.eggs_collected || 0), 0);
+
+      const percentageChange = lastWeekEggs > 0
+        ? ((thisWeekEggs - lastWeekEggs) / lastWeekEggs) * 100
+        : 0;
+
+      return {
+        productionRateByBatch,
+        dailyProduction,
+        weeklyComparison: {
+          currentWeek: { totalEggs: thisWeekEggs },
+          previousWeek: { totalEggs: lastWeekEggs },
+          percentageChange: Math.round(percentageChange * 10) / 10,
+        },
+      };
+    } catch (error) {
+      console.error('[OfflineDataService] Error computing dashboard analytics:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Compute trends from local data
+   */
+  async _computeTrends(params = {}) {
+    try {
+      // Return empty trends for now (can be enhanced later)
+      return {
+        labels: [],
+        values: [],
+        trend: 'stable',
+        percentageChange: 0,
+      };
+    } catch (error) {
+      console.error('[OfflineDataService] Error computing trends:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Compute flock performance from local data
+   */
+  async _computeFlockPerformance(params = {}) {
+    try {
+      const batches = await this.getBatches();
+      const mortalityRecords = await this.getMortalityRecords();
+      const feedRecords = await this.getFeedRecords();
+
+      const flocks = batches.map(batch => {
+        const mortality = mortalityRecords
+          .filter(r => r.batch_id === batch.id)
+          .reduce((sum, r) => sum + (r.count || 0), 0);
+
+        const mortalityRate = batch.initial_count > 0
+          ? (mortality / batch.initial_count) * 100
+          : 0;
+
+        const totalFeed = feedRecords
+          .filter(r => r.batch_id === batch.id)
+          .reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+        const fcr = batch.current_count > 0
+          ? totalFeed / batch.current_count
+          : 0;
+
+        return {
+          name: batch.batch_name,
+          performance: batch.current_count > 0 ? 100 : 0,
+          fcr: Math.round(fcr * 100) / 100,
+          mortality: Math.round(mortalityRate * 10) / 10,
+          growth: 0, // Can be calculated from weight records
+        };
+      });
+
+      const avgFCR = flocks.length > 0
+        ? flocks.reduce((sum, f) => sum + f.fcr, 0) / flocks.length
+        : 0;
+
+      const avgMortality = flocks.length > 0
+        ? flocks.reduce((sum, f) => sum + f.mortality, 0) / flocks.length
+        : 0;
+
+      return {
+        flocks,
+        averageFCR: Math.round(avgFCR * 100) / 100,
+        averageMortality: Math.round(avgMortality * 10) / 10,
+      };
+    } catch (error) {
+      console.error('[OfflineDataService] Error computing flock performance:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Compute financial analytics from local data
+   */
+  async _computeFinancialAnalytics(params = {}) {
+    try {
+      // Return empty financial data for now (requires expenses and sales tables)
+      return {
+        revenue: 0,
+        expenses: 0,
+        profit: 0,
+        profitMargin: 0,
+        roi: 0,
+        breakdown: {
+          feed: 0,
+          labor: 0,
+          utilities: 0,
+          other: 0,
+        },
+      };
+    } catch (error) {
+      console.error('[OfflineDataService] Error computing financial analytics:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear all analytics cache
+   */
+  async clearAnalyticsCache() {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const analyticsKeys = keys.filter(key => key.startsWith('@analytics_') || key === '@dashboard_cache');
+      await AsyncStorage.multiRemove(analyticsKeys);
+      console.log('[OfflineDataService] Analytics cache cleared');
+    } catch (error) {
+      console.error('[OfflineDataService] Failed to clear analytics cache:', error);
+    }
   }
 
   // Export/Import for backup

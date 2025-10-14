@@ -13,18 +13,22 @@ import {
   ScrollView,
 } from 'react-native';
 import CustomPicker from '../components/CustomPicker';
-import fastApiService from '../services/fastApiService';
+import offlineFirstService from '../services/offlineFirstService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
+import { useFarms, useBatches } from '../context/DataStoreContext';
 
 const RecordsScreen = ({ route, navigation }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const { triggerDashboardRefresh } = useDashboardRefresh();
+
+  // Use centralized context for farms and batches (auto-loads and updates)
+  const { farms, loading: farmsLoading, refresh: refreshFarms } = useFarms();
+  const { batches, loading: batchesLoading, refresh: refreshBatches } = useBatches();
+
   const [records, setRecords] = useState([]);
-  const [farms, setFarms] = useState([]);
-  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -34,6 +38,12 @@ const RecordsScreen = ({ route, navigation }) => {
 
   // CRASH FIX: Track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
+
+  // FIX #4: Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const RECORDS_PER_PAGE = 20;
   const [formData, setFormData] = useState({
     type: 'feed',
     farmId: '',
@@ -87,7 +97,7 @@ const RecordsScreen = ({ route, navigation }) => {
     }
   }, [records]);
 
-  const loadData = async (showLoadingIndicator = true) => {
+  const loadData = async (showLoadingIndicator = true, resetPagination = true) => {
     // CRASH FIX: Check mount status before any state updates
     if (!isMountedRef.current) {
       console.log('Component unmounted, aborting load');
@@ -99,12 +109,14 @@ const RecordsScreen = ({ route, navigation }) => {
         setLoading(true);
       }
 
-      // Load real data from database
-      const [farmsResponse, batchesResponse, recordsResponse] = await Promise.all([
-        fastApiService.getFarms(),
-        fastApiService.getFlocks(),
-        fastApiService.getRecords(activeTab)
-      ]);
+      // FIX #4: Reset pagination on initial load or tab change
+      if (resetPagination && isMountedRef.current) {
+        setPage(1);
+        setHasMore(true);
+      }
+
+      // Load records for current tab (farms and batches come from context)
+      const recordsResponse = await offlineFirstService.getRecords(activeTab);
 
       // CRASH FIX: Check mount status after async operations
       if (!isMountedRef.current) {
@@ -112,39 +124,17 @@ const RecordsScreen = ({ route, navigation }) => {
         return;
       }
 
-      // Update farms with real data
-      if (farmsResponse?.success && Array.isArray(farmsResponse.data)) {
-        const farmsData = farmsResponse.data.map(farm => ({
-          id: farm.id,
-          name: farm.farmName || farm.name || 'Unnamed Farm'
-        }));
-        setFarms(farmsData);
-        console.log(`✅ Loaded ${farmsData.length} farms from database`);
-      } else {
-        setFarms([]);
-        console.log('ℹ️ No farms found in database');
-      }
-
-      // Update batches with real data
-      if (batchesResponse?.success && Array.isArray(batchesResponse.data)) {
-        const batchesData = batchesResponse.data.map(batch => ({
-          id: batch.id,
-          name: batch.batchName || batch.name || 'Unnamed Batch',
-          batchName: batch.batchName || batch.name || 'Unnamed Batch'
-        }));
-        setBatches(batchesData);
-        console.log(`✅ Loaded ${batchesData.length} batches from database`);
-      } else {
-        setBatches([]);
-        console.log('ℹ️ No batches found in database');
-      }
-
       // Load records for current tab
       if (recordsResponse?.success && Array.isArray(recordsResponse.data)) {
-        setRecords(recordsResponse.data);
-        console.log(`✅ Loaded ${recordsResponse.data.length} ${activeTab} records from database`);
+        // FIX #4: Implement pagination - only load first page initially
+        const allRecords = recordsResponse.data;
+        const paginatedRecords = allRecords.slice(0, RECORDS_PER_PAGE);
+        setRecords(paginatedRecords);
+        setHasMore(allRecords.length > RECORDS_PER_PAGE);
+        console.log(`✅ Loaded ${paginatedRecords.length} of ${allRecords.length} ${activeTab} records (page 1)`);
       } else {
         setRecords([]);
+        setHasMore(false);
         console.log(`ℹ️ No ${activeTab} records found in database`);
       }
 
@@ -162,11 +152,48 @@ const RecordsScreen = ({ route, navigation }) => {
 
       // On error, show empty state - no mock data
       setRecords([]);
-      setFarms([]);
-      setBatches([]);
+      setHasMore(false);
 
       if (showLoadingIndicator && isMountedRef.current) {
         setLoading(false);
+      }
+    }
+  };
+
+  // FIX #4: Load more records on scroll
+  const loadMoreRecords = async () => {
+    if (loadingMore || !hasMore || !isMountedRef.current) {
+      return;
+    }
+
+    try {
+      setLoadingMore(true);
+      console.log(`📄 Loading more ${activeTab} records - page ${page + 1}`);
+
+      // Load all records again and paginate
+      const recordsResponse = await offlineFirstService.getRecords(activeTab);
+
+      if (!isMountedRef.current) return;
+
+      if (recordsResponse?.success && Array.isArray(recordsResponse.data)) {
+        const allRecords = recordsResponse.data;
+        const nextPage = page + 1;
+        const startIndex = 0;
+        const endIndex = nextPage * RECORDS_PER_PAGE;
+        const paginatedRecords = allRecords.slice(startIndex, endIndex);
+
+        setRecords(paginatedRecords);
+        setPage(nextPage);
+        setHasMore(allRecords.length > endIndex);
+
+        console.log(`✅ Loaded ${paginatedRecords.length} of ${allRecords.length} records (page ${nextPage})`);
+      }
+
+      setLoadingMore(false);
+    } catch (error) {
+      console.error('Load more error:', error.message);
+      if (isMountedRef.current) {
+        setLoadingMore(false);
       }
     }
   };
@@ -182,7 +209,11 @@ const RecordsScreen = ({ route, navigation }) => {
       }
       console.log('🔄 Records refresh initiated...');
 
-      // Quick refresh - load data immediately
+      // Refresh farms and batches from context
+      refreshFarms(true);
+      refreshBatches(true);
+
+      // Quick refresh - load records data
       if (isMountedRef.current) {
         await loadData(false); // Don't show loading indicator during refresh
       }
@@ -197,89 +228,17 @@ const RecordsScreen = ({ route, navigation }) => {
 
       // On error, show empty state - no mock data
       setRecords([]);
-      setFarms([]);
-      setBatches([]);
     } finally {
       if (isMountedRef.current) {
         setRefreshing(false);
       }
     }
-  }, []); // Remove activeTab dependency to prevent recreation
+  }, [refreshFarms, refreshBatches]); // Add dependencies
 
-  const openModal = async () => {
-    // CRASH FIX: Retry logic with database readiness check for farms
-    if (!farms || farms.length === 0) {
-      let currentFarms = [];
-      let retryCount = 0;
-      const maxRetries = 3;
+  const openModal = () => {
+    console.log(`📋 Opening record modal with ${farms.length} farms and ${batches.length} batches from context`);
 
-      while (retryCount < maxRetries && currentFarms.length === 0) {
-        try {
-          await fastApiService.init();
-
-          if (retryCount > 0) {
-            await new Promise(resolve => setTimeout(resolve, 200 * retryCount));
-            console.log(`🔄 Retry ${retryCount}/${maxRetries} - Reloading farms...`);
-          }
-
-          const farmsResponse = await fastApiService.getFarms();
-          if (farmsResponse?.success && Array.isArray(farmsResponse.data) && farmsResponse.data.length > 0) {
-            currentFarms = farmsResponse.data.map(farm => ({
-              id: farm.id,
-              name: farm.farmName || farm.name || 'Unnamed Farm',
-              location: farm.location || ''
-            }));
-            setFarms(currentFarms);
-            console.log(`✅ RecordsScreen: Loaded ${currentFarms.length} farms (attempt ${retryCount + 1})`);
-            break;
-          } else {
-            retryCount++;
-          }
-        } catch (error) {
-          console.error(`❌ Error loading farms (attempt ${retryCount + 1}):`, error.message);
-          retryCount++;
-        }
-      }
-    }
-
-    // CRASH FIX: Retry logic for batches
-    if (!batches || batches.length === 0) {
-      let currentBatches = [];
-      let retryCount = 0;
-      const maxRetries = 3;
-
-      while (retryCount < maxRetries && currentBatches.length === 0) {
-        try {
-          await fastApiService.init();
-
-          if (retryCount > 0) {
-            await new Promise(resolve => setTimeout(resolve, 200 * retryCount));
-            console.log(`🔄 Retry ${retryCount}/${maxRetries} - Reloading batches...`);
-          }
-
-          const batchesResponse = await fastApiService.getFlocks();
-          if (batchesResponse?.success && Array.isArray(batchesResponse.data) && batchesResponse.data.length > 0) {
-            currentBatches = batchesResponse.data.map(batch => ({
-              id: batch.id,
-              name: batch.batchName || batch.name || 'Unnamed Batch',
-              batchName: batch.batchName || batch.name || 'Unnamed Batch',
-              breed: batch.breed || '',
-              quantity: batch.quantity || 0
-            }));
-            setBatches(currentBatches);
-            console.log(`✅ RecordsScreen: Loaded ${currentBatches.length} batches (attempt ${retryCount + 1})`);
-            break;
-          } else {
-            retryCount++;
-          }
-        } catch (error) {
-          console.error(`❌ Error loading batches (attempt ${retryCount + 1}):`, error.message);
-          retryCount++;
-        }
-      }
-    }
-
-    // Ensure we have safe access to farms and batches
+    // Initialize form with first farm/batch if available
     const safeFarms = Array.isArray(farms) ? farms : [];
     const safeBatches = Array.isArray(batches) ? batches : [];
 
@@ -302,6 +261,9 @@ const RecordsScreen = ({ route, navigation }) => {
       waterSource: 'Borehole',
       quality: 'Clean',
       temperature: '',
+      averageWeight: '',
+      sampleSize: '',
+      weightUnit: 'kg',
     });
     setModalVisible(true);
   };
@@ -335,15 +297,15 @@ const RecordsScreen = ({ route, navigation }) => {
           recordData.quantity = parseFloat(formData.quantity);
           recordData.feedType = formData.feedType;
           recordData.cost = parseFloat(formData.cost) || 0;
-          console.log('🔄 Creating feed record...');
-          await fastApiService.createRecord('feed', recordData);
+          console.log('🔄 Creating feed record with offline-first service...');
+          await offlineFirstService.createRecord('feed', recordData);
           break;
 
         case 'health':
           recordData.healthStatus = formData.healthStatus;
           recordData.treatment = formData.treatment;
-          console.log('🔄 Creating health record...');
-          await fastApiService.createRecord('health', recordData);
+          console.log('🔄 Creating health record with offline-first service...');
+          await offlineFirstService.createRecord('health', recordData);
           break;
 
         case 'mortality':
@@ -353,15 +315,15 @@ const RecordsScreen = ({ route, navigation }) => {
           }
           recordData.count = parseInt(formData.count);
           recordData.cause = formData.cause;
-          console.log('🔄 Creating mortality record...');
-          await fastApiService.createRecord('mortality', recordData);
+          console.log('🔄 Creating mortality record with offline-first service...');
+          await offlineFirstService.createRecord('mortality', recordData);
           break;
 
         case 'production':
           recordData.eggsCollected = parseInt(formData.eggsCollected) || 0;
           recordData.weight = parseFloat(formData.weight) || 0;
-          console.log('🔄 Creating production record...');
-          await fastApiService.createRecord('production', recordData);
+          console.log('🔄 Creating production record with offline-first service...');
+          await offlineFirstService.createRecord('production', recordData);
           break;
 
         case 'water':
@@ -374,8 +336,8 @@ const RecordsScreen = ({ route, navigation }) => {
           recordData.quality = formData.quality || null;
           recordData.temperature = formData.temperature ? parseFloat(formData.temperature) : null;
           recordData.dateRecorded = formData.date;
-          console.log('🔄 Creating water record...');
-          await fastApiService.createWaterRecord(recordData);
+          console.log('🔄 Creating water record with offline-first service...');
+          await offlineFirstService.createWaterRecord(recordData);
           break;
 
         case 'weight':
@@ -387,8 +349,8 @@ const RecordsScreen = ({ route, navigation }) => {
           recordData.sampleSize = parseInt(formData.sampleSize);
           recordData.weightUnit = 'kg';
           recordData.dateRecorded = formData.date;
-          console.log('🔄 Creating weight record...');
-          await fastApiService.createWeightRecord(recordData);
+          console.log('🔄 Creating weight record with offline-first service...');
+          await offlineFirstService.createWeightRecord(recordData);
           break;
       }
 
@@ -442,8 +404,8 @@ const RecordsScreen = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🔄 Starting record delete operation:', activeTab, record.id);
-              const response = await fastApiService.deleteRecord(activeTab, record.id);
+              console.log('🔄 Starting record delete operation with offline-first service:', activeTab, record.id);
+              const response = await offlineFirstService.deleteRecord(activeTab, record.id);
 
               if (response.success) {
                 Alert.alert('Success', 'Deleted successfully!');
@@ -985,13 +947,25 @@ const RecordsScreen = ({ route, navigation }) => {
           }
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
           windowSize={5}
           updateCellsBatchingPeriod={100}
           getItemLayout={null}
           ListEmptyComponent={null}
           extraData={activeTab}
+          onEndReached={loadMoreRecords}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            loadingMore && hasMore ? (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={[styles.loadingMoreText, { color: theme.colors.textSecondary }]}>
+                  Loading more records...
+                </Text>
+              </View>
+            ) : null
+          }
         />
       )}
 
@@ -1018,11 +992,16 @@ const RecordsScreen = ({ route, navigation }) => {
                     setFormData(prev => ({ ...prev, farmId: itemValue === '' ? '' : parseInt(itemValue) }))
                   }
                   items={[
-                    { label: Array.isArray(farms) && farms.length === 0 ? "No farms available - Create a farm first" : "Select a farm", value: "" },
-                    ...((Array.isArray(farms) ? farms : []).filter(farm => farm && farm.id).map(farm => ({
-                      label: farm.location ? `${farm.name} - ${farm.location}` : farm.name || 'Unnamed Farm',
-                      value: String(farm.id)
-                    })))
+                    {
+                      label: Array.isArray(farms) && farms.length === 0 ? "No farms - Create a farm first" : "-- Select a farm --",
+                      value: ""
+                    },
+                    ...((Array.isArray(farms) ? farms : [])
+                      .filter(farm => farm && (farm.id || farm._id))
+                      .map(farm => ({
+                        label: farm.location ? `${farm.farmName || farm.name || 'Unnamed Farm'} - ${farm.location}` : (farm.farmName || farm.name || 'Unnamed Farm'),
+                        value: String(farm.id || farm._id)
+                      })))
                   ]}
                   placeholder="Select a farm"
                 />
@@ -1036,11 +1015,16 @@ const RecordsScreen = ({ route, navigation }) => {
                     setFormData(prev => ({ ...prev, batchId: itemValue === '' ? '' : parseInt(itemValue) }))
                   }
                   items={[
-                    { label: Array.isArray(batches) && batches.length === 0 ? "No batches available - Create a batch first" : "Select a batch", value: "" },
-                    ...((Array.isArray(batches) ? batches : []).filter(batch => batch && batch.id).map(batch => ({
-                      label: batch.breed && batch.quantity ? `${batch.name || batch.batchName} - ${batch.breed} (${batch.quantity} birds)` : (batch.name || batch.batchName || 'Unnamed Batch'),
-                      value: String(batch.id)
-                    })))
+                    {
+                      label: Array.isArray(batches) && batches.length === 0 ? "No batches - Create a batch first" : "-- Select a batch --",
+                      value: ""
+                    },
+                    ...((Array.isArray(batches) ? batches : [])
+                      .filter(batch => batch && (batch.id || batch._id))
+                      .map(batch => ({
+                        label: batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || 'Unnamed Batch'),
+                        value: String(batch.id || batch._id)
+                      })))
                   ]}
                   placeholder="Select a batch"
                 />
@@ -1340,6 +1324,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  loadingMoreContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
   },
 });
 

@@ -143,12 +143,47 @@ if (__DEV__) {
     console.error('Stack:', error?.stack);
     console.error('Fatal:', isFatal);
 
-    // Show visible alert to user
-    Alert.alert(
-      '❌ App Error',
-      `Error: ${error?.message || String(error)}\n\nPlease screenshot this and send to developer`,
-      [{ text: 'OK' }]
-    );
+    // CRASH FIX PLATFORM-001: Android-specific error handling
+    if (Platform.OS === 'android') {
+      const errorMessage = error?.message || String(error);
+
+      // Handle Android permission errors gracefully
+      if (errorMessage.includes('Permission denied') || errorMessage.includes('PERMISSION_DENIED')) {
+        console.error('🔒 CRASH FIX PLATFORM-001: Android permission error detected');
+        console.error('   Error:', errorMessage);
+        // Don't crash - just log and continue
+        return;
+      }
+
+      // Handle Android SQLite errors
+      if (errorMessage.includes('SQLite') || errorMessage.includes('database')) {
+        console.error('💾 CRASH FIX PLATFORM-001: Android SQLite error detected');
+        console.error('   Error:', errorMessage);
+        // Don't crash - app will fall back to online mode
+        return;
+      }
+
+      // Handle Android native module errors
+      if (errorMessage.includes('Native module') || errorMessage.includes('NativeModule')) {
+        console.error('📱 CRASH FIX PLATFORM-001: Android native module error detected');
+        console.error('   Error:', errorMessage);
+        // Don't crash - log and continue
+        return;
+      }
+    }
+
+    // CRASH FIX APP-002: Protect Alert.alert with try-catch
+    try {
+      Alert.alert(
+        '❌ App Error',
+        `Error: ${error?.message || String(error)}\n\nPlease screenshot this and send to developer`,
+        [{ text: 'OK' }]
+      );
+    } catch (alertError) {
+      console.error('❌ CRASH FIX APP-002: Alert failed in error handler:', alertError);
+      // CRASH PREVENTION: Fallback to console-only error logging
+      console.error('   Original error (Alert unavailable):', error);
+    }
 
     if (isFatal) {
       console.error('🚨 FATAL ERROR - App may crash:', error);
@@ -161,12 +196,18 @@ if (__DEV__) {
     console.error('Reason:', reason);
     console.error('Stack:', reason?.stack);
 
-    // Show visible alert to user
-    Alert.alert(
-      '❌ Promise Error',
-      `Error: ${reason?.message || String(reason)}\n\nPlease screenshot this`,
-      [{ text: 'OK' }]
-    );
+    // CRASH FIX APP-002: Protect Alert.alert with try-catch
+    try {
+      Alert.alert(
+        '❌ Promise Error',
+        `Error: ${reason?.message || String(reason)}\n\nPlease screenshot this`,
+        [{ text: 'OK' }]
+      );
+    } catch (alertError) {
+      console.error('❌ CRASH FIX APP-002: Alert failed in rejection handler:', alertError);
+      // CRASH PREVENTION: Fallback to console-only error logging
+      console.error('   Original rejection (Alert unavailable):', reason);
+    }
   };
 
   // Set up global error handling
@@ -189,12 +230,18 @@ if (!__DEV__) {
     console.error('Stack:', error?.stack);
     console.error('Fatal:', isFatal);
 
-    // Show visible alert to user
-    Alert.alert(
-      '❌ App Error',
-      `Error: ${error?.message || String(error)}\n\nPlease screenshot this`,
-      [{ text: 'OK' }]
-    );
+    // CRASH FIX APP-002: Protect Alert.alert with try-catch
+    try {
+      Alert.alert(
+        '❌ App Error',
+        `Error: ${error?.message || String(error)}\n\nPlease screenshot this`,
+        [{ text: 'OK' }]
+      );
+    } catch (alertError) {
+      console.error('❌ CRASH FIX APP-002: Alert failed in production handler:', alertError);
+      // CRASH PREVENTION: Fallback to console-only error logging
+      console.error('   Original error (Alert unavailable):', error);
+    }
   };
 
   const handleProductionRejection = (reason) => {
@@ -202,12 +249,18 @@ if (!__DEV__) {
     console.error('Reason:', reason);
     console.error('Stack:', reason?.stack);
 
-    // Show visible alert to user
-    Alert.alert(
-      '❌ Promise Error',
-      `Error: ${reason?.message || String(reason)}\n\nPlease screenshot this`,
-      [{ text: 'OK' }]
-    );
+    // CRASH FIX APP-002: Protect Alert.alert with try-catch
+    try {
+      Alert.alert(
+        '❌ Promise Error',
+        `Error: ${reason?.message || String(reason)}\n\nPlease screenshot this`,
+        [{ text: 'OK' }]
+      );
+    } catch (alertError) {
+      console.error('❌ CRASH FIX APP-002: Alert failed in production rejection handler:', alertError);
+      // CRASH PREVENTION: Fallback to console-only error logging
+      console.error('   Original rejection (Alert unavailable):', reason);
+    }
   };
 
   if (typeof ErrorUtils !== 'undefined') {
@@ -233,6 +286,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { OfflineProvider } from './src/context/OfflineContext';
 import { DashboardRefreshProvider } from './src/context/DashboardRefreshContext';
+import { DataStoreProvider } from './src/context/DataStoreContext';
 
 // Import main navigation
 import AppNavigator from './src/navigation/AppNavigator';
@@ -243,6 +297,8 @@ import iosOptimizations from './src/services/iosOptimizations';
 import memoryManager from './src/utils/memoryManager';
 import unifiedApiService from './src/services/unifiedApiService';
 import DatabaseInitializationError from './src/components/DatabaseInitializationError';
+import autoSyncService from './src/services/autoSyncService';
+import databaseMigration from './src/services/databaseMigration';
 
 // Loading screen component with theme support
 const LoadingScreen = () => {
@@ -311,20 +367,25 @@ export default function App() {
           setOnlineOnlyMode(true);
         }
 
-        // OPTIONAL: Try database init in background, but DON'T let it crash the app
-        /*
+        // BACKGROUND: Initialize offline-first features
         setImmediate(async () => {
           try {
-            console.log('📦 Background: Starting database initialization (optional)...');
-            const initResult = await unifiedApiService.init();
-            console.log('✅ Background: Database initialized successfully');
+            console.log('📦 Background: Starting offline-first initialization...');
+
+            // Run database migrations
+            await databaseMigration.runMigrations();
+            console.log('✅ Background: Database migrations complete');
+
+            // Initialize auto-sync service
+            autoSyncService.init();
+            console.log('✅ Background: Auto-sync service initialized');
+
           } catch (error) {
-            console.warn('⚠️ Database initialization failed - continuing in online-only mode');
+            console.warn('⚠️ Offline-first initialization failed - continuing in online-only mode');
             console.warn('Error:', error?.message);
-            // Don't crash - just continue without database
+            // Don't crash - just continue without offline features
           }
         });
-        */
 
       } catch (error) {
         // Always show UI - never block the app
@@ -344,6 +405,8 @@ export default function App() {
         clearTimeout(initTimeout);
         initTimeout = null;
       }
+      // Cleanup auto-sync service
+      autoSyncService.cleanup();
     };
   }, []);
 
@@ -400,11 +463,13 @@ export default function App() {
         <ThemeProvider>
           <LanguageProvider>
             <OfflineProvider>
-              <DashboardRefreshProvider>
-                <AuthProvider>
-                  <AppContent />
-                </AuthProvider>
-              </DashboardRefreshProvider>
+              <DataStoreProvider>
+                <DashboardRefreshProvider>
+                  <AuthProvider>
+                    <AppContent />
+                  </AuthProvider>
+                </DashboardRefreshProvider>
+              </DataStoreProvider>
             </OfflineProvider>
           </LanguageProvider>
         </ThemeProvider>

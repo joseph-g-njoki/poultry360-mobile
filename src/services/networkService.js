@@ -15,20 +15,35 @@ class NetworkService {
   // Initialize network monitoring
   async init() {
     try {
+      console.log('[NetworkService] Starting initialization...');
+
       // Get initial network state
       const state = await NetInfo.fetch();
+      console.log('[NetworkService] Initial network state:', {
+        isConnected: state.isConnected,
+        type: state.type,
+        isInternetReachable: state.isInternetReachable
+      });
+
       this.updateConnectionState(state);
 
       // Subscribe to network state changes
       this.netInfoUnsubscribe = NetInfo.addEventListener(state => {
+        console.log('[NetworkService] Network state changed:', {
+          isConnected: state.isConnected,
+          type: state.type
+        });
         this.updateConnectionState(state);
       });
 
-      console.log('NetworkService initialized');
+      console.log('[NetworkService] ✅ Initialized successfully - isConnected:', this.isConnected);
       return true;
     } catch (error) {
-      console.error('Failed to initialize NetworkService:', error);
-      throw error;
+      console.error('[NetworkService] ❌ Failed to initialize:', error);
+      // Don't throw - assume online mode
+      this.isConnected = true;
+      this.connectionType = 'unknown';
+      return false;
     }
   }
 
@@ -53,11 +68,10 @@ class NetworkService {
     const wasConnected = this.isConnected;
     const prevConnectionType = this.connectionType;
 
-    // FIX: Handle isInternetReachable being null (unknown state)
-    // If isConnected is true and isInternetReachable is null, assume true
-    // Only set false if explicitly false
-    const internetReachable = state.isInternetReachable !== false;
-    this.isConnected = state.isConnected && internetReachable;
+    // FIX: Simplified network detection - trust isConnected
+    // isInternetReachable can be null/undefined during checks, causing false negatives
+    // If device says we're connected, trust it - sync will fail gracefully if server unreachable
+    this.isConnected = state.isConnected === true;
     this.connectionType = state.type;
     this.connectionQuality = this.getConnectionQuality(state);
 

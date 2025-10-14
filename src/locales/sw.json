@@ -92,6 +92,17 @@
     "welcome": "Karibu",
     "welcomeBack": "Karibu Tena!"
   },
+  "welcome": {
+    "selectLanguage": "Chagua lugha unayopendelea kuendelea",
+    "description": "Suluhisho kamili la kusimamia shughuli za shamba lako la kuku. Fuatilia uzalishaji, angalia afya, simamia ratiba za chakula, na changanuza utendaji - yote mahali pamoja.",
+    "existingAccount": "Una akaunti tayari?",
+    "newUser": "Mpya kwa Poultry360?",
+    "features": "Vipengele Muhimu",
+    "tryDemo": "Jaribu Hali ya Onyesho",
+    "demoDescription": "Chunguza programu na data ya mfano - hakuna usajili unaohitajika",
+    "demoAccess": "Ufikiaji wa Haraka wa Onyesho",
+    "poweredBy": "Inaendeshwa na Poultry360"
+  },
   "dashboard": {
     "welcome": "Karibu Poultry360",
     "overview": "Muhtasari wa Shamba",

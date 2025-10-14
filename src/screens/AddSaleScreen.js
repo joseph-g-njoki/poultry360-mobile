@@ -16,13 +16,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import CustomPicker from '../components/CustomPicker';
 import api from '../services/api';
 import { useTheme } from '../context/ThemeContext';
+import { useBatches } from '../context/DataStoreContext';
 
 const AddSaleScreen = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const { batches, loading: batchesLoading, refresh: refreshBatches } = useBatches();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
-  const [batches, setBatches] = useState([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -48,14 +49,15 @@ const AddSaleScreen = () => {
   const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
 
   useEffect(() => {
-    fetchCustomersAndBatches();
+    fetchCustomers();
   }, []);
 
   // Add a useEffect to reload data when screen is focused
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       console.log('🔄 AddSaleScreen: Screen focused - reloading data');
-      fetchCustomersAndBatches();
+      fetchCustomers();
+      refreshBatches(true);
     });
     return unsubscribe;
   }, [navigation]);
@@ -68,13 +70,10 @@ const AddSaleScreen = () => {
     calculateAmountDue();
   }, [formData.totalAmount, formData.amountPaid]);
 
-  const fetchCustomersAndBatches = async () => {
+  const fetchCustomers = async () => {
     try {
-      console.log('🔄 AddSaleScreen: Fetching customers and batches...');
-      const [customersResponse, batchesResponse] = await Promise.all([
-        api.get('/api/v1/customers?limit=100'),
-        api.get('/api/v1/batches?status=active'),
-      ]);
+      console.log('🔄 AddSaleScreen: Fetching customers...');
+      const customersResponse = await api.get('/api/v1/customers?limit=100');
 
       if (customersResponse.data?.data) {
         setCustomers(customersResponse.data.data);
@@ -83,19 +82,9 @@ const AddSaleScreen = () => {
         setCustomers([]);
         console.log('ℹ️ AddSaleScreen: No customers found');
       }
-
-      if (batchesResponse.data) {
-        const batchesData = Array.isArray(batchesResponse.data) ? batchesResponse.data : [];
-        setBatches(batchesData);
-        console.log(`✅ AddSaleScreen: Loaded ${batchesData.length} batches`);
-      } else {
-        setBatches([]);
-        console.log('ℹ️ AddSaleScreen: No batches found');
-      }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching customers:', error);
       setCustomers([]);
-      setBatches([]);
     }
   };
 
@@ -230,11 +219,13 @@ const AddSaleScreen = () => {
                 setFormData({ ...formData, batchId: value === '' ? '' : parseInt(value) })
               }
               items={[
-                { label: Array.isArray(batches) && batches.length === 0 ? "No batches available - Create a batch first" : "No Batch", value: "" },
-                ...((Array.isArray(batches) ? batches : []).filter(batch => batch && batch.id).map(batch => ({
-                  label: batch.batchNumber && batch.breed ? `${batch.batchNumber} - ${batch.breed} (${batch.currentQuantity || batch.quantity || 0} birds)` : `Batch ${batch.id}`,
-                  value: String(batch.id)
-                })))
+                { label: Array.isArray(batches) && batches.length === 0 ? "No batches - Create a batch first" : "-- Select Batch --", value: "" },
+                ...((Array.isArray(batches) ? batches : [])
+                  .filter(batch => batch && (batch.id || batch._id))
+                  .map(batch => ({
+                    label: batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || `Batch ${batch.id || batch._id}`),
+                    value: String(batch.id || batch._id)
+                  })))
               ]}
               placeholder="Select batch"
             />

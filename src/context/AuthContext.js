@@ -5,6 +5,8 @@ import apiService from '../services/api';
 import asyncOperationWrapper from '../utils/asyncOperationWrapper';
 import notificationService from '../services/notificationService';
 import syncService from '../services/syncService';
+import authStorage from '../services/authStorage';
+import networkService from '../services/networkService';
 
 const AuthContext = createContext();
 
@@ -221,6 +223,49 @@ export const AuthProvider = ({ children }) => {
         timestamp: new Date().toISOString()
       });
 
+      // Check network status for offline-first login
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network Status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      // If OFFLINE, try offline login first
+      if (!isOnline) {
+        console.log('🔌 OFFLINE MODE - Attempting offline login...');
+        try {
+          const offlineUserData = await authStorage.validateOfflineCredentials(email, password);
+
+          if (offlineUserData) {
+            // Offline login successful
+            await asyncOperationWrapper.safeStorageSet('authToken', 'offline_token');
+            await asyncOperationWrapper.safeStorageSet('userData', offlineUserData);
+
+            setUser(offlineUserData);
+            setIsAuthenticated(true);
+
+            console.log('✅ OFFLINE LOGIN SUCCESSFUL');
+            console.log('User:', offlineUserData.email);
+
+            return {
+              success: true,
+              data: { user: offlineUserData },
+              isOffline: true,
+              source: 'offline',
+              message: 'Logged in offline with cached credentials'
+            };
+          } else {
+            // No stored credentials or invalid password
+            throw new Error('Cannot login offline. Please connect to the internet for your first login.');
+          }
+        } catch (offlineError) {
+          console.error('❌ OFFLINE LOGIN FAILED:', offlineError.message);
+          return {
+            success: false,
+            error: offlineError.message,
+            isOffline: true,
+            source: 'offline'
+          };
+        }
+      }
+
       // Try real API service first for multi-org support
       try {
         console.log('📡 Attempting login via REAL API (NestJS backend)...');
@@ -273,7 +318,8 @@ export const AuthProvider = ({ children }) => {
         }
 
         if (response.access_token && response.user) {
-          // Store token and user data
+          // PERFORMANCE FIX: Store only essential data synchronously for instant login
+          // Move all slow operations to background
           await asyncOperationWrapper.safeStorageSet('authToken', response.access_token);
           await asyncOperationWrapper.safeStorageSet('userData', response.user);
 
@@ -283,18 +329,27 @@ export const AuthProvider = ({ children }) => {
           console.log('✅ LOGIN SUCCESSFUL via REAL API');
           console.log('User:', response.user.email, '| Organization:', response.user.organization?.name);
           console.log('💾 Token and user data stored successfully');
+          console.log('⚡ INSTANT LOGIN - All background tasks moved to background');
 
-          // LIGHTNING FAST LOGIN: Complete return immediately, schedule ALL tasks for later
-          // This ensures instant navigation without any blocking operations
-          console.log('⚡ Login complete - navigation ready!');
-
-          // CRASH FIX: Protect background tasks with comprehensive error handling
+          // LIGHTNING FAST LOGIN: Schedule ALL non-critical tasks for later
+          // This ensures instant navigation without ANY blocking operations
           setImmediate(() => {
             // CRASH FIX: Wrap entire background operation in try-catch
             try {
               // Use Promise.allSettled to run all background tasks in parallel without blocking
               Promise.allSettled([
-                // Task 1: Setup push notifications
+                // Task 1: Store credentials for offline login (MOVED TO BACKGROUND)
+                (async () => {
+                  try {
+                    console.log('💾 [Background] Storing credentials for offline login...');
+                    await authStorage.storeCredentials(email, password, response.user);
+                    console.log('✅ [Background] Credentials stored for offline login capability');
+                  } catch (error) {
+                    console.warn('⚠️ [Background] Failed to store offline credentials:', error?.message || error);
+                  }
+                })(),
+
+                // Task 2: Setup push notifications
                 (async () => {
                   try {
                     console.log('🔔 [Background] Setting up push notifications...');
@@ -309,7 +364,7 @@ export const AuthProvider = ({ children }) => {
                   }
                 })(),
 
-                // Task 2: Perform initial sync
+                // Task 3: Perform initial sync
                 (async () => {
                   try {
                     console.log('🔄 [Background] Starting data sync...');
@@ -478,8 +533,20 @@ export const AuthProvider = ({ children }) => {
         throw new Error('User data with email is required');
       }
 
+      // Check network status - registration requires internet
+      const isOnline = networkService.getIsConnected();
+      if (!isOnline) {
+        console.log('❌ OFFLINE - Registration requires internet connection');
+        return {
+          success: false,
+          error: 'Registration requires an internet connection. Please connect and try again.',
+          isOffline: true,
+          source: 'offline'
+        };
+      }
+
       // Try real API service first for registration
-      try {
+      try{
         // CRASH FIX: Wrap API call in try-catch to handle network failures gracefully
         let response;
         try {
@@ -636,18 +703,13 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       setAuthError(null);
 
-      // SECURITY FIX: Clear local database to prevent data leakage between users
-      try {
-        console.log('🗑️ Clearing local database for security...');
-        const databaseService = require('../services/database').default;
-        await databaseService.resetDatabase();
-        console.log('✅ Local database cleared successfully');
-      } catch (dbError) {
-        console.error('⚠️ Error clearing local database:', dbError);
-        // Continue logout even if DB clear fails
-      }
+      // FIX: Do NOT clear local database on logout
+      // The database contains server data that belongs to the user's account
+      // When they login again, they should see their data immediately from cache
+      // The data will be refreshed from the server in the background
+      console.log('💾 Preserving local database - data will be available on next login');
 
-      // Clear auth data
+      // Clear auth data only (token and user info)
       await clearAuthData();
 
       console.log('✅ Logout completed - user should be redirected to login');

@@ -25,16 +25,23 @@ class ApiService {
 
     console.log('🏗️  Creating Axios instance with base URL:', API_BASE_URL);
 
-    this.api = axios.create({
-      baseURL: API_BASE_URL,
-      timeout: 30000, // CRASH FIX: Increased to 30 seconds for slow registration operations
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': Platform.OS === 'ios' ? 'Poultry360-iOS' : 'Poultry360-Android',
-      },
-    });
-
-    console.log('✅ Axios instance created successfully');
+    // CRASH FIX API-001: Protect axios.create with try-catch
+    try {
+      this.api = axios.create({
+        baseURL: API_BASE_URL,
+        timeout: 30000, // CRASH FIX: Increased to 30 seconds for slow registration operations
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': Platform.OS === 'ios' ? 'Poultry360-iOS' : 'Poultry360-Android',
+        },
+      });
+      console.log('✅ Axios instance created successfully');
+    } catch (error) {
+      console.error('❌ CRASH FIX API-001: Failed to create axios instance:', error);
+      console.error('   Falling back to default axios instance');
+      // CRASH PREVENTION: Fallback to default axios instance
+      this.api = axios;
+    }
 
     // Add request interceptor to include auth token and organization context
     this.api.interceptors.request.use(
@@ -82,10 +89,48 @@ class ApiService {
           console.warn(`[API] No response: ${config?.url}`, error.message);
         }
 
-        // Handle 401 errors (authentication issues)
-        if (error.response?.status === 401) {
-          // CRASH FIX: Use 'authToken' to match AuthContext storage key
+        // FIX #3: Handle 401 errors with token refresh logic
+        if (error.response?.status === 401 && !config._retry) {
+          config._retry = true; // Mark that we're retrying
+
+          try {
+            console.log('🔄 Token expired, attempting refresh...');
+
+            // Get refresh token from storage
+            const refreshToken = await AsyncStorage.getItem('refreshToken');
+
+            if (refreshToken) {
+              // Attempt to refresh the token
+              const response = await this.api.post('/auth/refresh', {
+                refresh_token: refreshToken
+              });
+
+              if (response.data?.access_token) {
+                // Store new tokens
+                await AsyncStorage.setItem('authToken', response.data.access_token);
+                if (response.data.refresh_token) {
+                  await AsyncStorage.setItem('refreshToken', response.data.refresh_token);
+                }
+
+                console.log('✅ Token refreshed successfully');
+
+                // Retry the original request with new token
+                config.headers.Authorization = `Bearer ${response.data.access_token}`;
+                return this.api(config);
+              }
+            }
+          } catch (refreshError) {
+            console.error('❌ Token refresh failed:', refreshError.message);
+            // Clear auth data and reject
+            await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('refreshToken');
+            await AsyncStorage.removeItem('userData');
+            return Promise.reject(error);
+          }
+
+          // If no refresh token or refresh failed, clear auth
           await AsyncStorage.removeItem('authToken');
+          await AsyncStorage.removeItem('refreshToken');
           await AsyncStorage.removeItem('userData');
           return Promise.reject(error);
         }
@@ -165,9 +210,9 @@ class ApiService {
         hasOrganizationSlug: !!organizationSlug
       });
 
-      // FAST LOGIN: Use shorter timeout for login (5 seconds max)
+      // CRASH FIX API-002: Increased timeout for slow networks (10 seconds)
       const response = await this.api.post('/auth/login', loginData, {
-        timeout: 5000,
+        timeout: 10000, // CRASH FIX: Increased from 5000 to 10000 for slow networks
         retry: 0 // No retries for login - fail fast
       });
 
@@ -378,7 +423,17 @@ class ApiService {
 
   async createFeedRecord(recordData) {
     try {
-      const response = await this.api.post('/feed-records', recordData);
+      // Transform mobile field names to backend DTO format
+      const transformedData = {
+        batchId: recordData.batchId,
+        feedType: recordData.feedType,
+        quantityKg: recordData.quantity, // mobile: quantity → backend: quantityKg
+        cost: recordData.cost || 0,
+        recordDate: recordData.date, // mobile: date → backend: recordDate
+        notes: recordData.notes || '',
+      };
+
+      const response = await this.api.post('/feed-records', transformedData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -407,7 +462,18 @@ class ApiService {
 
   async createHealthRecord(recordData) {
     try {
-      const response = await this.api.post('/health-records', recordData);
+      // Transform mobile field names to backend DTO format
+      const transformedData = {
+        batchId: recordData.batchId,
+        healthStatus: recordData.healthStatus || 'healthy',
+        symptoms: recordData.symptoms || '',
+        treatment: recordData.treatment || '',
+        medication: recordData.medication || '',
+        treatmentDate: recordData.date, // mobile: date → backend: treatmentDate
+        notes: recordData.notes || '',
+      };
+
+      const response = await this.api.post('/health-records', transformedData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -445,7 +511,16 @@ class ApiService {
 
   async createMortalityRecord(recordData) {
     try {
-      const response = await this.api.post('/mortality-records', recordData);
+      // Transform mobile field names to backend DTO format
+      const transformedData = {
+        batchId: recordData.batchId,
+        deaths: recordData.count, // mobile: count → backend: deaths
+        cause: recordData.cause || '',
+        recordDate: recordData.date, // mobile: date → backend: recordDate
+        notes: recordData.notes || '',
+      };
+
+      const response = await this.api.post('/mortality-records', transformedData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -474,7 +549,17 @@ class ApiService {
 
   async createProductionRecord(recordData) {
     try {
-      const response = await this.api.post('/production-records', recordData);
+      // Transform mobile field names to backend DTO format
+      const transformedData = {
+        batchId: recordData.batchId,
+        eggsCollected: recordData.eggsCollected || 0,
+        brokenEggs: recordData.brokenEggs || 0,
+        abnormalEggs: recordData.abnormalEggs || 0,
+        recordDate: recordData.date, // mobile: date → backend: recordDate
+        notes: recordData.notes || '',
+      };
+
+      const response = await this.api.post('/production-records', transformedData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -530,7 +615,18 @@ class ApiService {
 
   async createWaterRecord(recordData) {
     try {
-      const response = await this.api.post('/water-records', recordData);
+      // Transform mobile field names to backend DTO format
+      const transformedData = {
+        batchId: recordData.batchId,
+        dateRecorded: recordData.date || recordData.dateRecorded, // mobile: date → backend: dateRecorded
+        quantityLiters: parseFloat(recordData.quantityLiters),
+        waterSource: recordData.waterSource || null,
+        quality: recordData.quality || null,
+        temperature: recordData.temperature ? parseFloat(recordData.temperature) : null,
+        notes: recordData.notes || '',
+      };
+
+      const response = await this.api.post('/water-records', transformedData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -549,6 +645,52 @@ class ApiService {
   async deleteWaterRecord(recordId) {
     try {
       const response = await this.api.delete(`/water-records/${recordId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // Vaccination Records endpoints
+  async getVaccinations() {
+    try {
+      const response = await this.api.get('/health-records/vaccinations/all');
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getVaccinationsByBatch(batchId) {
+    try {
+      const response = await this.api.get(`/health-records/vaccinations/batch/${batchId}`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async createVaccination(vaccinationData) {
+    try {
+      const response = await this.api.post('/health-records/vaccinations', vaccinationData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async updateVaccination(vaccinationId, vaccinationData) {
+    try {
+      const response = await this.api.put(`/health-records/${vaccinationId}`, vaccinationData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async deleteVaccination(vaccinationId) {
+    try {
+      const response = await this.api.delete(`/health-records/${vaccinationId}`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -595,7 +737,18 @@ class ApiService {
 
   async createWeightRecord(recordData) {
     try {
-      const response = await this.api.post('/weight-records', recordData);
+      // Transform mobile field names to backend DTO format
+      const transformedData = {
+        batchId: recordData.batchId,
+        dateRecorded: recordData.date || recordData.dateRecorded, // mobile: date → backend: dateRecorded
+        sampleSize: parseInt(recordData.sampleSize),
+        averageWeightGrams: parseFloat(recordData.averageWeight) * 1000, // mobile: kg → backend: grams
+        minWeightGrams: recordData.minWeight ? parseFloat(recordData.minWeight) * 1000 : undefined,
+        maxWeightGrams: recordData.maxWeight ? parseFloat(recordData.maxWeight) * 1000 : undefined,
+        notes: recordData.notes || '',
+      };
+
+      const response = await this.api.post('/weight-records', transformedData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -614,6 +767,119 @@ class ApiService {
   async deleteWeightRecord(recordId) {
     try {
       const response = await this.api.delete(`/weight-records/${recordId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== ANALYTICS ENDPOINTS ====================
+
+  /**
+   * Get production trends analytics (main analytics endpoint)
+   */
+  async getProductionTrends(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.farmId) queryParams.append('farmId', params.farmId);
+
+      const queryString = queryParams.toString();
+      const url = `/analytics/production-trends${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.api.get(url);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get general analytics (alias for production trends)
+   */
+  async getAnalytics(params = {}) {
+    return this.getProductionTrends(params);
+  }
+
+  /**
+   * Get trend analysis
+   */
+  async getTrends(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.metric) queryParams.append('metric', params.metric);
+      if (params.interval) queryParams.append('interval', params.interval);
+
+      const queryString = queryParams.toString();
+      const url = `/analytics/trends${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.api.get(url);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get flock performance analytics
+   */
+  async getFlockPerformance(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.batchId) queryParams.append('batchId', params.batchId);
+
+      const queryString = queryParams.toString();
+      const url = `/analytics/flocks/performance${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.api.get(url);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get financial analytics
+   */
+  async getFinancialAnalytics(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.farmId) queryParams.append('farmId', params.farmId);
+
+      const queryString = queryParams.toString();
+      const url = `/analytics/financial${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.api.get(url);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Export analytics data
+   */
+  async exportAnalytics(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.type) queryParams.append('type', params.type);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+
+      const queryString = queryParams.toString();
+      const url = `/analytics/export${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.api.get(url, {
+        responseType: params.type === 'pdf' ? 'blob' : 'json',
+      });
+
       return response.data;
     } catch (error) {
       throw this.handleError(error);

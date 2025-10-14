@@ -12,6 +12,7 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import CustomPicker from '../components/CustomPicker';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../context/AuthContext';
@@ -582,14 +583,15 @@ const RegisterScreen = ({ navigation }) => {
               >
                 <Picker.Item label="👷 Worker" value="worker" />
                 <Picker.Item label="👨‍💼 Manager" value="manager" />
-                {formData.registrationType === 'create' && (
-                  <>
-                    <Picker.Item label="👑 Admin" value="admin" />
-                    <Picker.Item label="🏆 Owner" value="owner" />
-                  </>
-                )}
+                <Picker.Item label="⭐ Admin" value="admin" />
+                <Picker.Item label="👑 Owner" value="owner" />
               </Picker>
             </View>
+            <Text style={[styles.inputHint, { color: theme.colors.textSecondary }]}>
+              {formData.registrationType === 'create'
+                ? 'Select your role in the new organization'
+                : 'Select your role. Admin/Owner roles require approval.'}
+            </Text>
           </View>
 
           {/* Password Requirements Section */}

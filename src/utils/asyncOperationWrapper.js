@@ -129,7 +129,7 @@ class AsyncOperationWrapper {
   }
 
   async safeStorageSet(key, value) {
-    return this.safeAsync(
+    const result = await this.safeAsync(
       () => AsyncStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value)),
       {
         operationName: `storage_set_${key}`,
@@ -137,10 +137,12 @@ class AsyncOperationWrapper {
         retries: 2
       }
     );
+    // CRASH FIX: AsyncStorage.setItem returns undefined/true, wrap in object to prevent "true is not a function" error
+    return { success: true, value: result };
   }
 
   async safeStorageRemove(key) {
-    return this.safeAsync(
+    const result = await this.safeAsync(
       () => AsyncStorage.removeItem(key),
       {
         operationName: `storage_remove_${key}`,
@@ -148,6 +150,8 @@ class AsyncOperationWrapper {
         retries: 1
       }
     );
+    // CRASH FIX: AsyncStorage.removeItem returns undefined/true, wrap in object to prevent "true is not a function" error
+    return { success: true, value: result };
   }
 
   /**

@@ -10,11 +10,13 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useOffline } from '../context/OfflineContext';
+import { useFarms, useBatches } from '../context/DataStoreContext';
 import fastApiService from '../services/fastApiService';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +40,8 @@ const AddExpenseScreen = ({ navigation, route }) => {
   const { user } = authContext;
   const { theme } = themeContext;
   const { isConnected } = offlineContext;
+  const { farms, loading: farmsLoading, refresh: refreshFarms } = useFarms();
+  const { batches, loading: batchesLoading, refresh: refreshBatches } = useBatches();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -54,58 +58,14 @@ const AddExpenseScreen = ({ navigation, route }) => {
     farmId: expense?.farmId || null,
     batchId: expense?.batchId || null,
   });
-
-  const [farms, setFarms] = useState([]);
-  const [batches, setBatches] = useState([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
 
-  useEffect(() => {
-    loadFarms();
-  }, []);
-
-  useEffect(() => {
-    if (formData.farmId) {
-      loadBatches(formData.farmId);
-    }
-  }, [formData.farmId]);
-
-  const loadFarms = async () => {
-    try {
-      console.log('🔄 AddExpenseScreen: Loading farms...');
-      const response = await fastApiService.get('/farms');
-      if (response.success) {
-        const farmsData = response.data || [];
-        setFarms(farmsData);
-        console.log(`✅ AddExpenseScreen: Loaded ${farmsData.length} farms`);
-      } else {
-        setFarms([]);
-        console.log('ℹ️ AddExpenseScreen: No farms found');
-      }
-    } catch (error) {
-      console.error('Error loading farms:', error);
-      setFarms([]);
-    }
-  };
-
-  const loadBatches = async (farmId) => {
-    try {
-      console.log(`🔄 AddExpenseScreen: Loading batches for farm ${farmId}...`);
-      const response = await fastApiService.get(`/flocks?farmId=${farmId}`);
-      if (response.success) {
-        const batchesData = response.data || [];
-        setBatches(batchesData);
-        console.log(`✅ AddExpenseScreen: Loaded ${batchesData.length} batches`);
-      } else {
-        setBatches([]);
-        console.log('ℹ️ AddExpenseScreen: No batches found for this farm');
-      }
-    } catch (error) {
-      console.error('Error loading batches:', error);
-      setBatches([]);
-    }
-  };
+  // Filter batches by selected farm
+  const filteredBatches = formData.farmId
+    ? batches.filter(batch => batch.farmId === formData.farmId)
+    : batches;
 
   const validateForm = () => {
     const newErrors = {};
@@ -371,18 +331,18 @@ const AddExpenseScreen = ({ navigation, route }) => {
                 style={[styles.picker, { color: theme.text }]}
               >
                 <Picker.Item
-                  label={Array.isArray(farms) && farms.length === 0 ? "No farms available - Create a farm first" : "-- Select Farm --"}
+                  label={Array.isArray(farms) && farms.length === 0 ? "No farms - Create a farm first" : "-- Select Farm --"}
                   value=""
                 />
-                {Array.isArray(farms) && farms.map((farm) => (
-                  farm && farm.id ? (
+                {Array.isArray(farms) && farms
+                  .filter(farm => farm && (farm.id || farm._id))
+                  .map((farm) => (
                     <Picker.Item
-                      key={farm.id}
-                      label={farm.location ? `${farm.farmName || farm.name} - ${farm.location}` : (farm.farmName || farm.name)}
-                      value={String(farm.id)}
+                      key={farm.id || farm._id}
+                      label={farm.location ? `${farm.farmName || farm.name || 'Unnamed Farm'} - ${farm.location}` : (farm.farmName || farm.name || 'Unnamed Farm')}
+                      value={String(farm.id || farm._id)}
                     />
-                  ) : null
-                ))}
+                  ))}
               </Picker>
             </View>
           </View>
@@ -398,18 +358,18 @@ const AddExpenseScreen = ({ navigation, route }) => {
                   style={[styles.picker, { color: theme.text }]}
                 >
                   <Picker.Item
-                    label={Array.isArray(batches) && batches.length === 0 ? "No batches available for this farm" : "-- Select Batch --"}
+                    label={Array.isArray(filteredBatches) && filteredBatches.length === 0 ? "No batches for this farm" : "-- Select Batch --"}
                     value=""
                   />
-                  {Array.isArray(batches) && batches.map((batch) => (
-                    batch && batch.id ? (
+                  {Array.isArray(filteredBatches) && filteredBatches
+                    .filter(batch => batch && (batch.id || batch._id))
+                    .map((batch) => (
                       <Picker.Item
-                        key={batch.id}
-                        label={batch.breed && batch.quantity ? `${batch.batchName} - ${batch.breed} (${batch.quantity} birds)` : batch.batchName}
-                        value={String(batch.id)}
+                        key={batch.id || batch._id}
+                        label={batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || 'Unnamed Batch')}
+                        value={String(batch.id || batch._id)}
                       />
-                    ) : null
-                  ))}
+                    ))}
                 </Picker>
               </View>
             </View>

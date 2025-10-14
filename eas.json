@@ -28,11 +28,17 @@
     "production": {
       "extends": "base",
       "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "buildType": "app-bundle"
       },
       "ios": {
         "buildConfiguration": "Release"
+      }
+    },
+    "production-apk": {
+      "extends": "base",
+      "distribution": "store",
+      "android": {
+        "buildType": "apk"
       }
     }
   },

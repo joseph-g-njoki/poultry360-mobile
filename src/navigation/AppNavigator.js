@@ -23,6 +23,7 @@ import ExpensesScreen from '../screens/ExpensesScreen';
 import FinancialSummaryScreen from '../screens/FinancialSummaryScreen';
 import AddSaleScreen from '../screens/AddSaleScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
+import VaccinationScreen from '../screens/VaccinationScreen';
 
 // Import components
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -37,110 +38,116 @@ const Tab = createBottomTabNavigator();
 
 // Wrap screen components with ErrorBoundary
 const SafeWelcomeScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Welcome">
     <WelcomeScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeLoginScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Login">
     <LoginScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeRegisterScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Register">
     <RegisterScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeOrganizationSelectionScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Organization Selection">
     <OrganizationSelectionScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeDashboardScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Dashboard">
     <DashboardScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeFarmsScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Farms">
     <FarmsScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeBatchesScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Batches">
     <BatchesScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeRecordsScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Records">
     <RecordsScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeProfileScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Profile">
     <ProfileScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeAnalyticsScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Analytics">
     <AnalyticsScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeFlockPerformanceScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Flock Performance">
     <FlockPerformanceScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeFinancialAnalyticsScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Financial Analytics">
     <FinancialAnalyticsScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeCustomersScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Customers">
     <CustomersScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeSalesScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Sales">
     <SalesScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeExpensesScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Expenses">
     <ExpensesScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeFinancialSummaryScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Financial Summary">
     <FinancialSummaryScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeAddSaleScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Add Sale">
     <AddSaleScreen {...props} />
   </ErrorBoundary>
 );
 
 const SafeAddExpenseScreen = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary screenName="Add Expense">
     <AddExpenseScreen {...props} />
+  </ErrorBoundary>
+);
+
+const SafeVaccinationScreen = (props) => (
+  <ErrorBoundary screenName="Vaccination">
+    <VaccinationScreen {...props} />
   </ErrorBoundary>
 );
 
@@ -204,6 +211,11 @@ const AnalyticsStack = () => {
         name="AddExpense"
         component={SafeAddExpenseScreen}
         options={{ title: 'Add Expense' }}
+      />
+      <Stack.Screen
+        name="Vaccination"
+        component={SafeVaccinationScreen}
+        options={{ title: 'Vaccination Records' }}
       />
     </Stack.Navigator>
   );

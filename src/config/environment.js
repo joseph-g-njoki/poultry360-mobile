@@ -16,9 +16,9 @@ const ENV = {
   dev: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ||
             Constants.expoConfig?.extra?.apiUrl ||
-            'http://192.168.50.50:3006/api', // CRASH FIX: Updated to correct IP address
-    enableOfflineMode: false, // CRASH FIX: Disable offline mode to prevent database crashes
-    enableNotifications: false, // CRASH FIX: Disable notifications to prevent crashes
+            'https://poultry360-api.onrender.com/api', // TEMPORARY FIX: Use production API for Expo Go testing
+    enableOfflineMode: true, // Re-enabled for testing
+    enableNotifications: true, // Re-enabled for testing
     logLevel: 'debug',
   },
   staging: {

@@ -1,0 +1,12 @@
+env: load .env.local .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_ENABLE_OFFLINE_MODE EXPO_PUBLIC_ENABLE_NOTIFICATIONS EXPO_PUBLIC_APP_ENV
+Starting project at C:\Users\josep\OneDrive\Desktop\poultry360-app\mobile\poultry360-mobile
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+The following packages should be updated for best compatibility with the installed expo version:
+  expo@54.0.12 - expected version: 54.0.13
+  expo-file-system@19.0.16 - expected version: ~19.0.17
+  @types/jest@30.0.0 - expected version: 29.5.14
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.

@@ -92,6 +92,17 @@
     "welcome": "Tukusanyukidde",
     "welcomeBack": "Tukusanyukidde Nate!"
   },
+  "welcome": {
+    "selectLanguage": "Londa olulimi lwo olw'okusingamu okusobola okugenda mu maaso",
+    "description": "Enkola etuukiridde ey'okuddukanya emirimu gy'elimiro lyo ly'enkoko. Goberera okuzaala, kebera obulamu, ddukanya enteekateeka z'emmere, era weekenenyeze obulungi - byonna mu kifo kimu.",
+    "existingAccount": "Olina akawunti?",
+    "newUser": "Omupya ku Poultry360?",
+    "features": "Ebintu Ebikulu",
+    "tryDemo": "Gezaako Enkola ya Demo",
+    "demoDescription": "Vumbula app n'okuwa data ya mifaananyi - teetaagisa kuwandiisa",
+    "demoAccess": "Okuyingira mu Demo Amangu",
+    "poweredBy": "Etambuzibwa Poultry360"
+  },
   "dashboard": {
     "welcome": "Tusanyuse naawe ku Poultry360",
     "overview": "Ensonga za ku limiro",

@@ -4,6 +4,7 @@ import networkService from '../services/networkService';
 import syncService from '../services/syncService';
 import unifiedApiService from '../services/unifiedApiService';
 import databaseService from '../services/database';
+import dataEventBus, { EventTypes } from '../services/dataEventBus';
 
 const OfflineContext = createContext();
 
@@ -63,16 +64,24 @@ export const OfflineProvider = ({ children }) => {
     try {
       console.log('🔧 Initializing OfflineContext services...');
 
-      // UnifiedApiService should already be initialized by App.js
-      // So we just need to set up listeners and monitoring
+      // CRITICAL FIX: Initialize network service FIRST - required for online/offline detection
+      console.log('📡 Initializing network service...');
+      try {
+        await networkService.init();
+        console.log('✅ Network service initialized successfully');
+      } catch (networkError) {
+        console.warn('⚠️  Network service initialization failed:', networkError.message);
+        // Continue anyway - assume online mode
+      }
 
       // Set up network monitoring
-      console.log('📡 Setting up network monitoring...');
+      console.log('📡 Setting up network monitoring listeners...');
       try {
         networkUnsubscribe.current = networkService.addListener(handleNetworkChange);
 
         // Get initial network state
         const initialState = networkService.getConnectionState();
+        console.log('📊 Initial network state:', initialState);
         setIsConnected(initialState.isConnected);
         setConnectionType(initialState.connectionType);
         setConnectionQuality(initialState.connectionQuality);
@@ -87,6 +96,20 @@ export const OfflineProvider = ({ children }) => {
       } catch (syncError) {
         console.warn('Sync monitoring setup failed:', syncError.message);
       }
+
+      // Subscribe to DATA_SYNCED events from dataEventBus
+      console.log('🔄 Subscribing to DATA_SYNCED events...');
+      const dataSyncedUnsubscribe = dataEventBus.subscribe(EventTypes.DATA_SYNCED, (payload) => {
+        // CRASH FIX CR-005: Only update if component is still mounted
+        if (isMountedRef.current) {
+          console.log('[OfflineContext] DATA_SYNCED event received:', payload);
+          setLastSyncTime(new Date());
+          updateSyncStatus();
+        }
+      });
+
+      // MEMORY LEAK FIX CR-005: Store cleanup in ref instead of window
+      const dataSyncedCleanupRef = useRef(dataSyncedUnsubscribe);
 
       // Start periodic stats update
       console.log('📊 Starting stats monitoring...');
@@ -114,11 +137,20 @@ export const OfflineProvider = ({ children }) => {
     }
   };
 
+  // MEMORY LEAK FIX CR-005: Ref for event bus cleanup
+  const dataSyncedCleanupRef = useRef(null);
+
   const cleanup = () => {
     // Clean up network listener
     if (networkUnsubscribe.current) {
       networkUnsubscribe.current();
       networkUnsubscribe.current = null;
+    }
+
+    // MEMORY LEAK FIX CR-005: Clean up event bus subscription via ref
+    if (dataSyncedCleanupRef.current) {
+      dataSyncedCleanupRef.current();
+      dataSyncedCleanupRef.current = null;
     }
 
     // Clean up stats monitoring

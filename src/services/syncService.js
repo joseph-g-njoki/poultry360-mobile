@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import apiService from './api';
 import offlineDataService from './offlineDataService';
 import { syncCircuitBreaker } from '../utils/circuitBreaker';
+import dataEventBus, { EventTypes } from './dataEventBus';
 
 class SyncService {
   constructor() {
@@ -418,6 +419,15 @@ class SyncService {
         timestamp: newSyncTimestamp
       });
 
+      // Emit DATA_SYNCED event to trigger UI refresh across all screens
+      dataEventBus.emit(EventTypes.DATA_SYNCED, {
+        timestamp: newSyncTimestamp,
+        uploaded: totalPending,
+        downloaded: Object.values(serverData).reduce((sum, records) => sum + records.length, 0),
+        tables: Object.keys(serverData)
+      });
+      console.log('[SyncService] DATA_SYNCED event emitted');
+
       return {
         success: true,
         message: 'Sync completed successfully',
@@ -550,6 +560,33 @@ class SyncService {
           // Continue with other records
         }
       }
+
+      // Emit table-specific events after processing all records for this table
+      this._emitTableUpdateEvent(tableName, records.length);
+    }
+  }
+
+  // Emit appropriate event based on table name
+  _emitTableUpdateEvent(tableName, recordCount) {
+    const eventMap = {
+      'farms': EventTypes.FARM_UPDATED,
+      'poultry_batches': EventTypes.BATCH_UPDATED,
+      'feed_records': EventTypes.FEED_RECORD_UPDATED,
+      'production_records': EventTypes.PRODUCTION_RECORD_UPDATED,
+      'mortality_records': EventTypes.MORTALITY_RECORD_UPDATED,
+      'health_records': EventTypes.HEALTH_RECORD_UPDATED,
+      'water_records': EventTypes.WATER_RECORD_UPDATED,
+      'weight_records': EventTypes.WEIGHT_RECORD_UPDATED
+    };
+
+    const eventType = eventMap[tableName];
+    if (eventType) {
+      dataEventBus.emit(eventType, {
+        source: 'sync',
+        recordCount,
+        tableName
+      });
+      console.log(`[SyncService] Emitted ${eventType} event for ${recordCount} ${tableName}`);
     }
   }
 

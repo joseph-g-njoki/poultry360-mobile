@@ -62,10 +62,12 @@ class AnalyticsService {
       if (params.farmId) queryParams.append('farmId', params.farmId);
 
       const queryString = queryParams.toString();
-      // FIX: Use correct backend endpoint - /analytics/production-trends instead of /analytics/dashboard
+      // Use correct backend endpoint for dashboard analytics
       const url = `/analytics/production-trends${queryString ? `?${queryString}` : ''}`;
 
-      const response = await api.api.get(url);
+      const response = await api.api.get(url, {
+        timeout: 15000, // 15 second timeout
+      });
 
       // Cache the fresh data
       analyticsOfflineService.cacheDashboardAnalytics(params, response.data);
@@ -122,10 +124,12 @@ class AnalyticsService {
       if (params.batchId) queryParams.append('batchId', params.batchId);
 
       const queryString = queryParams.toString();
-      // FIX: Use correct backend endpoint - remove /v1 prefix
+      // Use correct backend endpoint for flock performance
       const url = `/analytics/flocks/performance${queryString ? `?${queryString}` : ''}`;
 
-      const response = await api.api.get(url);
+      const response = await api.api.get(url, {
+        timeout: 15000, // 15 second timeout
+      });
 
       // Cache the fresh data
       analyticsOfflineService.cacheFlockPerformance(params, response.data);
@@ -185,10 +189,12 @@ class AnalyticsService {
       if (params.farmId) queryParams.append('farmId', params.farmId);
 
       const queryString = queryParams.toString();
-      // FIX: Use correct backend endpoint - remove /v1 prefix
+      // Use correct backend endpoint for financial analytics
       const url = `/analytics/financial${queryString ? `?${queryString}` : ''}`;
 
-      const response = await api.api.get(url);
+      const response = await api.api.get(url, {
+        timeout: 15000, // 15 second timeout
+      });
 
       // Cache the fresh data
       analyticsOfflineService.cacheFinancialAnalytics(params, response.data);
@@ -248,10 +254,12 @@ class AnalyticsService {
       if (params.interval) queryParams.append('interval', params.interval);
 
       const queryString = queryParams.toString();
-      // FIX: Use correct backend endpoint - remove /v1 prefix
+      // Use correct backend endpoint for trends
       const url = `/analytics/trends${queryString ? `?${queryString}` : ''}`;
 
-      const response = await api.api.get(url);
+      const response = await api.api.get(url, {
+        timeout: 15000, // 15 second timeout
+      });
 
       // Cache the fresh data
       analyticsOfflineService.cacheTrends(params, response.data);

@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, languages } from '../context/LanguageContext';
 import CustomPicker from '../components/CustomPicker';

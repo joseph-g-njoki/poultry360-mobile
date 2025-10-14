@@ -2,6 +2,81 @@ import { openDatabaseSync } from 'expo-sqlite';
 import performanceOptimizer from '../utils/performanceOptimizer';
 import { databaseCircuitBreaker } from '../utils/circuitBreaker';
 
+/**
+ * CRASH FIX CR-001: Database Write Queue to prevent SQLite BUSY errors
+ * Serializes all write operations to prevent concurrent transaction deadlocks
+ */
+class DatabaseWriteQueue {
+  constructor() {
+    this.queue = [];
+    this.isProcessing = false;
+    this.operationCount = 0;
+  }
+
+  /**
+   * Enqueue a database write operation
+   * @param {Function} operation - Async function to execute
+   * @returns {Promise} - Resolves with operation result
+   */
+  async enqueue(operation) {
+    return new Promise((resolve, reject) => {
+      this.operationCount++;
+      const opId = this.operationCount;
+
+      this.queue.push({
+        id: opId,
+        operation,
+        resolve,
+        reject,
+        timestamp: Date.now()
+      });
+
+      // Start processing if not already running
+      this.process();
+    });
+  }
+
+  /**
+   * Process queued operations sequentially
+   */
+  async process() {
+    if (this.isProcessing || this.queue.length === 0) return;
+
+    this.isProcessing = true;
+
+    while (this.queue.length > 0) {
+      const { id, operation, resolve, reject, timestamp } = this.queue.shift();
+
+      // Warn if operation waited too long (> 5 seconds)
+      const waitTime = Date.now() - timestamp;
+      if (waitTime > 5000) {
+        console.warn(`[WriteQueue] Operation ${id} waited ${waitTime}ms in queue`);
+      }
+
+      try {
+        const result = await operation();
+        resolve(result);
+      } catch (error) {
+        console.error(`[WriteQueue] Operation ${id} failed:`, error.message);
+        reject(error);
+      }
+    }
+
+    this.isProcessing = false;
+  }
+
+  /**
+   * Get queue statistics
+   */
+  getStats() {
+    return {
+      pending: this.queue.length,
+      isProcessing: this.isProcessing,
+      totalOperations: this.operationCount
+    };
+  }
+}
+
 class DatabaseService {
   constructor() {
     this.db = null;
@@ -11,6 +86,64 @@ class DatabaseService {
     this.retryCount = 0;
     this.maxRetries = 3;
     this.performanceOptimizer = performanceOptimizer;
+
+    // CRASH FIX CR-001: Initialize write queue for serializing database writes
+    this.writeQueue = new DatabaseWriteQueue();
+
+    // SECURITY FIX: Whitelist of allowed table names to prevent SQL injection
+    this.ALLOWED_TABLES = [
+      'sync_queue',
+      'organizations',
+      'users',
+      'farms',
+      'poultry_batches',
+      'feed_records',
+      'production_records',
+      'mortality_records',
+      'health_records'
+    ];
+  }
+
+  /**
+   * SECURITY: Validate table name to prevent SQL injection
+   * @param {string} tableName - The table name to validate
+   * @returns {boolean} - True if valid, throws error if invalid
+   */
+  validateTableName(tableName) {
+    if (!tableName || typeof tableName !== 'string') {
+      throw new Error('Invalid table name: must be a non-empty string');
+    }
+
+    if (!this.ALLOWED_TABLES.includes(tableName)) {
+      throw new Error(`Security violation: Invalid table name '${tableName}'. Allowed tables: ${this.ALLOWED_TABLES.join(', ')}`);
+    }
+
+    return true;
+  }
+
+  /**
+   * SECURITY FIX: Validate column names to prevent SQL injection
+   * @param {string} columns - Column specification (* or comma-separated list)
+   * @returns {boolean} - True if valid, throws error if invalid
+   */
+  validateColumns(columns) {
+    if (!columns || typeof columns !== 'string') {
+      throw new Error('Invalid columns: must be a non-empty string');
+    }
+
+    // Allow wildcard
+    if (columns === '*') {
+      return true;
+    }
+
+    // Validate column syntax: alphanumeric, underscore, comma, space only
+    // This prevents SQL injection via column names
+    const columnRegex = /^[a-zA-Z0-9_,\s]+$/;
+    if (!columnRegex.test(columns)) {
+      throw new Error(`Security violation: Invalid column specification '${columns}'. Only alphanumeric, underscore, comma, and spaces allowed.`);
+    }
+
+    return true;
   }
 
   async init() {
@@ -411,11 +544,14 @@ class DatabaseService {
         this.db.execSync('COMMIT;');
         console.log('✅ Database schema transaction committed');
 
-        // BACKGROUND: Create remaining indexes after initialization (non-blocking)
-        setImmediate(() => {
+        // CRASH FIX CR-001: Use write queue for background index creation
+        // This prevents SQLITE_BUSY errors when user tries to write during index creation
+        setImmediate(async () => {
           try {
-            console.log('📦 Background: Creating additional indexes...');
-            this.db.execSync('BEGIN TRANSACTION;');
+            console.log('📦 Background: Creating additional indexes via write queue...');
+
+            await this.writeQueue.enqueue(async () => {
+              this.db.execSync('BEGIN TRANSACTION;');
 
             const backgroundIndexes = [
               'CREATE INDEX IF NOT EXISTS idx_sync_queue_table ON sync_queue(table_name);',
@@ -436,12 +572,13 @@ class DatabaseService {
               'CREATE INDEX IF NOT EXISTS idx_mortality_batch_date ON mortality_records(batch_id, date);'
             ];
 
-            for (const indexSql of backgroundIndexes) {
-              this.db.execSync(indexSql);
-            }
+              for (const indexSql of backgroundIndexes) {
+                this.db.execSync(indexSql);
+              }
 
-            this.db.execSync('COMMIT;');
-            console.log('✅ Background: Additional 16 indexes created (total 21 indexes)');
+              this.db.execSync('COMMIT;');
+              console.log('✅ Background: Additional 16 indexes created (total 21 indexes)');
+            });
           } catch (bgError) {
             console.error('❌ Background index creation failed:', bgError);
             try { this.db.execSync('ROLLBACK;'); } catch (e) {}
@@ -569,8 +706,11 @@ class DatabaseService {
         return null; // Return null instead of throwing
       }
 
-      if (!tableName || typeof tableName !== 'string') {
-        console.error('[Database] Insert failed - invalid table name');
+      // SECURITY FIX: Validate table name to prevent SQL injection
+      try {
+        this.validateTableName(tableName);
+      } catch (error) {
+        console.error('[Database] Insert failed - invalid table name:', error.message);
         return null;
       }
 
@@ -627,8 +767,11 @@ class DatabaseService {
         return 0; // Return 0 changes instead of throwing
       }
 
-      if (!tableName || typeof tableName !== 'string') {
-        console.error('[Database] Update failed - invalid table name');
+      // SECURITY FIX: Validate table name to prevent SQL injection
+      try {
+        this.validateTableName(tableName);
+      } catch (error) {
+        console.error('[Database] Update failed - invalid table name:', error.message);
         return 0;
       }
 
@@ -672,6 +815,14 @@ class DatabaseService {
         return 0;
       }
 
+      // SECURITY FIX: Validate table name to prevent SQL injection
+      try {
+        this.validateTableName(tableName);
+      } catch (error) {
+        console.error('[Database] Delete failed - invalid table name:', error.message);
+        return 0;
+      }
+
       const result = this.db.runSync(
         `DELETE FROM ${tableName} WHERE ${whereClause}`,
         whereValues
@@ -711,6 +862,22 @@ class DatabaseService {
     try {
       if (!this.db) {
         console.error('[Database] Select failed - database not initialized');
+        return [];
+      }
+
+      // SECURITY FIX: Validate table name to prevent SQL injection
+      try {
+        this.validateTableName(tableName);
+      } catch (error) {
+        console.error('[Database] Select failed - invalid table name:', error.message);
+        return [];
+      }
+
+      // SECURITY FIX CR-007: Validate columns to prevent SQL injection
+      try {
+        this.validateColumns(columns);
+      } catch (error) {
+        console.error('[Database] Select failed - invalid columns:', error.message);
         return [];
       }
 
@@ -766,6 +933,22 @@ class DatabaseService {
         return [];
       }
 
+      // SECURITY FIX: Validate table name
+      try {
+        this.validateTableName(tableName);
+      } catch (error) {
+        console.error('[Database] SelectUnlimited failed - invalid table name:', error.message);
+        return [];
+      }
+
+      // SECURITY FIX CR-007: Validate columns
+      try {
+        this.validateColumns(columns);
+      } catch (error) {
+        console.error('[Database] SelectUnlimited failed - invalid columns:', error.message);
+        return [];
+      }
+
       // Warn about unlimited query
       console.warn(`[Database] UNLIMITED query on ${tableName} - risk of OOM!`);
 
@@ -792,6 +975,22 @@ class DatabaseService {
     try {
       if (!this.db) {
         console.error('[Database] SelectOne failed - database not initialized');
+        return null;
+      }
+
+      // SECURITY FIX: Validate table name
+      try {
+        this.validateTableName(tableName);
+      } catch (error) {
+        console.error('[Database] SelectOne failed - invalid table name:', error.message);
+        return null;
+      }
+
+      // SECURITY FIX CR-007: Validate columns
+      try {
+        this.validateColumns(columns);
+      } catch (error) {
+        console.error('[Database] SelectOne failed - invalid columns:', error.message);
         return null;
       }
 
@@ -991,12 +1190,20 @@ class DatabaseService {
 
   // Emergency recovery methods
   async emergencyRecovery() {
+    // CRASH FIX CRITICAL-003: Check if already initializing to prevent concurrent recovery
+    if (this.isInitializing) {
+      console.log('🛑 CRASH FIX CRITICAL-003: Emergency recovery blocked - initialization already in progress');
+      return false;
+    }
+
+    // Set lock immediately to prevent concurrent calls
+    this.isInitializing = true;
+
     try {
       console.log('[Database] Starting emergency recovery...');
 
-      // Reset initialization state
+      // Reset initialization state (keep lock active)
       this.isInitialized = false;
-      this.isInitializing = false;
       this.initPromise = null;
 
       // Close existing connection
@@ -1004,13 +1211,16 @@ class DatabaseService {
         this.db = null;
       }
 
-      // Force fresh initialization
+      // Force fresh initialization (will reset isInitializing flag when done)
       return await this.init();
 
     } catch (error) {
       // SILENT FIX: Log error but never throw - return false
       console.error('[Database] Emergency recovery failed:', error?.message || error);
       return false;
+    } finally {
+      // CRASH FIX CRITICAL-003: Always release lock, even on failure
+      this.isInitializing = false;
     }
   }
 

@@ -293,6 +293,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 
 // Import fast services for instant initialization
 import fastApiService from './src/services/fastApiService';
+import fastDatabase from './src/services/fastDatabase';
 import iosOptimizations from './src/services/iosOptimizations';
 import memoryManager from './src/utils/memoryManager';
 import unifiedApiService from './src/services/unifiedApiService';
@@ -360,38 +361,64 @@ export default function App() {
           setIsAppReady(true); // SHOW UI NOW - don't wait for database
         }
 
-        // BACKGROUND: Initialize database ONLY (no sync, no network)
+        // CRASH FIX: RE-ENABLE DATABASE with proper error handling and fallback
+        // Initialize database in background with comprehensive error recovery
+        console.log('🚀 CRASH FIX: Starting database initialization with error recovery...');
+
         setImmediate(async () => {
           try {
-            console.log('📦 Background: Starting OFFLINE-ONLY database initialization...');
+            console.log('📦 Background: Initializing database...');
 
-            // Initialize database with migrations
-            try {
-              console.log('🔄 Background: Initializing database...');
-              await databaseMigration.runMigrations();
-              console.log('✅ Background: Database initialized and migrations complete');
+            // CRITICAL FIX: Verify fastDatabase was initialized by fastApiService.init()
+            if (!fastApiService.isReady) {
+              console.error('❌ CRITICAL: fastApiService not ready, database may be null');
+              console.log('🔄 Attempting manual fastApiService initialization...');
 
-              if (isMounted) {
-                setOnlineOnlyMode(false); // Database is ready
-              }
-            } catch (dbError) {
-              console.error('❌ Background: Database initialization failed:', dbError?.message);
-              console.warn('⚠️ Background: Continuing without database');
-              if (isMounted) {
-                setOnlineOnlyMode(true);
+              const retryInit = await fastApiService.init();
+              if (!retryInit) {
+                throw new Error('fastApiService initialization failed completely');
               }
             }
 
-            // CRITICAL FIX: DISABLE auto-sync service to prevent errors
-            // autoSyncService.init();
-            console.log('⏭️ Background: Auto-sync service DISABLED (offline-only mode)');
+            // Double-check database connection is valid
+            const dbCheck = fastDatabase.db;
+            const dbReady = fastDatabase.isReady;
+
+            console.log(`📊 Database status check:`);
+            console.log(`   - fastDatabase.db: ${dbCheck ? 'VALID' : 'NULL'}`);
+            console.log(`   - fastDatabase.isReady: ${dbReady}`);
+
+            if (!dbCheck || !dbReady) {
+              console.error('❌ CRITICAL: Database connection is null after init');
+              throw new Error('Database connection failed - null database');
+            }
+
+            console.log('✅ Background: Database verified and ready');
+
+            // Run database migrations only if database is ready
+            await databaseMigration.runMigrations();
+            console.log('✅ Background: Database migrations complete');
+
+            // Initialize auto-sync service
+            autoSyncService.init();
+            console.log('✅ Background: Auto-sync service initialized');
+
+            // Mark online-only mode as false (database is working)
+            if (isMounted) {
+              setOnlineOnlyMode(false);
+            }
 
           } catch (error) {
-            console.warn('⚠️ Offline initialization failed:', error?.message);
+            console.error('❌ CRITICAL: Database initialization failed completely');
+            console.error('   Error:', error?.message);
+            console.error('   Stack:', error?.stack);
+
+            // CRASH PREVENTION: Fall back to online-only mode
+            console.warn('⚠️ FALLBACK: Continuing in online-only mode (database disabled)');
             if (isMounted) {
               setOnlineOnlyMode(true);
+              setDatabaseError(error);
             }
-            // Don't crash - just continue without offline features
           }
         });
 

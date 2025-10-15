@@ -360,29 +360,37 @@ export default function App() {
           setIsAppReady(true); // SHOW UI NOW - don't wait for database
         }
 
-        // CRASH FIX: DISABLE DATABASE - Run in online-only mode to prevent crashes
-        // Database initialization causes crashes, so we'll skip it entirely
-        console.log('🚀 CRASH FIX: Running in online-only mode (database disabled)');
-        if (isMounted) {
-          setOnlineOnlyMode(true);
-        }
-
-        // BACKGROUND: Initialize offline-first features
+        // BACKGROUND: Initialize database ONLY (no sync, no network)
         setImmediate(async () => {
           try {
-            console.log('📦 Background: Starting offline-first initialization...');
+            console.log('📦 Background: Starting OFFLINE-ONLY database initialization...');
 
-            // Run database migrations
-            await databaseMigration.runMigrations();
-            console.log('✅ Background: Database migrations complete');
+            // Initialize database with migrations
+            try {
+              console.log('🔄 Background: Initializing database...');
+              await databaseMigration.runMigrations();
+              console.log('✅ Background: Database initialized and migrations complete');
 
-            // Initialize auto-sync service
-            autoSyncService.init();
-            console.log('✅ Background: Auto-sync service initialized');
+              if (isMounted) {
+                setOnlineOnlyMode(false); // Database is ready
+              }
+            } catch (dbError) {
+              console.error('❌ Background: Database initialization failed:', dbError?.message);
+              console.warn('⚠️ Background: Continuing without database');
+              if (isMounted) {
+                setOnlineOnlyMode(true);
+              }
+            }
+
+            // CRITICAL FIX: DISABLE auto-sync service to prevent errors
+            // autoSyncService.init();
+            console.log('⏭️ Background: Auto-sync service DISABLED (offline-only mode)');
 
           } catch (error) {
-            console.warn('⚠️ Offline-first initialization failed - continuing in online-only mode');
-            console.warn('Error:', error?.message);
+            console.warn('⚠️ Offline initialization failed:', error?.message);
+            if (isMounted) {
+              setOnlineOnlyMode(true);
+            }
             // Don't crash - just continue without offline features
           }
         });

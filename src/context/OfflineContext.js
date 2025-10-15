@@ -62,75 +62,40 @@ export const OfflineProvider = ({ children }) => {
 
   const initializeServices = async () => {
     try {
-      console.log('🔧 Initializing OfflineContext services...');
+      console.log('🔧 OFFLINE-ONLY MODE: Minimal initialization...');
 
-      // CRITICAL FIX: Initialize network service FIRST - required for online/offline detection
-      console.log('📡 Initializing network service...');
-      try {
-        await networkService.init();
-        console.log('✅ Network service initialized successfully');
-      } catch (networkError) {
-        console.warn('⚠️  Network service initialization failed:', networkError.message);
-        // Continue anyway - assume online mode
-      }
+      // CRITICAL FIX: DISABLE ALL NETWORK FEATURES - Pure offline mode
+      console.log('📴 Network features DISABLED - running in pure offline mode');
 
-      // Set up network monitoring
-      console.log('📡 Setting up network monitoring listeners...');
-      try {
-        networkUnsubscribe.current = networkService.addListener(handleNetworkChange);
+      // Set offline state
+      setIsConnected(false);
+      setConnectionType('offline');
+      setConnectionQuality('offline');
+      setForceOfflineMode(true);
+      setAutoSyncEnabled(false);
 
-        // Get initial network state
-        const initialState = networkService.getConnectionState();
-        console.log('📊 Initial network state:', initialState);
-        setIsConnected(initialState.isConnected);
-        setConnectionType(initialState.connectionType);
-        setConnectionQuality(initialState.connectionQuality);
-      } catch (networkError) {
-        console.warn('Network monitoring setup failed:', networkError.message);
-      }
+      console.log('✅ OFFLINE-ONLY MODE initialized - no network/sync services loaded');
 
-      // Set up sync monitoring
-      console.log('🔄 Setting up sync monitoring...');
-      try {
-        syncService.addSyncCallback(handleSyncStatusChange);
-      } catch (syncError) {
-        console.warn('Sync monitoring setup failed:', syncError.message);
-      }
+      // CRITICAL FIX: SKIP ALL SYNC-RELATED FEATURES
+      console.log('⏭️ Skipping event subscriptions (offline-only mode)');
+      console.log('⏭️ Skipping stats monitoring (offline-only mode)');
+      console.log('⏭️ Skipping sync status updates (offline-only mode)');
 
-      // Subscribe to DATA_SYNCED events from dataEventBus
-      console.log('🔄 Subscribing to DATA_SYNCED events...');
-      const dataSyncedUnsubscribe = dataEventBus.subscribe(EventTypes.DATA_SYNCED, (payload) => {
-        // CRASH FIX CR-005: Only update if component is still mounted
-        if (isMountedRef.current) {
-          console.log('[OfflineContext] DATA_SYNCED event received:', payload);
-          setLastSyncTime(new Date());
-          updateSyncStatus();
-        }
+      // Set safe default stats
+      setStorageStats({
+        farms: 0,
+        batches: 0,
+        feedRecords: 0,
+        productionRecords: 0,
+        mortalityRecords: 0,
+        healthRecords: 0,
+        pendingSync: 0,
+        failedSync: 0,
+        total: 0,
+        error: null
       });
 
-      // MEMORY LEAK FIX CR-005: Store cleanup in ref instead of window
-      const dataSyncedCleanupRef = useRef(dataSyncedUnsubscribe);
-
-      // Start periodic stats update
-      console.log('📊 Starting stats monitoring...');
-      startStatsMonitoring();
-
-      // CRASH FIX: Delay initial sync status load to give database time to initialize
-      // Database initialization happens in parallel with OfflineContext initialization
-      // We need to wait for it to be ready before querying
-      console.log('📋 Scheduling initial sync status load...');
-      setTimeout(async () => {
-        if (isMountedRef.current) {
-          try {
-            await updateSyncStatus();
-            console.log('✅ Initial sync status loaded');
-          } catch (error) {
-            console.warn('⚠️ Initial sync status load failed (non-critical):', error.message);
-          }
-        }
-      }, 2000); // Wait 2 seconds for database to initialize
-
-      console.log('✅ OfflineContext initialized successfully');
+      console.log('✅ OfflineContext initialized in OFFLINE-ONLY mode');
     } catch (error) {
       console.error('❌ Failed to initialize offline services:', error);
       // Don't throw - allow app to continue with limited functionality
@@ -389,45 +354,14 @@ export const OfflineProvider = ({ children }) => {
     }
   };
 
-  // Manual sync trigger
+  // Manual sync trigger - DISABLED in offline-only mode
   const performSync = useCallback(async () => {
-    try {
-      // CRASH FIX: Don't sync when app is backgrounded
-      if (AppState.currentState !== 'active') {
-        console.log('App in background, skipping sync');
-        return { success: false, message: 'App in background' };
-      }
-
-      if (!isConnected && !forceOfflineMode) {
-        throw new Error('No internet connection available');
-      }
-
-      if (isSyncing) {
-        console.log('Sync already in progress');
-        return { success: false, message: 'Sync already in progress' };
-      }
-
-      const result = await unifiedApiService.performSync();
-
-      // Update status and stats safely
-      try {
-        await updateSyncStatus();
-      } catch (statusError) {
-        console.warn('Failed to update sync status after sync:', statusError.message);
-      }
-
-      try {
-        await updateStorageStats();
-      } catch (statsError) {
-        console.warn('Failed to update storage stats after sync:', statsError.message);
-      }
-
-      return result || { success: false, error: 'Sync returned no result' };
-    } catch (error) {
-      console.error('Manual sync failed:', error);
-      return { success: false, error: error.message || 'Unknown sync error' };
-    }
-  }, [isConnected, forceOfflineMode, isSyncing]);
+    console.log('⏭️ Sync DISABLED in offline-only mode');
+    return {
+      success: false,
+      message: 'Sync disabled - app running in offline-only mode'
+    };
+  }, []);
 
   // Force offline mode toggle
   const toggleForceOfflineMode = useCallback(() => {

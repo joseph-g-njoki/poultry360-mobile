@@ -10,12 +10,43 @@ class FastApiService {
   // INSTANT initialization - no complex logic
   init() {
     try {
+      console.log('🔄 FastApiService: Starting initialization...');
+
+      // CRITICAL FIX: Initialize database synchronously with error checking
+      const dbInitResult = fastDatabase.init();
+
+      if (!dbInitResult) {
+        console.error('❌ FastApiService: Database initialization returned false');
+        console.warn('⚠️ FastApiService: Continuing without database - operations will fail');
+        this.isReady = false;
+        // Don't throw - allow app to continue without database
+        return Promise.resolve(false);
+      }
+
+      if (!fastDatabase.db || !fastDatabase.isReady) {
+        console.error('❌ FastApiService: Database connection is null or not ready');
+        console.error('   - fastDatabase.db:', fastDatabase.db ? 'EXISTS' : 'NULL');
+        console.error('   - fastDatabase.isReady:', fastDatabase.isReady);
+        console.warn('⚠️ FastApiService: Continuing without database - operations will fail');
+        this.isReady = false;
+        // Don't throw - allow app to continue without database
+        return Promise.resolve(false);
+      }
+
+      console.log('✅ FastApiService: Database initialized successfully');
+      console.log('   - fastDatabase.db: VALID');
+      console.log('   - fastDatabase.isReady: true');
+
       this.isReady = true;
-      fastDatabase.init(); // This is instant
       return Promise.resolve(true);
     } catch (error) {
-      this.isReady = true; // Always continue
-      return Promise.resolve(true);
+      console.error('❌ FastApiService init failed with exception:', error);
+      console.error('   Error message:', error.message);
+      console.error('   Error stack:', error.stack);
+      this.isReady = false;
+      // Don't throw - allow app to continue without database
+      console.warn('⚠️ FastApiService: Continuing without database - operations will fail');
+      return Promise.resolve(false);
     }
   }
 
@@ -332,7 +363,28 @@ class FastApiService {
   // REAL FARM OPERATIONS
   async createFarm(farmData) {
     try {
+      console.log('🔄 FastApiService.createFarm() called with data:', farmData);
+
+      // CRITICAL FIX: Check if database is ready before attempting to create farm
+      if (!fastDatabase.db || !fastDatabase.isReady) {
+        console.error('❌ FastApiService.createFarm(): Database not ready');
+        console.error('   - fastDatabase.db:', fastDatabase.db ? 'EXISTS' : 'NULL');
+        console.error('   - fastDatabase.isReady:', fastDatabase.isReady);
+
+        // Try to initialize database one more time
+        console.log('🔄 FastApiService: Attempting to initialize database...');
+        const initResult = fastDatabase.init();
+
+        if (!initResult || !fastDatabase.db || !fastDatabase.isReady) {
+          throw new Error('Database is not available. Please restart the app.');
+        }
+
+        console.log('✅ FastApiService: Database initialized successfully on retry');
+      }
+
       const result = fastDatabase.createFarm(farmData);
+
+      console.log('✅ FastApiService: Farm created successfully:', result);
 
       // CRITICAL FIX: Emit FARM_CREATED event to trigger dashboard refresh
       console.log('✅ Farm created, emitting FARM_CREATED event');
@@ -347,6 +399,9 @@ class FastApiService {
         source: 'local'
       };
     } catch (error) {
+      console.error('❌ FastApiService.createFarm() failed:', error);
+      console.error('   Error message:', error.message);
+      console.error('   Error stack:', error.stack);
       return {
         success: false,
         error: error.message

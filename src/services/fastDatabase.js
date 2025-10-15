@@ -6,21 +6,50 @@ class FastDatabaseService {
     this.isReady = false;
   }
 
-  // CRASH FIX: INSTANT initialization - WITH PROPER ERROR REPORTING
+  // CRASH FIX: INSTANT initialization - WITH PROPER ERROR REPORTING AND NULL PREVENTION
   init() {
     try {
       if (this.isReady && this.db) {
         console.log('✅ FastDatabase: Already initialized');
-        return true;
+        // CRITICAL FIX: Double-check database is actually valid
+        try {
+          this.db.getFirstSync('SELECT 1 as test');
+          console.log('✅ FastDatabase: Database connection verified');
+          return true;
+        } catch (verifyError) {
+          console.error('❌ FastDatabase: Database connection invalid, reinitializing...');
+          this.db = null;
+          this.isReady = false;
+          // Fall through to reinitialize
+        }
       }
 
       console.log('🔄 FastDatabase: Starting initialization...');
 
-      // Open database synchronously - use same file as main database service
+      // CRITICAL FIX: Open database with explicit null check
       this.db = openDatabaseSync('poultry360_offline.db');
+
+      if (!this.db) {
+        console.error('❌ CRITICAL: openDatabaseSync returned NULL');
+        throw new Error('openDatabaseSync returned null database');
+      }
+
       console.log('✅ FastDatabase: Database file opened');
 
-      // Test database connection
+      // CRITICAL FIX: Test database connection IMMEDIATELY
+      try {
+        const testResult = this.db.getFirstSync('SELECT 1 as test');
+        if (!testResult || testResult.test !== 1) {
+          throw new Error('Database connectivity test failed - invalid result');
+        }
+        console.log('✅ FastDatabase: Database connectivity verified');
+      } catch (testError) {
+        console.error('❌ CRITICAL: Database connectivity test failed:', testError);
+        this.db = null;
+        throw new Error(`Database connectivity test failed: ${testError.message}`);
+      }
+
+      // Enable foreign keys
       this.db.execSync('PRAGMA foreign_keys = ON;');
       console.log('✅ FastDatabase: Foreign keys enabled');
 
@@ -39,6 +68,24 @@ class FastDatabaseService {
       // Silent fallback - create in-memory database
       try {
         this.db = openDatabaseSync(':memory:');
+
+        if (!this.db) {
+          console.error('❌ CRITICAL: In-memory database also returned NULL');
+          throw new Error('In-memory database creation failed - null database');
+        }
+
+        // Test in-memory database
+        try {
+          const testResult = this.db.getFirstSync('SELECT 1 as test');
+          if (!testResult || testResult.test !== 1) {
+            throw new Error('In-memory database test failed');
+          }
+        } catch (testError) {
+          console.error('❌ CRITICAL: In-memory database test failed:', testError);
+          this.db = null;
+          throw new Error(`In-memory database test failed: ${testError.message}`);
+        }
+
         console.log('⚠️ FastDatabase: Using in-memory fallback database');
         this.createBasicTablesIfNeeded();
         this.isReady = true;
@@ -46,14 +93,47 @@ class FastDatabaseService {
         return true;
       } catch (fallbackError) {
         console.error('❌ FastDatabase: Even fallback failed:', fallbackError);
-        // CRITICAL FIX: THROW ERROR instead of returning false
-        // This ensures app knows database is not available
+        // CRITICAL FIX: ENSURE database is NULL and isReady is FALSE
         this.isReady = false;
         this.db = null;
 
         // IMPORTANT: Throw instead of silent failure
         throw new Error(`Database initialization failed completely: ${fallbackError.message}`);
       }
+    }
+  }
+
+  // CRITICAL FIX: Global database state verification - NEVER THROWS, ALWAYS HANDLES GRACEFULLY
+  // This method attempts to initialize database if needed, returns true/false for success
+  ensureDatabaseReady() {
+    if (this.isReady && this.db) {
+      // Database is ready, verify it's still working
+      try {
+        this.db.getFirstSync('SELECT 1 as test');
+        return true;
+      } catch (testError) {
+        console.error('❌ Database connection lost, attempting recovery:', testError.message);
+        this.db = null;
+        this.isReady = false;
+        // Fall through to re-initialize
+      }
+    }
+
+    // Database not ready or connection lost - attempt to initialize
+    try {
+      console.log('🔄 Database not ready, attempting initialization...');
+      const initResult = this.init();
+
+      if (!initResult || !this.db || !this.isReady) {
+        console.error('❌ Database initialization failed - operations will use fallback mode');
+        return false;
+      }
+
+      console.log('✅ Database initialized successfully');
+      return true;
+    } catch (initError) {
+      console.error('❌ Database initialization threw error:', initError.message);
+      return false;
     }
   }
 
@@ -589,7 +669,7 @@ class FastDatabaseService {
     }
   }
 
-  // CRASH FIX: FARM CRUD OPERATIONS with comprehensive error handling
+  // CRASH FIX: FARM CRUD OPERATIONS with comprehensive error handling - NEVER CRASHES
   createFarm(farmData) {
     try {
       // CRASH FIX: Validate input
@@ -597,17 +677,9 @@ class FastDatabaseService {
         throw new Error('Invalid farm data provided');
       }
 
-      // CRASH FIX: Ensure database is ready
-      if (!this.isReady || !this.db) {
-        const initResult = this.init();
-        if (!initResult || !this.db) {
-          throw new Error('Database not available');
-        }
-      }
-
-      // CRASH FIX: Validate database has required methods
-      if (typeof this.db.runSync !== 'function') {
-        throw new Error('Database runSync method not available');
+      // CRITICAL FIX: Ensure database is ready - if not, throw clear error for user
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
       const result = this.db.runSync(
@@ -764,27 +836,39 @@ class FastDatabaseService {
         throw new Error('Invalid currentCount: must be a non-negative number');
       }
 
-      // CRASH FIX: Ensure database is ready
-      if (!this.isReady || !this.db) {
-        const initResult = this.init();
-        if (!initResult || !this.db) {
-          throw new Error('Database not available for batch creation');
-        }
+      // CRITICAL FIX: Ensure database is ready - if not, throw clear error for user
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
       // CRITICAL CRASH FIX: Verify farm exists BEFORE attempting to insert batch
       // This prevents SQLite foreign key constraint violation crash
       console.log(`🔄 FastDatabase: Verifying farm ${farmIdNum} exists before creating batch...`);
+
+      // DEBUGGING: List all farms in database first
+      try {
+        const allFarms = this.db.getAllSync(`SELECT id, farm_name, location, is_deleted FROM farms`);
+        console.log(`📊 FastDatabase: Current farms in database (${allFarms.length} total):`);
+        allFarms.forEach(farm => {
+          console.log(`   - Farm ID ${farm.id}: ${farm.farm_name} (${farm.location}) - is_deleted: ${farm.is_deleted}`);
+        });
+      } catch (listError) {
+        console.warn(`⚠️ FastDatabase: Could not list farms for debugging:`, listError.message);
+      }
+
       const farmExists = this.db.getFirstSync(
-        `SELECT id FROM farms WHERE id = ? AND (is_deleted = 0 OR is_deleted IS NULL)`,
+        `SELECT id, farm_name FROM farms WHERE id = ? AND (is_deleted = 0 OR is_deleted IS NULL)`,
         [farmIdNum]
       );
 
+      console.log(`🔍 FastDatabase: Farm lookup result for ID ${farmIdNum}:`, farmExists);
+
       if (!farmExists) {
         console.error(`❌ FastDatabase: Farm with ID ${farmIdNum} does not exist in database`);
+        console.error(`   Searched for: id = ${farmIdNum} AND (is_deleted = 0 OR is_deleted IS NULL)`);
         throw new Error(`Farm with ID ${farmIdNum} not found. Please select a valid farm from the list.`);
       }
-      console.log(`✅ FastDatabase: Farm ${farmIdNum} exists, proceeding with batch creation`);
+      console.log(`✅ FastDatabase: Farm ${farmIdNum} ("${farmExists.farm_name}") exists, proceeding with batch creation`);
 
       console.log('🔄 FastDatabase: Creating batch with data:', {
         batchName: batchData.batchName,
@@ -824,7 +908,24 @@ class FastDatabaseService {
 
   updateBatch(batchId, batchData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!batchId || !batchData || typeof batchData !== 'object') {
+        throw new Error('Invalid batch ID or data provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for batch update');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(
         `UPDATE poultry_batches SET batch_name = ?, breed = ?, initial_count = ?, current_count = ?, farm_id = ?, arrival_date = ?, status = ? WHERE id = ?`,
         [
@@ -840,13 +941,31 @@ class FastDatabaseService {
       );
       return { id: batchId, ...batchData };
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to update batch:', error.message);
       throw new Error(`Failed to update batch: ${error.message}`);
     }
   }
 
   deleteBatch(batchId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!batchId) {
+        throw new Error('Invalid batch ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for batch deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       // Delete all related records first
       this.db.runSync(`DELETE FROM feed_records WHERE batch_id = ?`, [batchId]);
       this.db.runSync(`DELETE FROM health_records WHERE batch_id = ?`, [batchId]);
@@ -857,6 +976,7 @@ class FastDatabaseService {
       this.db.runSync(`DELETE FROM poultry_batches WHERE id = ?`, [batchId]);
       return true;
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to delete batch:', error.message);
       throw new Error(`Failed to delete batch: ${error.message}`);
     }
   }
@@ -873,13 +993,23 @@ class FastDatabaseService {
   // FEED RECORDS CRUD OPERATIONS
   createFeedRecord(recordData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordData || typeof recordData !== 'object') {
+        throw new Error('Invalid feed record data provided');
+      }
+
+      // CRITICAL FIX: Ensure database is ready
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
+      }
+
       const result = this.db.runSync(
         `INSERT INTO feed_records (farm_id, batch_id, date, quantity, feed_type, cost, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [recordData.farmId, recordData.batchId, recordData.date, recordData.quantity, recordData.feedType, recordData.cost, recordData.notes]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to create feed record:', error.message);
       throw new Error(`Failed to create feed record: ${error.message}`);
     }
   }
@@ -895,10 +1025,28 @@ class FastDatabaseService {
 
   deleteFeedRecord(recordId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordId) {
+        throw new Error('Invalid record ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for feed record deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(`DELETE FROM feed_records WHERE id = ?`, [recordId]);
       return true;
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to delete feed record:', error.message);
       throw new Error(`Failed to delete feed record: ${error.message}`);
     }
   }
@@ -906,13 +1054,23 @@ class FastDatabaseService {
   // HEALTH RECORDS CRUD OPERATIONS
   createHealthRecord(recordData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordData || typeof recordData !== 'object') {
+        throw new Error('Invalid health record data provided');
+      }
+
+      // CRITICAL FIX: Ensure database is ready
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
+      }
+
       const result = this.db.runSync(
         `INSERT INTO health_records (farm_id, batch_id, date, health_status, treatment, notes) VALUES (?, ?, ?, ?, ?, ?)`,
         [recordData.farmId, recordData.batchId, recordData.date, recordData.healthStatus, recordData.treatment, recordData.notes]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to create health record:', error.message);
       throw new Error(`Failed to create health record: ${error.message}`);
     }
   }
@@ -928,10 +1086,28 @@ class FastDatabaseService {
 
   deleteHealthRecord(recordId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordId) {
+        throw new Error('Invalid record ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for health record deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(`DELETE FROM health_records WHERE id = ?`, [recordId]);
       return true;
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to delete health record:', error.message);
       throw new Error(`Failed to delete health record: ${error.message}`);
     }
   }
@@ -939,7 +1115,15 @@ class FastDatabaseService {
   // MORTALITY RECORDS CRUD OPERATIONS
   createMortalityRecord(recordData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordData || typeof recordData !== 'object') {
+        throw new Error('Invalid mortality record data provided');
+      }
+
+      // CRITICAL FIX: Ensure database is ready
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
+      }
 
       // CRASH FIX: Wrap insert + update in a transaction to prevent SQLite concurrency issues
       this.db.execSync('BEGIN TRANSACTION');
@@ -966,6 +1150,7 @@ class FastDatabaseService {
         throw insertError;
       }
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to create mortality record:', error.message);
       throw new Error(`Failed to create mortality record: ${error.message}`);
     }
   }
@@ -981,7 +1166,23 @@ class FastDatabaseService {
 
   deleteMortalityRecord(recordId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordId) {
+        throw new Error('Invalid record ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for mortality record deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function' || typeof this.db.execSync !== 'function' || typeof this.db.getFirstSync !== 'function') {
+        throw new Error('Database methods not available');
+      }
 
       // CRASH FIX: Wrap update + delete in a transaction to prevent SQLite concurrency issues
       this.db.execSync('BEGIN TRANSACTION');
@@ -1009,6 +1210,7 @@ class FastDatabaseService {
         throw deleteError;
       }
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to delete mortality record:', error.message);
       throw new Error(`Failed to delete mortality record: ${error.message}`);
     }
   }
@@ -1016,13 +1218,23 @@ class FastDatabaseService {
   // PRODUCTION RECORDS CRUD OPERATIONS
   createProductionRecord(recordData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordData || typeof recordData !== 'object') {
+        throw new Error('Invalid production record data provided');
+      }
+
+      // CRITICAL FIX: Ensure database is ready
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
+      }
+
       const result = this.db.runSync(
         `INSERT INTO production_records (farm_id, batch_id, date, eggs_collected, weight, notes) VALUES (?, ?, ?, ?, ?, ?)`,
         [recordData.farmId, recordData.batchId, recordData.date, recordData.eggsCollected, recordData.weight, recordData.notes]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to create production record:', error.message);
       throw new Error(`Failed to create production record: ${error.message}`);
     }
   }
@@ -1038,10 +1250,28 @@ class FastDatabaseService {
 
   deleteProductionRecord(recordId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordId) {
+        throw new Error('Invalid record ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for production record deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(`DELETE FROM production_records WHERE id = ?`, [recordId]);
       return true;
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to delete production record:', error.message);
       throw new Error(`Failed to delete production record: ${error.message}`);
     }
   }
@@ -1049,13 +1279,23 @@ class FastDatabaseService {
   // WATER RECORDS
   createWaterRecord(recordData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordData || typeof recordData !== 'object') {
+        throw new Error('Invalid water record data provided');
+      }
+
+      // CRITICAL FIX: Ensure database is ready
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
+      }
+
       const result = this.db.runSync(
         `INSERT INTO water_records (batch_id, farm_id, date_recorded, quantity_liters, water_source, quality, temperature, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [recordData.batchId, recordData.farmId, recordData.dateRecorded, recordData.quantityLiters, recordData.waterSource, recordData.quality, recordData.temperature, recordData.notes]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to create water record:', error.message);
       throw new Error(`Failed to create water record: ${error.message}`);
     }
   }
@@ -1071,10 +1311,28 @@ class FastDatabaseService {
 
   deleteWaterRecord(recordId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordId) {
+        throw new Error('Invalid record ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for water record deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(`DELETE FROM water_records WHERE id = ?`, [recordId]);
       return true;
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to delete water record:', error.message);
       throw new Error(`Failed to delete water record: ${error.message}`);
     }
   }
@@ -1082,13 +1340,23 @@ class FastDatabaseService {
   // WEIGHT RECORDS
   createWeightRecord(recordData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordData || typeof recordData !== 'object') {
+        throw new Error('Invalid weight record data provided');
+      }
+
+      // CRITICAL FIX: Ensure database is ready
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
+      }
+
       const result = this.db.runSync(
         `INSERT INTO weight_records (batch_id, farm_id, date_recorded, average_weight, sample_size, weight_unit, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [recordData.batchId, recordData.farmId, recordData.dateRecorded, recordData.averageWeight, recordData.sampleSize, recordData.weightUnit || 'kg', recordData.notes]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to create weight record:', error.message);
       throw new Error(`Failed to create weight record: ${error.message}`);
     }
   }
@@ -1104,10 +1372,28 @@ class FastDatabaseService {
 
   deleteWeightRecord(recordId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!recordId) {
+        throw new Error('Invalid record ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for weight record deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(`DELETE FROM weight_records WHERE id = ?`, [recordId]);
       return true;
     } catch (error) {
+      console.error('❌ FastDatabase: Failed to delete weight record:', error.message);
       throw new Error(`Failed to delete weight record: ${error.message}`);
     }
   }
@@ -1115,7 +1401,16 @@ class FastDatabaseService {
   // EXPENSE RECORDS
   createExpense(expenseData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!expenseData || typeof expenseData !== 'object') {
+        throw new Error('Invalid expense data provided');
+      }
+
+      // CRITICAL FIX: Ensure database is ready
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database is not available. Please check your internet connection or restart the app.');
+      }
+
       const result = this.db.runSync(
         `INSERT INTO expenses (farm_id, batch_id, category, subcategory, description, amount, expense_date, supplier, receipt_number, receipt_url, payment_method, notes, is_recurring, recurring_frequency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -1137,7 +1432,7 @@ class FastDatabaseService {
       );
       return { id: result.lastInsertRowId, ...expenseData };
     } catch (error) {
-      console.error('Failed to create expense:', error);
+      console.error('❌ FastDatabase: Failed to create expense:', error.message);
       throw new Error(`Failed to create expense: ${error.message}`);
     }
   }
@@ -1196,7 +1491,24 @@ class FastDatabaseService {
 
   updateExpense(expenseId, expenseData) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!expenseId || !expenseData || typeof expenseData !== 'object') {
+        throw new Error('Invalid expense ID or data provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for expense update');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(
         `UPDATE expenses SET farm_id = ?, batch_id = ?, category = ?, subcategory = ?, description = ?, amount = ?, expense_date = ?, supplier = ?, receipt_number = ?, receipt_url = ?, payment_method = ?, notes = ?, is_recurring = ?, recurring_frequency = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         [
@@ -1219,18 +1531,35 @@ class FastDatabaseService {
       );
       return this.getExpenseById(expenseId);
     } catch (error) {
-      console.error('Failed to update expense:', error);
+      console.error('❌ FastDatabase: Failed to update expense:', error.message);
       throw new Error(`Failed to update expense: ${error.message}`);
     }
   }
 
   deleteExpense(expenseId) {
     try {
-      if (!this.isReady) this.init();
+      // CRASH FIX: Validate input
+      if (!expenseId) {
+        throw new Error('Invalid expense ID provided');
+      }
+
+      // CRASH FIX: Ensure database is ready
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available for expense deletion');
+        }
+      }
+
+      // CRASH FIX: Validate database has required methods
+      if (typeof this.db.runSync !== 'function') {
+        throw new Error('Database runSync method not available');
+      }
+
       this.db.runSync(`DELETE FROM expenses WHERE id = ?`, [expenseId]);
       return true;
     } catch (error) {
-      console.error('Failed to delete expense:', error);
+      console.error('❌ FastDatabase: Failed to delete expense:', error.message);
       throw new Error(`Failed to delete expense: ${error.message}`);
     }
   }
@@ -1502,6 +1831,354 @@ class FastDatabaseService {
         icon: '🚀'
       }
     ];
+  }
+
+  // COMPREHENSIVE ANALYTICS METHOD - Real-time calculations from SQLite
+  getAnalyticsData(params = {}) {
+    try {
+      // CRASH FIX: Ensure database is initialized
+      if (!this.isReady || !this.db) {
+        console.log('[FastDatabase] Database not ready for analytics, attempting initialization...');
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          console.log('[FastDatabase] Database initialization failed - returning empty analytics (this is normal on first launch)');
+          return this.getEmptyAnalyticsData();
+        }
+      }
+
+      // CRASH FIX: Validate database methods are available
+      if (typeof this.db.getFirstSync !== 'function' || typeof this.db.getAllSync !== 'function') {
+        console.log('[FastDatabase] Database methods not available - returning empty analytics');
+        return this.getEmptyAnalyticsData();
+      }
+
+      console.log('[FastDatabase] Computing analytics from SQLite...');
+
+      // Parse date range parameters
+      const endDate = params.endDate ? new Date(params.endDate) : new Date();
+      const startDate = params.startDate ? new Date(params.startDate) : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // Default 30 days
+
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
+
+      console.log('[FastDatabase] Analytics date range:', { startDateStr, endDateStr, today });
+
+      // ========== OVERVIEW SECTION ==========
+      const farmsResult = this.db.getFirstSync(`SELECT COUNT(*) as count FROM farms WHERE is_deleted = 0 OR is_deleted IS NULL`);
+      const totalFarms = farmsResult?.count || 0;
+
+      const batchesResult = this.db.getFirstSync(`SELECT COUNT(*) as count FROM poultry_batches`);
+      const totalBatches = batchesResult?.count || 0;
+
+      const activeBatchesResult = this.db.getFirstSync(`SELECT COUNT(*) as count FROM poultry_batches WHERE status = 'active'`);
+      const activeBatches = activeBatchesResult?.count || 0;
+
+      const totalBirdsResult = this.db.getFirstSync(`SELECT SUM(current_count) as total FROM poultry_batches WHERE status = 'active'`);
+      const totalBirds = totalBirdsResult?.total || 0;
+
+      // ========== PRODUCTION ANALYTICS ==========
+      const totalEggsResult = this.db.getFirstSync(`
+        SELECT SUM(eggs_collected) as total
+        FROM production_records
+        WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const totalEggsCollected = totalEggsResult?.total || 0;
+
+      const productionDaysResult = this.db.getFirstSync(`
+        SELECT COUNT(DISTINCT DATE(date)) as days
+        FROM production_records
+        WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const productionDays = productionDaysResult?.days || 1;
+      const avgDailyProduction = Math.round(totalEggsCollected / productionDays);
+
+      const todayEggsResult = this.db.getFirstSync(`
+        SELECT SUM(eggs_collected) as total
+        FROM production_records
+        WHERE DATE(date) = DATE('${today}')
+      `);
+      const todayEggs = todayEggsResult?.total || 0;
+
+      // Production Rate (eggs per bird per day)
+      const productionRate = totalBirds > 0 ? ((totalEggsCollected / totalBirds / productionDays) * 100).toFixed(1) : '0.0';
+
+      // Daily production trend (last 7 days)
+      const dailyProductionResult = this.db.getAllSync(`
+        SELECT DATE(date) as date, SUM(eggs_collected) as totalEggs
+        FROM production_records
+        WHERE DATE(date) >= DATE('${endDateStr}', '-7 days')
+        GROUP BY DATE(date)
+        ORDER BY DATE(date) ASC
+      `);
+      const dailyProduction = dailyProductionResult || [];
+
+      // Production rate by batch
+      const productionRateByBatchResult = this.db.getAllSync(`
+        SELECT
+          pb.id,
+          pb.batch_name,
+          pb.current_count,
+          COALESCE(SUM(pr.eggs_collected), 0) as totalEggs,
+          CASE
+            WHEN pb.current_count > 0 THEN ROUND((COALESCE(SUM(pr.eggs_collected), 0) * 100.0 / pb.current_count), 2)
+            ELSE 0
+          END as productionRate
+        FROM poultry_batches pb
+        LEFT JOIN production_records pr ON pb.id = pr.batch_id
+          AND DATE(pr.date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+        WHERE pb.status = 'active'
+        GROUP BY pb.id, pb.batch_name, pb.current_count
+      `);
+      const productionRateByBatch = productionRateByBatchResult || [];
+
+      // Weekly comparison
+      const currentWeekStart = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const previousWeekStart = new Date(endDate.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const previousWeekEnd = new Date(endDate.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const currentWeekResult = this.db.getFirstSync(`
+        SELECT SUM(eggs_collected) as totalEggs
+        FROM production_records
+        WHERE DATE(date) BETWEEN DATE('${currentWeekStart}') AND DATE('${endDateStr}')
+      `);
+      const currentWeekEggs = currentWeekResult?.totalEggs || 0;
+
+      const previousWeekResult = this.db.getFirstSync(`
+        SELECT SUM(eggs_collected) as totalEggs
+        FROM production_records
+        WHERE DATE(date) BETWEEN DATE('${previousWeekStart}') AND DATE('${previousWeekEnd}')
+      `);
+      const previousWeekEggs = previousWeekResult?.totalEggs || 0;
+
+      const percentageChange = previousWeekEggs > 0
+        ? (((currentWeekEggs - previousWeekEggs) / previousWeekEggs) * 100).toFixed(1)
+        : 0;
+
+      // ========== MORTALITY ANALYTICS ==========
+      const totalDeathsResult = this.db.getFirstSync(`
+        SELECT SUM(count) as total
+        FROM mortality_records
+        WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const totalDeaths = totalDeathsResult?.total || 0;
+
+      const todayDeathsResult = this.db.getFirstSync(`
+        SELECT SUM(count) as total
+        FROM mortality_records
+        WHERE DATE(date) = DATE('${today}')
+      `);
+      const deathsToday = todayDeathsResult?.total || 0;
+
+      // Mortality Rate (deaths / initial birds * 100)
+      const totalInitialBirdsResult = this.db.getFirstSync(`SELECT SUM(initial_count) as total FROM poultry_batches`);
+      const totalInitialBirds = totalInitialBirdsResult?.total || 1; // Avoid division by zero
+      const mortalityRate = ((totalDeaths / totalInitialBirds) * 100).toFixed(2);
+
+      // Daily mortality trend (last 7 days)
+      const dailyMortalityResult = this.db.getAllSync(`
+        SELECT DATE(date) as date, SUM(count) as totalDeaths
+        FROM mortality_records
+        WHERE DATE(date) >= DATE('${endDateStr}', '-7 days')
+        GROUP BY DATE(date)
+        ORDER BY DATE(date) ASC
+      `);
+      const dailyMortality = dailyMortalityResult || [];
+
+      // ========== FEED ANALYTICS ==========
+      const totalFeedCostResult = this.db.getFirstSync(`
+        SELECT SUM(cost) as total
+        FROM feed_records
+        WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const totalFeedCost = totalFeedCostResult?.total || 0;
+
+      const totalFeedQuantityResult = this.db.getFirstSync(`
+        SELECT SUM(quantity) as total
+        FROM feed_records
+        WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const totalFeedQuantity = totalFeedQuantityResult?.total || 0;
+
+      const avgCostPerBird = totalBirds > 0 ? (totalFeedCost / totalBirds).toFixed(2) : '0.00';
+      const avgFeedPerBird = totalBirds > 0 ? (totalFeedQuantity / totalBirds).toFixed(2) : '0.00';
+
+      // Daily feed consumption trend (last 7 days)
+      const dailyFeedResult = this.db.getAllSync(`
+        SELECT DATE(date) as date, SUM(quantity) as totalFeed, SUM(cost) as totalCost
+        FROM feed_records
+        WHERE DATE(date) >= DATE('${endDateStr}', '-7 days')
+        GROUP BY DATE(date)
+        ORDER BY DATE(date) ASC
+      `);
+      const dailyFeedConsumption = dailyFeedResult || [];
+
+      // ========== HEALTH ANALYTICS ==========
+      const totalHealthIssuesResult = this.db.getFirstSync(`
+        SELECT COUNT(*) as total
+        FROM health_records
+        WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const totalHealthIssues = totalHealthIssuesResult?.total || 0;
+
+      const resolvedIssuesResult = this.db.getFirstSync(`
+        SELECT COUNT(*) as total
+        FROM health_records
+        WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+          AND health_status = 'healthy'
+      `);
+      const resolvedIssues = resolvedIssuesResult?.total || 0;
+
+      const activeIssues = totalHealthIssues - resolvedIssues;
+
+      // ========== WATER ANALYTICS ==========
+      const totalWaterResult = this.db.getFirstSync(`
+        SELECT SUM(quantity_liters) as total
+        FROM water_records
+        WHERE DATE(date_recorded) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const totalWaterConsumption = totalWaterResult?.total || 0;
+
+      const avgWaterPerBird = totalBirds > 0 ? (totalWaterConsumption / totalBirds).toFixed(2) : '0.00';
+
+      // ========== WEIGHT ANALYTICS ==========
+      const avgWeightResult = this.db.getFirstSync(`
+        SELECT AVG(average_weight) as avgWeight
+        FROM weight_records
+        WHERE DATE(date_recorded) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
+      `);
+      const averageWeight = avgWeightResult?.avgWeight ? avgWeightResult.avgWeight.toFixed(2) : '0.00';
+
+      // ========== FINANCIAL SUMMARY ==========
+      // Revenue from egg sales (assume $0.10 per egg as default - can be customized)
+      const eggPrice = 0.10; // Default price per egg
+      const totalRevenue = (totalEggsCollected * eggPrice).toFixed(2);
+      const totalExpenses = totalFeedCost.toFixed(2);
+      const profitLoss = (totalRevenue - totalExpenses).toFixed(2);
+
+      console.log('[FastDatabase] Analytics computed successfully:', {
+        farms: totalFarms,
+        batches: totalBatches,
+        birds: totalBirds,
+        eggs: totalEggsCollected,
+        deaths: totalDeaths
+      });
+
+      // Return comprehensive analytics object
+      return {
+        overview: {
+          totalFarms,
+          totalBatches,
+          activeBatches,
+          totalBirds
+        },
+        production: {
+          totalEggsCollected,
+          avgDailyProduction,
+          todayEggs,
+          productionRate,
+          dailyProduction,
+          productionRateByBatch,
+          weeklyComparison: {
+            currentWeek: { totalEggs: currentWeekEggs },
+            previousWeek: { totalEggs: previousWeekEggs },
+            percentageChange: parseFloat(percentageChange)
+          }
+        },
+        mortality: {
+          totalDeaths,
+          deathsToday,
+          mortalityRate,
+          dailyMortality,
+          trend: parseFloat(mortalityRate) < 5 ? 'good' : 'concerning'
+        },
+        feed: {
+          totalCost: totalFeedCost,
+          totalQuantity: totalFeedQuantity,
+          avgCostPerBird,
+          avgFeedPerBird,
+          dailyFeedConsumption
+        },
+        health: {
+          totalIssues: totalHealthIssues,
+          resolvedIssues,
+          activeIssues
+        },
+        water: {
+          totalConsumption: totalWaterConsumption,
+          avgWaterPerBird
+        },
+        weight: {
+          averageWeight
+        },
+        financial: {
+          totalRevenue,
+          totalExpenses,
+          profitLoss
+        }
+      };
+
+    } catch (error) {
+      console.log('[FastDatabase] Analytics computation error (returning empty data):', error.message);
+      // Don't show full error stack - this is normal on first launch
+      return this.getEmptyAnalyticsData();
+    }
+  }
+
+  // Helper method to return empty analytics data
+  getEmptyAnalyticsData() {
+    return {
+      overview: {
+        totalFarms: 0,
+        totalBatches: 0,
+        activeBatches: 0,
+        totalBirds: 0
+      },
+      production: {
+        totalEggsCollected: 0,
+        avgDailyProduction: 0,
+        todayEggs: 0,
+        productionRate: '0.0',
+        dailyProduction: [],
+        productionRateByBatch: [],
+        weeklyComparison: {
+          currentWeek: { totalEggs: 0 },
+          previousWeek: { totalEggs: 0 },
+          percentageChange: 0
+        }
+      },
+      mortality: {
+        totalDeaths: 0,
+        deathsToday: 0,
+        mortalityRate: '0.00',
+        dailyMortality: [],
+        trend: 'good'
+      },
+      feed: {
+        totalCost: 0,
+        totalQuantity: 0,
+        avgCostPerBird: '0.00',
+        avgFeedPerBird: '0.00',
+        dailyFeedConsumption: []
+      },
+      health: {
+        totalIssues: 0,
+        resolvedIssues: 0,
+        activeIssues: 0
+      },
+      water: {
+        totalConsumption: 0,
+        avgWaterPerBird: '0.00'
+      },
+      weight: {
+        averageWeight: '0.00'
+      },
+      financial: {
+        totalRevenue: '0.00',
+        totalExpenses: '0.00',
+        profitLoss: '0.00'
+      }
+    };
   }
 }
 

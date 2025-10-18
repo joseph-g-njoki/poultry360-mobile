@@ -308,40 +308,40 @@ const ProfileScreen = () => {
 
     return (
       <TouchableOpacity
-        style={[styles.profileItem, { borderBottomColor: theme.colors.border }, !onPress && styles.profileItemDisabled]}
+        style={[styles(theme).profileItem, { borderBottomColor: theme.colors.border }, !onPress && styles(theme).profileItemDisabled]}
         onPress={onPress}
         disabled={!onPress}
       >
-        <View style={styles.profileItemLeft}>
-          <Text style={styles.profileItemIcon}>{String(icon)}</Text>
-          <View style={styles.profileItemContent}>
-            <Text style={[styles.profileItemLabel, { color: theme.colors.textSecondary }]}>{safeLabel}</Text>
-            <Text style={[styles.profileItemValue, { color: theme.colors.text }]}>{safeValue}</Text>
+        <View style={styles(theme).profileItemLeft}>
+          <Text style={styles(theme).profileItemIcon}>{String(icon)}</Text>
+          <View style={styles(theme).profileItemContent}>
+            <Text style={[styles(theme).profileItemLabel, { color: theme.colors.textSecondary }]}>{safeLabel}</Text>
+            <Text style={[styles(theme).profileItemValue, { color: theme.colors.text }]}>{safeValue}</Text>
           </View>
         </View>
         {showArrow && onPress && (
-          <Text style={[styles.profileItemArrow, { color: theme.colors.textLight }]}>›</Text>
+          <Text style={[styles(theme).profileItemArrow, { color: theme.colors.textLight }]}>›</Text>
         )}
       </TouchableOpacity>
     );
   };
 
   const MenuSection = ({ title, children }) => (
-    <View style={styles.menuSection}>
-      <Text style={[styles.menuSectionTitle, { color: theme.colors.textSecondary }]}>{String(title)}</Text>
-      <View style={[styles.menuSectionContent, { backgroundColor: theme.colors.cardBackground }]}>
+    <View style={styles(theme).menuSection}>
+      <Text style={[styles(theme).menuSectionTitle, { color: theme.colors.textSecondary }]}>{String(title)}</Text>
+      <View style={[styles(theme).menuSectionContent, { backgroundColor: theme.colors.cardBackground }]}>
         {children}
       </View>
     </View>
   );
 
   const MenuItem = ({ icon, title, onPress, color, showArrow = true, rightComponent }) => (
-    <TouchableOpacity style={[styles.menuItem, { borderBottomColor: theme.colors.border }]} onPress={onPress}>
-      <View style={styles.menuItemLeft}>
-        <Text style={styles.menuItemIcon}>{String(icon)}</Text>
-        <Text style={[styles.menuItemTitle, { color: color || theme.colors.text }]}>{String(title)}</Text>
+    <TouchableOpacity style={[styles(theme).menuItem, { borderBottomColor: theme.colors.border }]} onPress={onPress}>
+      <View style={styles(theme).menuItemLeft}>
+        <Text style={styles(theme).menuItemIcon}>{String(icon)}</Text>
+        <Text style={[styles(theme).menuItemTitle, { color: color || theme.colors.text }]}>{String(title)}</Text>
       </View>
-      {rightComponent || (showArrow && <Text style={[styles.menuItemArrow, { color: theme.colors.textLight }]}>›</Text>)}
+      {rightComponent || (showArrow && <Text style={[styles(theme).menuItemArrow, { color: theme.colors.textLight }]}>›</Text>)}
     </TouchableOpacity>
   );
 
@@ -364,22 +364,22 @@ const ProfileScreen = () => {
 
   const getRoleBadgeColor = (role) => {
     const colorMap = {
-      owner: '#FFD700',      // Gold
-      admin: '#FF6B35',      // Orange
-      manager: '#4CAF50',    // Green
-      worker: '#2196F3',     // Blue
-      super_admin: '#9C27B0', // Purple
+      owner: theme.colors.warning,      // Gold/Warning color
+      admin: theme.colors.error,        // Orange/Error color
+      manager: theme.colors.success,    // Green/Success color
+      worker: theme.colors.link,        // Blue/Link color
+      super_admin: theme.colors.primary, // Purple/Primary color
     };
-    return colorMap[role] || '#2196F3';
+    return colorMap[role] || theme.colors.link;
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScrollView style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
       {/* Profile Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+      <View style={[styles(theme).header, { backgroundColor: theme.colors.headerBackground }]}>
         {/* Profile Picture with Edit Button */}
         <TouchableOpacity
-          style={styles.avatarContainer}
+          style={styles(theme).avatarContainer}
           onPress={handleProfilePicturePress}
           activeOpacity={0.8}
           disabled={imageLoading}
@@ -387,41 +387,41 @@ const ProfileScreen = () => {
           {profilePicture ? (
             <Image
               source={{ uri: profilePicture }}
-              style={styles.avatarImage}
+              style={styles(theme).avatarImage}
               resizeMode="cover"
             />
           ) : (
-            <View style={styles.avatar}>
-              <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
+            <View style={styles(theme).avatar}>
+              <Text style={[styles(theme).avatarText, { color: theme.colors.primary }]}>
                 {String(user?.firstName || 'U').charAt(0)}{String(user?.lastName || 'U').charAt(0)}
               </Text>
             </View>
           )}
 
           {/* Camera Icon Badge */}
-          <View style={[styles.cameraIconBadge, { backgroundColor: theme.colors.primary }]}>
+          <View style={[styles(theme).cameraIconBadge, { backgroundColor: theme.colors.primary }]}>
             {imageLoading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.cameraIconText}>📷</Text>
+              <Text style={styles(theme).cameraIconText}>📷</Text>
             )}
           </View>
         </TouchableOpacity>
 
-        <Text style={[styles.userName, { color: theme.colors.headerText }]}>
+        <Text style={[styles(theme).userName, { color: theme.colors.headerText }]}>
           {String(user?.firstName || 'User')} {String(user?.lastName || '')}
         </Text>
-        <Text style={[styles.userEmail, { color: theme.colors.headerText }]}>{String(user?.email || '')}</Text>
-        <View style={[styles.roleBadge, { backgroundColor: getRoleBadgeColor(user?.role) }]}>
-          <Text style={styles.roleBadgeText}>
+        <Text style={[styles(theme).userEmail, { color: theme.colors.headerText }]}>{String(user?.email || '')}</Text>
+        <View style={[styles(theme).roleBadge, { backgroundColor: getRoleBadgeColor(user?.role) }]}>
+          <Text style={styles(theme).roleBadgeText}>
             {getRoleDisplay(user?.role)}
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.editProfileButton, { backgroundColor: theme.colors.surface }]}
+          style={[styles(theme).editProfileButton, { backgroundColor: theme.colors.surface }]}
           onPress={openEditModal}
         >
-          <Text style={[styles.editProfileButtonText, { color: theme.colors.primary }]}>{String(t('profile.editProfile') || 'Edit Profile')}</Text>
+          <Text style={[styles(theme).editProfileButtonText, { color: theme.colors.primary }]}>{String(t('profile.editProfile') || 'Edit Profile')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -486,7 +486,7 @@ const ProfileScreen = () => {
                 }
               }}
               trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-              thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
+              thumbColor={isDarkMode ? theme.colors.buttonText : theme.colors.surface}
             />
           }
         />
@@ -526,27 +526,27 @@ const ProfileScreen = () => {
       </MenuSection>
 
       {/* Logout */}
-      <View style={styles.logoutSection}>
+      <View style={styles(theme).logoutSection}>
         <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: theme.colors.secondary }, loading && styles.disabledButton]}
+          style={[styles(theme).logoutButton, { backgroundColor: theme.colors.secondary }, loading && styles(theme).disabledButton]}
           onPress={handleLogout}
           disabled={loading}
           activeOpacity={0.7}
         >
           {loading ? (
-            <View style={styles.logoutLoading}>
+            <View style={styles(theme).logoutLoading}>
               <ActivityIndicator color="#fff" size="small" style={{ marginRight: 10 }} />
-              <Text style={styles.logoutButtonText}>Logging out...</Text>
+              <Text style={styles(theme).logoutButtonText}>Logging out...</Text>
             </View>
           ) : (
-            <Text style={styles.logoutButtonText}>🚪 {String(t('auth.logout') || 'Logout')}</Text>
+            <Text style={styles(theme).logoutButtonText}>🚪 {String(t('auth.logout') || 'Logout')}</Text>
           )}
         </TouchableOpacity>
       </View>
 
       {/* Version Info */}
-      <View style={styles.versionInfo}>
-        <Text style={[styles.versionText, { color: theme.colors.textLight }]}>Poultry360 Mobile v1.0.0</Text>
+      <View style={styles(theme).versionInfo}>
+        <Text style={[styles(theme).versionText, { color: theme.colors.textLight }]}>Poultry360 Mobile v1.0.0</Text>
       </View>
 
       {/* Feature Modals */}
@@ -568,14 +568,14 @@ const ProfileScreen = () => {
         visible={modalVisible}
         onRequestClose={closeEditModal}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{String(t('profile.editProfile') || 'Edit Profile')}</Text>
+        <View style={[styles(theme).modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles(theme).modalTitle, { color: theme.colors.text }]}>{String(t('profile.editProfile') || 'Edit Profile')}</Text>
 
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>First Name *</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>First Name *</Text>
               <TextInput
-                style={[styles.formInput, {
+                style={[styles(theme).formInput, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.borderSecondary,
                   color: theme.colors.text
@@ -590,10 +590,10 @@ const ProfileScreen = () => {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Last Name *</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Last Name *</Text>
               <TextInput
-                style={[styles.formInput, {
+                style={[styles(theme).formInput, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.borderSecondary,
                   color: theme.colors.text
@@ -608,10 +608,10 @@ const ProfileScreen = () => {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Phone Number</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Phone Number</Text>
               <TextInput
-                style={[styles.formInput, {
+                style={[styles(theme).formInput, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.borderSecondary,
                   color: theme.colors.text
@@ -627,23 +627,23 @@ const ProfileScreen = () => {
               />
             </View>
 
-            <View style={styles.modalActions}>
+            <View style={styles(theme).modalActions}>
               <TouchableOpacity
-                style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
+                style={[styles(theme).cancelButton, { backgroundColor: theme.colors.border }]}
                 onPress={closeEditModal}
                 disabled={loading}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>{String(t('common.cancel') || 'Cancel')}</Text>
+                <Text style={[styles(theme).cancelButtonText, { color: theme.colors.text }]}>{String(t('common.cancel') || 'Cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: theme.colors.primary }, loading && styles.disabledButton]}
+                style={[styles(theme).saveButton, { backgroundColor: theme.colors.primary }, loading && styles(theme).disabledButton]}
                 onPress={handleUpdateProfile}
                 disabled={loading}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.saveButtonText}>{String(t('profile.saveChanges') || 'Save Changes')}</Text>
+                  <Text style={styles(theme).saveButtonText}>{String(t('profile.saveChanges') || 'Save Changes')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -655,7 +655,7 @@ const ProfileScreen = () => {
 };
 
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -673,18 +673,18 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: theme.colors.border,
   },
   avatarImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: theme.colors.border,
   },
   avatarText: {
     fontSize: 32,
@@ -700,8 +700,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#000',
+    borderColor: theme.colors.surface,
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   roleBadgeText: {
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
     fontSize: 15,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.buttonText,
   },
   logoutLoading: {
     flexDirection: 'row',
@@ -927,10 +927,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   disabledButton: {
-    backgroundColor: '#ccc',
+    backgroundColor: theme.colors.border,
   },
   saveButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',

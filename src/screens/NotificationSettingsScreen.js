@@ -80,8 +80,8 @@ export default function NotificationSettingsScreen() {
   if (loading) {
     return (
       <ScreenWrapper>
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading settings...</Text>
+        <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
+          <Text style={[styles(theme).loadingText, { color: theme.colors.textSecondary }]}>Loading settings...</Text>
         </View>
       </ScreenWrapper>
     );
@@ -89,19 +89,19 @@ export default function NotificationSettingsScreen() {
 
   return (
     <ScreenWrapper>
-      <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Notification Settings</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+      <ScrollView style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles(theme).title, { color: theme.colors.text }]}>Notification Settings</Text>
+        <Text style={[styles(theme).subtitle, { color: theme.colors.textSecondary }]}>
           Manage your notification preferences
         </Text>
 
-        <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Reminders</Text>
+        <View style={[styles(theme).section, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Reminders</Text>
 
-          <View style={[styles.settingRow, { borderBottomColor: theme.colors.border }]}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Daily Entry Reminders</Text>
-              <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
+          <View style={[styles(theme).settingRow, { borderBottomColor: theme.colors.border }]}>
+            <View style={styles(theme).settingInfo}>
+              <Text style={[styles(theme).settingLabel, { color: theme.colors.text }]}>Daily Entry Reminders</Text>
+              <Text style={[styles(theme).settingDescription, { color: theme.colors.textSecondary }]}>
                 Get reminded to record daily feeding and mortality data
               </Text>
             </View>
@@ -121,10 +121,10 @@ export default function NotificationSettingsScreen() {
             />
           </View>
 
-          <View style={[styles.settingRow, { borderBottomColor: theme.colors.border }]}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Vaccination Reminders</Text>
-              <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
+          <View style={[styles(theme).settingRow, { borderBottomColor: theme.colors.border }]}>
+            <View style={styles(theme).settingInfo}>
+              <Text style={[styles(theme).settingLabel, { color: theme.colors.text }]}>Vaccination Reminders</Text>
+              <Text style={[styles(theme).settingDescription, { color: theme.colors.textSecondary }]}>
                 Get notified about upcoming vaccinations
               </Text>
             </View>
@@ -145,9 +145,9 @@ export default function NotificationSettingsScreen() {
           </View>
         </View>
 
-        <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Language</Text>
-          <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+        <View style={[styles(theme).section, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Language</Text>
+          <Text style={[styles(theme).sectionDescription, { color: theme.colors.textSecondary }]}>
             Choose the language for your notifications
           </Text>
 
@@ -155,7 +155,7 @@ export default function NotificationSettingsScreen() {
             <TouchableOpacity
               key={lang}
               style={[
-                styles.languageOption,
+                styles(theme).languageOption,
                 {
                   backgroundColor: theme.colors.surface,
                   borderColor: language === lang ? theme.colors.primary : theme.colors.border
@@ -175,7 +175,7 @@ export default function NotificationSettingsScreen() {
             >
               <Text
                 style={[
-                  styles.languageText,
+                  styles(theme).languageText,
                   { color: language === lang ? theme.colors.primary : theme.colors.text },
                   language === lang && { fontWeight: '600' },
                 ]}
@@ -183,31 +183,31 @@ export default function NotificationSettingsScreen() {
                 {getLanguageName(lang)}
               </Text>
               {language === lang && (
-                <View style={[styles.checkmark, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={styles.checkmarkText}>✓</Text>
+                <View style={[styles(theme).checkmark, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={styles(theme).checkmarkText}>✓</Text>
                 </View>
               )}
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Testing</Text>
+        <View style={[styles(theme).section, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Testing</Text>
           <TouchableOpacity
-            style={[styles.testButton, { backgroundColor: theme.colors.info }]}
+            style={[styles(theme).testButton, { backgroundColor: theme.colors.info }]}
             onPress={testNotification}
             activeOpacity={0.7}
             disabled={loading}
           >
-            <Text style={styles.testButtonText}>Send Test Notification</Text>
+            <Text style={styles(theme).testButtonText}>Send Test Notification</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.infoBox, { backgroundColor: theme.colors.warning + '20' }]}>
-          <Text style={[styles.infoText, { color: theme.colors.text }]}>
+        <View style={[styles(theme).infoBox, { backgroundColor: theme.colors.warning + '20' }]}>
+          <Text style={[styles(theme).infoText, { color: theme.colors.text }]}>
             Daily reminders are sent at 6:00 PM if you haven't recorded your data yet.
           </Text>
-          <Text style={[styles.infoText, { color: theme.colors.text }]}>
+          <Text style={[styles(theme).infoText, { color: theme.colors.text }]}>
             Vaccination reminders are sent at 8:00 AM one day before the scheduled date.
           </Text>
         </View>
@@ -216,7 +216,7 @@ export default function NotificationSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkmarkText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   testButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },

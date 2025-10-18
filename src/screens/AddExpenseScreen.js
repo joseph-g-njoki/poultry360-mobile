@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import CustomPicker from '../components/CustomPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
@@ -181,43 +180,38 @@ const AddExpenseScreen = ({ navigation, route }) => {
 
   return (
     <ScreenWrapper>
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles(theme).container, { backgroundColor: theme.background }]}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <View style={styles(theme).header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles(theme).backButton}>
             <Ionicons name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>
+          <Text style={[styles(theme).headerTitle, { color: theme.text }]}>
             {isEditing ? 'Edit Expense' : 'Add Expense'}
           </Text>
           <View style={{ width: 24 }} />
         </View>
 
-        <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles(theme).form} showsVerticalScrollIndicator={false}>
           {/* Category */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>
-              Category <Text style={styles.required}>*</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>
+              Category <Text style={styles(theme).required}>*</Text>
             </Text>
-            <View style={[styles.pickerContainer, { backgroundColor: theme.cardBackground }]}>
-              <Picker
-                selectedValue={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-                style={[styles.picker, { color: theme.text }]}
-              >
-                {categories.map((cat) => (
-                  <Picker.Item key={cat.value} label={cat.label} value={cat.value} />
-                ))}
-              </Picker>
-            </View>
-            {errors.category && <Text style={styles.errorText}>{errors.category}</Text>}
+            <CustomPicker
+              selectedValue={formData.category}
+              onValueChange={(value) => setFormData({ ...formData, category: value })}
+              items={categories}
+              placeholder="Select Category"
+            />
+            {errors.category && <Text style={styles(theme).errorText}>{errors.category}</Text>}
           </View>
 
           {/* Subcategory */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Subcategory</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>Subcategory</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+              style={[styles(theme).input, { backgroundColor: theme.cardBackground, color: theme.text }]}
               placeholder="e.g., Grower Feed, Antibiotics"
               placeholderTextColor={theme.secondaryText}
               value={formData.subcategory}
@@ -226,12 +220,12 @@ const AddExpenseScreen = ({ navigation, route }) => {
           </View>
 
           {/* Description */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>
-              Description <Text style={styles.required}>*</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>
+              Description <Text style={styles(theme).required}>*</Text>
             </Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+              style={[styles(theme).input, { backgroundColor: theme.cardBackground, color: theme.text }]}
               placeholder="Enter expense description"
               placeholderTextColor={theme.secondaryText}
               value={formData.description}
@@ -239,36 +233,36 @@ const AddExpenseScreen = ({ navigation, route }) => {
               multiline
               numberOfLines={2}
             />
-            {errors.description && <Text style={styles.errorText}>{errors.description}</Text>}
+            {errors.description && <Text style={styles(theme).errorText}>{errors.description}</Text>}
           </View>
 
           {/* Amount */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>
-              Amount (UGX) <Text style={styles.required}>*</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>
+              Amount (UGX) <Text style={styles(theme).required}>*</Text>
             </Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+              style={[styles(theme).input, { backgroundColor: theme.cardBackground, color: theme.text }]}
               placeholder="0.00"
               placeholderTextColor={theme.secondaryText}
               value={formData.amount}
               onChangeText={(text) => setFormData({ ...formData, amount: text })}
               keyboardType="decimal-pad"
             />
-            {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
+            {errors.amount && <Text style={styles(theme).errorText}>{errors.amount}</Text>}
           </View>
 
           {/* Expense Date */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>
-              Expense Date <Text style={styles.required}>*</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>
+              Expense Date <Text style={styles(theme).required}>*</Text>
             </Text>
             <TouchableOpacity
-              style={[styles.dateButton, { backgroundColor: theme.cardBackground }]}
+              style={[styles(theme).dateButton, { backgroundColor: theme.cardBackground }]}
               onPress={() => setShowDatePicker(true)}
             >
               <Ionicons name="calendar-outline" size={20} color={theme.text} />
-              <Text style={[styles.dateButtonText, { color: theme.text }]}>{formatDate(formData.expenseDate)}</Text>
+              <Text style={[styles(theme).dateButtonText, { color: theme.text }]}>{formatDate(formData.expenseDate)}</Text>
             </TouchableOpacity>
             {showDatePicker && (
               <DateTimePicker
@@ -282,10 +276,10 @@ const AddExpenseScreen = ({ navigation, route }) => {
           </View>
 
           {/* Supplier */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Supplier</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>Supplier</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+              style={[styles(theme).input, { backgroundColor: theme.cardBackground, color: theme.text }]}
               placeholder="Supplier name"
               placeholderTextColor={theme.secondaryText}
               value={formData.supplier}
@@ -294,26 +288,21 @@ const AddExpenseScreen = ({ navigation, route }) => {
           </View>
 
           {/* Payment Method */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Payment Method</Text>
-            <View style={[styles.pickerContainer, { backgroundColor: theme.cardBackground }]}>
-              <Picker
-                selectedValue={formData.paymentMethod}
-                onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
-                style={[styles.picker, { color: theme.text }]}
-              >
-                {paymentMethods.map((method) => (
-                  <Picker.Item key={method.value} label={method.label} value={method.value} />
-                ))}
-              </Picker>
-            </View>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>Payment Method</Text>
+            <CustomPicker
+              selectedValue={formData.paymentMethod}
+              onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
+              items={paymentMethods}
+              placeholder="Select Payment Method"
+            />
           </View>
 
           {/* Receipt Number */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Receipt Number</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>Receipt Number</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+              style={[styles(theme).input, { backgroundColor: theme.cardBackground, color: theme.text }]}
               placeholder="Receipt/Invoice number"
               placeholderTextColor={theme.secondaryText}
               value={formData.receiptNumber}
@@ -322,64 +311,46 @@ const AddExpenseScreen = ({ navigation, route }) => {
           </View>
 
           {/* Farm (Optional) */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Farm (Optional)</Text>
-            <View style={[styles.pickerContainer, { backgroundColor: theme.cardBackground }]}>
-              <Picker
-                selectedValue={formData.farmId ? String(formData.farmId) : ''}
-                onValueChange={(value) => setFormData({ ...formData, farmId: value === '' ? null : parseInt(value), batchId: null })}
-                style={[styles.picker, { color: theme.text }]}
-              >
-                <Picker.Item
-                  label={Array.isArray(farms) && farms.length === 0 ? "No farms - Create a farm first" : "-- Select Farm --"}
-                  value=""
-                />
-                {Array.isArray(farms) && farms
-                  .filter(farm => farm && (farm.id || farm._id))
-                  .map((farm) => (
-                    <Picker.Item
-                      key={farm.id || farm._id}
-                      label={farm.location ? `${farm.farmName || farm.name || 'Unnamed Farm'} - ${farm.location}` : (farm.farmName || farm.name || 'Unnamed Farm')}
-                      value={String(farm.id || farm._id)}
-                    />
-                  ))}
-              </Picker>
-            </View>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>Farm (Optional)</Text>
+            <CustomPicker
+              selectedValue={formData.farmId ? String(formData.farmId) : ''}
+              onValueChange={(value) => setFormData({ ...formData, farmId: value === '' ? null : parseInt(value), batchId: null })}
+              items={Array.isArray(farms) && farms.length > 0
+                ? farms.filter(farm => farm && (farm.id || farm._id)).map((farm) => ({
+                    label: farm.location ? `${farm.farmName || farm.name || 'Unnamed Farm'} - ${farm.location}` : (farm.farmName || farm.name || 'Unnamed Farm'),
+                    value: String(farm.id || farm._id)
+                  }))
+                : []
+              }
+              placeholder={Array.isArray(farms) && farms.length === 0 ? "No farms - Create a farm first" : "-- Select Farm --"}
+            />
           </View>
 
           {/* Batch (Optional) */}
           {formData.farmId && (
-            <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>Batch (Optional)</Text>
-              <View style={[styles.pickerContainer, { backgroundColor: theme.cardBackground }]}>
-                <Picker
-                  selectedValue={formData.batchId ? String(formData.batchId) : ''}
-                  onValueChange={(value) => setFormData({ ...formData, batchId: value === '' ? null : parseInt(value) })}
-                  style={[styles.picker, { color: theme.text }]}
-                >
-                  <Picker.Item
-                    label={Array.isArray(filteredBatches) && filteredBatches.length === 0 ? "No batches for this farm" : "-- Select Batch --"}
-                    value=""
-                  />
-                  {Array.isArray(filteredBatches) && filteredBatches
-                    .filter(batch => batch && (batch.id || batch._id))
-                    .map((batch) => (
-                      <Picker.Item
-                        key={batch.id || batch._id}
-                        label={batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || 'Unnamed Batch')}
-                        value={String(batch.id || batch._id)}
-                      />
-                    ))}
-                </Picker>
-              </View>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).label, { color: theme.text }]}>Batch (Optional)</Text>
+              <CustomPicker
+                selectedValue={formData.batchId ? String(formData.batchId) : ''}
+                onValueChange={(value) => setFormData({ ...formData, batchId: value === '' ? null : parseInt(value) })}
+                items={Array.isArray(filteredBatches) && filteredBatches.length > 0
+                  ? filteredBatches.filter(batch => batch && (batch.id || batch._id)).map((batch) => ({
+                      label: batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || 'Unnamed Batch'),
+                      value: String(batch.id || batch._id)
+                    }))
+                  : []
+                }
+                placeholder={Array.isArray(filteredBatches) && filteredBatches.length === 0 ? "No batches for this farm" : "-- Select Batch --"}
+              />
             </View>
           )}
 
           {/* Notes */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Notes</Text>
+          <View style={styles(theme).formGroup}>
+            <Text style={[styles(theme).label, { color: theme.text }]}>Notes</Text>
             <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: theme.cardBackground, color: theme.text }]}
+              style={[styles(theme).input, styles(theme).textArea, { backgroundColor: theme.cardBackground, color: theme.text }]}
               placeholder="Additional notes..."
               placeholderTextColor={theme.secondaryText}
               value={formData.notes}
@@ -391,21 +362,21 @@ const AddExpenseScreen = ({ navigation, route }) => {
 
           {/* Save Button */}
           <TouchableOpacity
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            style={[styles(theme).saveButton, saving && styles(theme).saveButtonDisabled]}
             onPress={handleSave}
             disabled={saving}
           >
             {saving ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.saveButtonText}>{isEditing ? 'Update Expense' : 'Save Expense'}</Text>
+              <Text style={styles(theme).saveButtonText}>{isEditing ? 'Update Expense' : 'Save Expense'}</Text>
             )}
           </TouchableOpacity>
 
           {/* Delete Button (only when editing) */}
           {isEditing && (
             <TouchableOpacity
-              style={styles.deleteButton}
+              style={styles(theme).deleteButton}
               onPress={() => {
                 Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
                   { text: 'Cancel', style: 'cancel' },
@@ -428,7 +399,7 @@ const AddExpenseScreen = ({ navigation, route }) => {
                 ]);
               }}
             >
-              <Text style={styles.deleteButtonText}>Delete Expense</Text>
+              <Text style={styles(theme).deleteButtonText}>Delete Expense</Text>
             </TouchableOpacity>
           )}
 
@@ -439,7 +410,7 @@ const AddExpenseScreen = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -521,7 +492,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFF',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -533,7 +504,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   deleteButtonText: {
-    color: '#FFF',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },

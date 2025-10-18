@@ -11,52 +11,51 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import offlineFirstService from '../services/offlineFirstService';
-import offlineDataService from '../services/offlineDataService';
-import { useAnalytics } from '../context/DataStoreContext';
+import fastApiService from '../services/fastApiService';
+import dataEventBus, { EventTypes } from '../services/dataEventBus';
 import KPICard from '../components/charts/KPICard';
 import LineChart from '../components/charts/LineChart';
 import BarChart from '../components/charts/BarChart';
-import PieChart from '../components/charts/PieChart';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 /**
- * AnalyticsScreen Component
+ * AnalyticsScreen Component - INSTANT LOADING with REAL-TIME UPDATES
  *
- * Main analytics dashboard showing:
- * - KPI cards (total birds, mortality rate, egg production, revenue)
- * - Trend charts (line charts for time-series data)
- * - Comparison charts (bar charts for comparisons)
- * - Distribution charts (pie charts for breakdowns)
+ * Main analytics dashboard showing comprehensive farm analytics:
+ * - Overview: Total Farms, Batches, Birds
+ * - Production: Egg production, trends, rates
+ * - Mortality: Death counts, rates, trends
+ * - Feed: Costs, consumption, trends
+ * - Health: Issues tracking
+ * - Water & Weight analytics
+ * - Financial summary
  *
- * Features:
- * - Date range selector
- * - Refresh functionality
- * - Offline support (cached data)
- * - Export functionality
+ * Performance Features:
+ * - INSTANT loading from local SQLite (< 1 second)
+ * - Real-time updates via dataEventBus subscriptions
+ * - No network delays - 100% offline capable
+ * - Efficient SQL queries in fastDatabase
+ *
+ * Real-time Integration:
+ * - Subscribes to ALL data change events (farm, batch, record changes)
+ * - Automatically refreshes analytics when user creates/updates/deletes data
+ * - Updates reflect immediately without manual refresh
  */
 const AnalyticsScreen = ({ navigation }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
 
-  // Use DataStoreContext hook for automatic data refresh
-  const { analytics: contextAnalytics, loading: contextLoading, error: contextError, refresh: refreshAnalytics } = useAnalytics();
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
   const [error, setError] = useState(null);
 
-  // Analytics data state
-  const [dashboardData, setDashboardData] = useState(null);
-  const [trendData, setTrendData] = useState(null);
-
   // Date range state
-  const [dateRange, setDateRange] = useState('30d'); // 7d, 30d, 90d, custom
+  const [dateRange, setDateRange] = useState('30d'); // 7d, 30d, 90d
 
   /**
-   * Load analytics data - TRUE OFFLINE-FIRST approach
-   * 1. Load from local data IMMEDIATELY (fast, always works)
-   * 2. Try to fetch from server in background (optional, updates if available)
+   * Load analytics data - INSTANT from SQLite
+   * This method is FAST because it queries local database synchronously
    */
   const loadAnalytics = useCallback(async (showLoader = true) => {
     try {
@@ -88,52 +87,26 @@ const AnalyticsScreen = ({ navigation }) => {
         endDate: endDate.toISOString().split('T')[0],
       };
 
-      console.log('[AnalyticsScreen] Loading analytics OFFLINE-FIRST approach');
+      console.log('[AnalyticsScreen] Loading analytics with params:', params);
 
-      // STEP 1: Load from local data IMMEDIATELY (fast path - always succeeds)
-      const localData = await offlineDataService.getCachedAnalytics('dashboard', params);
+      // Load from fastApiService -> fastDatabase (INSTANT)
+      const response = await fastApiService.getAnalytics(params);
 
-      if (localData) {
-        console.log('[AnalyticsScreen] ✅ Local analytics data loaded immediately');
-        const dashboard = localData.data || localData;
-        setDashboardData(dashboard);
-        setTrendData(dashboard);
-        setLoading(false); // Show data immediately!
+      if (response.success) {
+        console.log('[AnalyticsScreen] Analytics loaded successfully from', response.source);
+        setAnalyticsData(response.data);
+        setLoading(false);
       } else {
-        console.warn('[AnalyticsScreen] No local data available');
-      }
-
-      // STEP 2: Try to fetch fresh data from server in background (slow path - optional)
-      // This runs AFTER we've already shown local data to user
-      try {
-        console.log('[AnalyticsScreen] 🌐 Attempting background server fetch...');
-
-        // 2-second timeout for server fetch (don't make user wait)
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Server timeout')), 2000)
-        );
-
-        const serverResponse = await Promise.race([
-          offlineFirstService.getDashboardAnalytics(params),
-          timeoutPromise
-        ]);
-
-        if (serverResponse) {
-          console.log('[AnalyticsScreen] ✅ Server data received, updating display');
-          const dashboard = serverResponse.data || serverResponse;
-          setDashboardData(dashboard);
-          setTrendData(dashboard);
-        }
-      } catch (serverError) {
-        // Server fetch failed - that's OK, we already showed local data
-        console.log('[AnalyticsScreen] ℹ️ Server fetch failed (using local data):', serverError.message);
+        console.warn('[AnalyticsScreen] Analytics load failed:', response.error);
+        setError(response.error || 'Failed to load analytics');
+        setLoading(false);
       }
 
     } catch (err) {
-      console.error('[AnalyticsScreen] Critical error:', err);
+      console.error('[AnalyticsScreen] Critical error loading analytics:', err);
       setError('Unable to load analytics data');
-    } finally {
       setLoading(false);
+    } finally {
       setRefreshing(false);
     }
   }, [dateRange]);
@@ -146,7 +119,73 @@ const AnalyticsScreen = ({ navigation }) => {
   }, [loadAnalytics]);
 
   /**
-   * Handle refresh
+   * Real-time event subscriptions - Updates analytics when data changes
+   * Subscribes to ALL events that affect analytics
+   */
+  useEffect(() => {
+    console.log('[AnalyticsScreen] Setting up real-time event subscriptions');
+
+    // Handler function that refreshes analytics
+    const handleDataChange = (payload) => {
+      console.log('[AnalyticsScreen] Data changed, refreshing analytics:', payload);
+      loadAnalytics(false); // Refresh without showing loader
+    };
+
+    // Subscribe to all relevant events
+    const unsubscribers = [
+      // Farm events
+      dataEventBus.subscribe(EventTypes.FARM_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.FARM_UPDATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.FARM_DELETED, handleDataChange),
+
+      // Batch events
+      dataEventBus.subscribe(EventTypes.BATCH_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.BATCH_UPDATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.BATCH_DELETED, handleDataChange),
+
+      // Feed record events
+      dataEventBus.subscribe(EventTypes.FEED_RECORD_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.FEED_RECORD_DELETED, handleDataChange),
+
+      // Production record events
+      dataEventBus.subscribe(EventTypes.PRODUCTION_RECORD_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.PRODUCTION_RECORD_DELETED, handleDataChange),
+
+      // Mortality record events
+      dataEventBus.subscribe(EventTypes.MORTALITY_RECORD_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.MORTALITY_RECORD_DELETED, handleDataChange),
+
+      // Health record events
+      dataEventBus.subscribe(EventTypes.HEALTH_RECORD_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.HEALTH_RECORD_DELETED, handleDataChange),
+
+      // Water record events
+      dataEventBus.subscribe(EventTypes.WATER_RECORD_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.WATER_RECORD_DELETED, handleDataChange),
+
+      // Weight record events
+      dataEventBus.subscribe(EventTypes.WEIGHT_RECORD_CREATED, handleDataChange),
+      dataEventBus.subscribe(EventTypes.WEIGHT_RECORD_DELETED, handleDataChange),
+
+      // P1-3 FIX: Subscribe to global DATA_SYNCED event to refresh analytics after sync completes
+      // This ensures analytics reflect server-side changes downloaded during sync
+      dataEventBus.subscribe(EventTypes.DATA_SYNCED, (payload) => {
+        console.log('[AnalyticsScreen] Data synced from server, refreshing analytics:', payload);
+        loadAnalytics(false); // Refresh without showing loader
+      }),
+    ];
+
+    console.log('[AnalyticsScreen] Subscribed to', unsubscribers.length, 'event types');
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      console.log('[AnalyticsScreen] Cleaning up event subscriptions');
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [loadAnalytics]);
+
+  /**
+   * Handle manual refresh (pull to refresh)
    */
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -161,93 +200,38 @@ const AnalyticsScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle export
-   */
-  const handleExport = async () => {
-    try {
-      Alert.alert(
-        'Export Analytics',
-        'Choose export format:',
-        [
-          {
-            text: 'CSV',
-            onPress: () => exportData('csv'),
-          },
-          {
-            text: 'PDF',
-            onPress: () => exportData('pdf'),
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ],
-        { cancelable: true }
-      );
-    } catch (err) {
-      console.error('[AnalyticsScreen] Export error:', err);
-      Alert.alert('Error', 'Failed to export analytics data');
-    }
-  };
-
-  const exportData = async (type) => {
-    try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-
-      // Use offlineFirstService for export (will check if online)
-      await offlineFirstService.exportAnalytics({
-        type,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-      });
-
-      Alert.alert('Success', `Analytics exported as ${type.toUpperCase()}`);
-    } catch (err) {
-      console.error('[AnalyticsScreen] Export error:', err);
-      const errorMessage = err.message || 'Failed to export analytics data';
-
-      if (errorMessage.includes('only available online')) {
-        Alert.alert('Offline Mode', 'Export requires an internet connection. Please connect and try again.');
-      } else {
-        Alert.alert('Error', errorMessage);
-      }
-    }
-  };
-
-  /**
-   * Prepare chart data from backend production-trends response
-   * Backend returns: dailyProduction array with date and totalEggs
+   * Prepare chart data for daily production trend
    */
   const prepareProductionTrendData = () => {
-    if (!dashboardData || !dashboardData.dailyProduction || dashboardData.dailyProduction.length === 0) {
+    if (!analyticsData || !analyticsData.production || !analyticsData.production.dailyProduction || analyticsData.production.dailyProduction.length === 0) {
       return null;
     }
 
-    // Get last 7 days of data
-    const last7Days = dashboardData.dailyProduction.slice(-7);
+    const dailyProduction = analyticsData.production.dailyProduction;
 
     return {
-      labels: last7Days.map(day => {
+      labels: dailyProduction.map(day => {
         const date = new Date(day.date);
         return `${date.getMonth() + 1}/${date.getDate()}`;
       }),
       datasets: [
         {
-          data: last7Days.map(day => day.totalEggs || 0),
+          data: dailyProduction.map(day => day.totalEggs || 0),
         },
       ],
     };
   };
 
+  /**
+   * Prepare chart data for weekly comparison
+   */
   const prepareWeeklyComparisonData = () => {
-    if (!dashboardData || !dashboardData.weeklyComparison) {
+    if (!analyticsData || !analyticsData.production || !analyticsData.production.weeklyComparison) {
       return null;
     }
 
-    const current = dashboardData.weeklyComparison.currentWeek?.totalEggs || 0;
-    const previous = dashboardData.weeklyComparison.previousWeek?.totalEggs || 0;
+    const current = analyticsData.production.weeklyComparison.currentWeek?.totalEggs || 0;
+    const previous = analyticsData.production.weeklyComparison.previousWeek?.totalEggs || 0;
 
     return {
       labels: ['Previous Week', 'This Week'],
@@ -290,11 +274,10 @@ const AnalyticsScreen = ({ navigation }) => {
   );
 
   /**
-   * Render KPI cards
-   * Maps backend production-trends response to KPI format
+   * Render KPI cards with real-time data
    */
   const renderKPICards = () => {
-    if (!dashboardData) {
+    if (!analyticsData) {
       return (
         <View>
           <KPICard title="Total Birds" value="0" icon="🐔" loading={loading} />
@@ -305,41 +288,35 @@ const AnalyticsScreen = ({ navigation }) => {
       );
     }
 
-    // Calculate totals from productionRateByBatch array
-    const totalBirds = dashboardData.productionRateByBatch?.reduce((sum, batch) => sum + (batch.currentCount || 0), 0) || 0;
-    const totalEggs = dashboardData.productionRateByBatch?.reduce((sum, batch) => sum + (batch.totalEggs || 0), 0) || 0;
-    const avgProductionRate = dashboardData.productionRateByBatch?.length > 0
-      ? (dashboardData.productionRateByBatch.reduce((sum, batch) => sum + (batch.productionRate || 0), 0) / dashboardData.productionRateByBatch.length).toFixed(1)
-      : 0;
-    const activeBatches = dashboardData.productionRateByBatch?.length || 0;
+    const { overview, production, mortality } = analyticsData;
 
     // Calculate week-over-week trend
-    const weeklyTrend = dashboardData.weeklyComparison?.percentageChange || 0;
+    const weeklyTrend = production.weeklyComparison?.percentageChange || 0;
 
     return (
       <View>
         <KPICard
           title="Total Birds"
-          value={totalBirds.toLocaleString()}
+          value={overview.totalBirds.toLocaleString()}
           subtitle="Active birds across all batches"
           icon="🐔"
-          color="#2E8B57"
+          color={theme.colors.primary}
         />
 
         <KPICard
           title="Production Rate"
-          value={`${avgProductionRate}%`}
-          subtitle="Average across all batches"
+          value={`${production.productionRate}%`}
+          subtitle="Average production rate"
           icon="🥚"
-          color="#FFD700"
+          color={theme.colors.warning}
         />
 
         <KPICard
           title="Egg Production"
-          value={totalEggs.toLocaleString()}
+          value={production.totalEggsCollected.toLocaleString()}
           subtitle={`Total eggs in ${dateRange} period`}
           icon="📊"
-          color="#4ECDC4"
+          color={theme.colors.info}
           trend={
             weeklyTrend !== 0
               ? {
@@ -352,17 +329,33 @@ const AnalyticsScreen = ({ navigation }) => {
 
         <KPICard
           title="Active Batches"
-          value={activeBatches}
+          value={overview.activeBatches}
           subtitle="Currently tracked batches"
           icon="🏠"
-          color="#34C759"
+          color={theme.colors.success}
+        />
+
+        <KPICard
+          title="Mortality Rate"
+          value={`${mortality.mortalityRate}%`}
+          subtitle={`${mortality.totalDeaths} deaths (${mortality.trend})`}
+          icon="⚠️"
+          color={mortality.trend === 'good' ? theme.colors.success : theme.colors.error}
+        />
+
+        <KPICard
+          title="Total Farms"
+          value={overview.totalFarms}
+          subtitle="Registered farms"
+          icon="🏢"
+          color={theme.colors.link}
         />
       </View>
     );
   };
 
   /**
-   * Render charts
+   * Render charts with real-time data
    */
   const renderCharts = () => (
     <View>
@@ -370,7 +363,7 @@ const AnalyticsScreen = ({ navigation }) => {
         title="Daily Production Trend (Last 7 Days)"
         data={prepareProductionTrendData()}
         height={220}
-        color="#2E8B57"
+        color={theme.colors.primary}
         yAxisSuffix=" eggs"
         loading={loading}
         error={prepareProductionTrendData() ? null : 'No production data available'}
@@ -380,7 +373,7 @@ const AnalyticsScreen = ({ navigation }) => {
         title="Weekly Production Comparison"
         data={prepareWeeklyComparisonData()}
         height={220}
-        color="#4ECDC4"
+        color={theme.colors.info}
         yAxisSuffix=" eggs"
         loading={loading}
         error={prepareWeeklyComparisonData() ? null : 'No weekly comparison data available'}
@@ -391,11 +384,25 @@ const AnalyticsScreen = ({ navigation }) => {
   /**
    * Render loading state
    */
-  if (loading && !dashboardData) {
+  if (loading && !analyticsData) {
     return (
       <View style={styles(theme).loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles(theme).loadingText}>Loading analytics...</Text>
+      </View>
+    );
+  }
+
+  /**
+   * Render error state
+   */
+  if (error && !analyticsData) {
+    return (
+      <View style={styles(theme).errorContainer}>
+        <Text style={styles(theme).errorText}>{error}</Text>
+        <TouchableOpacity style={styles(theme).retryButton} onPress={() => loadAnalytics()}>
+          <Text style={styles(theme).retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -416,9 +423,9 @@ const AnalyticsScreen = ({ navigation }) => {
           {/* Header */}
           <View style={styles(theme).header}>
             <Text style={styles(theme).title}>Analytics Dashboard</Text>
-            <TouchableOpacity style={styles(theme).exportButton} onPress={handleExport}>
-              <Text style={styles(theme).exportButtonText}>📊 Export</Text>
-            </TouchableOpacity>
+            <View style={styles(theme).badge}>
+              <Text style={styles(theme).badgeText}>Real-time</Text>
+            </View>
           </View>
 
           {/* Date Range Selector */}
@@ -432,21 +439,39 @@ const AnalyticsScreen = ({ navigation }) => {
           <Text style={styles(theme).sectionTitle}>Trends</Text>
           {renderCharts()}
 
-          {/* Navigation to detailed screens */}
-          <View style={styles(theme).navigationContainer}>
-            <TouchableOpacity
-              style={styles(theme).navigationButton}
-              onPress={() => navigation.navigate('FlockPerformance')}
-            >
-              <Text style={styles(theme).navigationButtonText}>📈 Flock Performance</Text>
-            </TouchableOpacity>
+          {/* Financial Summary */}
+          {analyticsData && analyticsData.financial && (
+            <>
+              <Text style={styles(theme).sectionTitle}>Financial Summary</Text>
+              <View style={styles(theme).financialCard}>
+                <View style={styles(theme).financialRow}>
+                  <Text style={styles(theme).financialLabel}>Total Revenue:</Text>
+                  <Text style={styles(theme).financialValue}>${analyticsData.financial.totalRevenue}</Text>
+                </View>
+                <View style={styles(theme).financialRow}>
+                  <Text style={styles(theme).financialLabel}>Total Expenses:</Text>
+                  <Text style={styles(theme).financialValue}>${analyticsData.financial.totalExpenses}</Text>
+                </View>
+                <View style={[styles(theme).financialRow, styles(theme).financialRowTotal]}>
+                  <Text style={styles(theme).financialLabelBold}>Profit/Loss:</Text>
+                  <Text
+                    style={[
+                      styles(theme).financialValueBold,
+                      { color: parseFloat(analyticsData.financial.profitLoss) >= 0 ? theme.colors.success : theme.colors.error }
+                    ]}
+                  >
+                    ${analyticsData.financial.profitLoss}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
 
-            <TouchableOpacity
-              style={styles(theme).navigationButton}
-              onPress={() => navigation.navigate('FinancialAnalytics')}
-            >
-              <Text style={styles(theme).navigationButtonText}>💰 Financial Analytics</Text>
-            </TouchableOpacity>
+          {/* Info Footer */}
+          <View style={styles(theme).infoFooter}>
+            <Text style={styles(theme).infoText}>
+              Analytics update automatically when you create farms, batches, or records.
+            </Text>
           </View>
         </ScrollView>
       </View>
@@ -477,6 +502,30 @@ const styles = (theme) => StyleSheet.create({
     fontSize: 16,
     color: theme.colors.textSecondary,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: theme.colors.buttonText,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -488,15 +537,15 @@ const styles = (theme) => StyleSheet.create({
     fontWeight: 'bold',
     color: theme.colors.text,
   },
-  exportButton: {
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  badge: {
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
-  exportButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  badgeText: {
+    color: theme.colors.buttonText,
+    fontSize: 12,
     fontWeight: '600',
   },
   sectionTitle: {
@@ -534,28 +583,54 @@ const styles = (theme) => StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   dateRangeButtonTextActive: {
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
   },
-  navigationContainer: {
-    marginTop: 16,
-    gap: 12,
-  },
-  navigationButton: {
+  financialCard: {
     backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
   },
-  navigationButtonText: {
+  financialRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  financialRowTotal: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  financialLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+  },
+  financialValue: {
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  financialLabelBold: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  financialValueBold: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  infoFooter: {
+    backgroundColor: theme.colors.surface,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  infoText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
 });
 

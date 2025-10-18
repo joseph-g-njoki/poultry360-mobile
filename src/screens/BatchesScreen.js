@@ -12,7 +12,6 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import CustomPicker from '../components/CustomPicker';
 import fastApiService from '../services/fastApiService';
 import fastDatabase from '../services/fastDatabase';
@@ -535,11 +534,11 @@ const BatchesScreen = ({ route, navigation }) => {
 
   const getStatusColor = (status) => {
     const colors = {
-      active: '#2E8B57',
-      completed: '#4ECDC4',
-      inactive: '#999',
+      active: theme.colors.success,
+      completed: theme.colors.info,
+      inactive: theme.colors.textSecondary,
     };
-    return colors[status] || '#999';
+    return colors[status] || theme.colors.textSecondary;
   };
 
   const getStatusIcon = (status) => {
@@ -576,72 +575,72 @@ const BatchesScreen = ({ route, navigation }) => {
     }
 
     return (
-      <View style={[styles.batchCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
-        <View style={[styles.batchHeader, { borderBottomColor: theme.colors.border }]}>
-          <View style={styles.batchTitleRow}>
-            <Text style={[styles.batchName, { color: theme.colors.primary }]}>{item.batchName || item.name || 'Unnamed Batch'}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: theme.colors.background }]}>
-            <Text style={styles.statusIcon}>{getStatusIcon(item.status || 'active')}</Text>
-            <Text style={[styles.statusText, { color: getStatusColor(item.status || 'active') }]}>
+      <View style={[styles(theme).batchCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
+        <View style={[styles(theme).batchHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={styles(theme).batchTitleRow}>
+            <Text style={[styles(theme).batchName, { color: theme.colors.primary }]}>{item.batchName || item.name || 'Unnamed Batch'}</Text>
+          <View style={[styles(theme).statusBadge, { backgroundColor: theme.colors.background }]}>
+            <Text style={styles(theme).statusIcon}>{getStatusIcon(item.status || 'active')}</Text>
+            <Text style={[styles(theme).statusText, { color: getStatusColor(item.status || 'active') }]}>
               {item.status || 'active'}
             </Text>
           </View>
         </View>
-        <View style={styles.batchActions}>
+        <View style={styles(theme).batchActions}>
           {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') && (
             <>
               <TouchableOpacity
-                style={styles.editButton}
+                style={styles(theme).editButton}
                 onPress={() => openModal(item)}
               >
-                <Text style={styles.editButtonText}>✏️</Text>
+                <Text style={styles(theme).editButtonText}>✏️</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.deleteButton}
+                style={styles(theme).deleteButton}
                 onPress={() => handleDeleteBatch(item)}
               >
-                <Text style={styles.deleteButtonText}>🗑️</Text>
+                <Text style={styles(theme).deleteButtonText}>🗑️</Text>
               </TouchableOpacity>
             </>
           )}
         </View>
       </View>
 
-      <View style={styles.batchDetails}>
-        <View style={styles.batchDetailRow}>
-          <Text style={[styles.batchDetailLabel, { color: theme.colors.textSecondary }]}>🏠 Farm:</Text>
-          <Text style={[styles.batchDetailValue, { color: theme.colors.text }]}>{getFarmName(item.farmId)}</Text>
+      <View style={styles(theme).batchDetails}>
+        <View style={styles(theme).batchDetailRow}>
+          <Text style={[styles(theme).batchDetailLabel, { color: theme.colors.textSecondary }]}>🏠 Farm:</Text>
+          <Text style={[styles(theme).batchDetailValue, { color: theme.colors.text }]}>{getFarmName(item.farmId)}</Text>
         </View>
 
-        <View style={styles.batchDetailRow}>
-          <Text style={[styles.batchDetailLabel, { color: theme.colors.textSecondary }]}>🐔 Bird Type:</Text>
-          <Text style={[styles.batchDetailValue, { color: theme.colors.text }]}>{item.birdType || item.breed || 'Unknown Type'}</Text>
+        <View style={styles(theme).batchDetailRow}>
+          <Text style={[styles(theme).batchDetailLabel, { color: theme.colors.textSecondary }]}>🐔 Bird Type:</Text>
+          <Text style={[styles(theme).batchDetailValue, { color: theme.colors.text }]}>{item.birdType || item.breed || 'Unknown Type'}</Text>
         </View>
 
-        <View style={styles.batchDetailRow}>
-          <Text style={[styles.batchDetailLabel, { color: theme.colors.textSecondary }]}>📅 Age:</Text>
-          <Text style={[styles.batchDetailValue, { color: theme.colors.text }]}>{calculateAge(item.arrivalDate || item.startDate)}</Text>
+        <View style={styles(theme).batchDetailRow}>
+          <Text style={[styles(theme).batchDetailLabel, { color: theme.colors.textSecondary }]}>📅 Age:</Text>
+          <Text style={[styles(theme).batchDetailValue, { color: theme.colors.text }]}>{calculateAge(item.arrivalDate || item.startDate)}</Text>
         </View>
 
-        <View style={styles.batchStats}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.primary }]}>{item.initialCount || 0}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Initial</Text>
+        <View style={styles(theme).batchStats}>
+          <View style={styles(theme).statItem}>
+            <Text style={[styles(theme).statValue, { color: theme.colors.primary }]}>{item.initialCount || 0}</Text>
+            <Text style={[styles(theme).statLabel, { color: theme.colors.textSecondary }]}>Initial</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.primary }]}>{item.currentCount || 0}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Current</Text>
+          <View style={styles(theme).statItem}>
+            <Text style={[styles(theme).statValue, { color: theme.colors.primary }]}>{item.currentCount || 0}</Text>
+            <Text style={[styles(theme).statLabel, { color: theme.colors.textSecondary }]}>Current</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.secondary }]}>
+          <View style={styles(theme).statItem}>
+            <Text style={[styles(theme).statValue, { color: theme.colors.secondary }]}>
               {(item.initialCount || 0) - (item.currentCount || 0)}
             </Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Mortality</Text>
+            <Text style={[styles(theme).statLabel, { color: theme.colors.textSecondary }]}>Mortality</Text>
           </View>
         </View>
 
-        <View style={[styles.batchMeta, { borderTopColor: theme.colors.border }]}>
-          <Text style={[styles.batchDate, { color: theme.colors.textLight }]}>
+        <View style={[styles(theme).batchMeta, { borderTopColor: theme.colors.border }]}>
+          <Text style={[styles(theme).batchDate, { color: theme.colors.textLight }]}>
             Arrived: {formatDate(item.arrivalDate || item.startDate)}
           </Text>
         </View>
@@ -661,44 +660,44 @@ const BatchesScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles(theme).loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading Batches...</Text>
+        <Text style={[styles(theme).loadingText, { color: theme.colors.textSecondary }]}>Loading Batches...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Poultry Batches</Text>
+      <View style={[styles(theme).header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles(theme).headerTitle, { color: theme.colors.text }]}>Poultry Batches</Text>
         {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') && (
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles(theme).addButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => openModal()}
           >
-            <Text style={styles.addButtonText}>+ Add Batch</Text>
+            <Text style={styles(theme).addButtonText}>+ Add Batch</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Batches List */}
       {!Array.isArray(batches) || batches.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🐔</Text>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>No Batches Yet</Text>
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+        <View style={styles(theme).emptyContainer}>
+          <Text style={styles(theme).emptyIcon}>🐔</Text>
+          <Text style={[styles(theme).emptyTitle, { color: theme.colors.text }]}>No Batches Yet</Text>
+          <Text style={[styles(theme).emptyText, { color: theme.colors.textSecondary }]}>
             {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner')
               ? 'Create your first poultry batch to start managing your birds'
               : 'No batches have been created yet. Ask your manager to create a batch.'}
           </Text>
           {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') && (
             <TouchableOpacity
-              style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]}
+              style={[styles(theme).emptyButton, { backgroundColor: theme.colors.primary }]}
               onPress={() => openModal()}
             >
-              <Text style={styles.emptyButtonText}>Create First Batch</Text>
+              <Text style={styles(theme).emptyButtonText}>Create First Batch</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -706,7 +705,7 @@ const BatchesScreen = ({ route, navigation }) => {
         <FlatList
           data={batches}
           renderItem={renderBatchCard}
-          contentContainerStyle={styles.batchesList}
+          contentContainerStyle={styles(theme).batchesList}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -727,17 +726,17 @@ const BatchesScreen = ({ route, navigation }) => {
         visible={modalVisible}
         onRequestClose={closeModal}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles(theme).modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.surface }]}>
             <ScrollView>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              <Text style={[styles(theme).modalTitle, { color: theme.colors.text }]}>
                 {editingBatch ? 'Edit Batch' : 'Add New Batch'}
               </Text>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Batch Name *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Batch Name *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -751,53 +750,44 @@ const BatchesScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Farm *</Text>
-                <View style={[styles.pickerContainer, {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.inputBorder
-                }]}>
-                  <Picker
-                    selectedValue={String(formData.farmId)}
-                    onValueChange={(itemValue) => {
-                      console.log('🔄 Farm selected:', itemValue, 'Type:', typeof itemValue);
-                      // Convert to number for farmId
-                      const farmIdNum = itemValue === '' ? '' : parseInt(itemValue, 10);
-                      console.log('🔄 Converted farmId:', farmIdNum, 'Type:', typeof farmIdNum);
-                      setFormData(prev => ({ ...prev, farmId: farmIdNum }));
-                    }}
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item
-                      label={Array.isArray(farms) && farms.length === 0 ? "No farms - Create a farm first" : "-- Select a farm --"}
-                      value=""
-                      color={theme.colors.placeholder}
-                    />
-                    {Array.isArray(farms) && farms
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Farm *</Text>
+                <CustomPicker
+                  selectedValue={String(formData.farmId)}
+                  onValueChange={(itemValue) => {
+                    console.log('🔄 Farm selected:', itemValue, 'Type:', typeof itemValue);
+                    // Convert to number for farmId
+                    const farmIdNum = itemValue === '' ? '' : parseInt(itemValue, 10);
+                    console.log('🔄 Converted farmId:', farmIdNum, 'Type:', typeof farmIdNum);
+                    setFormData(prev => ({ ...prev, farmId: farmIdNum }));
+                  }}
+                  items={[
+                    {
+                      label: Array.isArray(farms) && farms.length === 0 ? "No farms - Create a farm first" : "-- Select a farm --",
+                      value: ""
+                    },
+                    ...(Array.isArray(farms) ? farms
                       .filter(farm => farm && (farm.id || farm._id))
-                      .map((farm) => (
-                        <Picker.Item
-                          key={farm.id || farm._id}
-                          label={farm.location ? `${farm.farmName || farm.name || 'Unnamed Farm'} - ${farm.location}` : (farm.farmName || farm.name || 'Unnamed Farm')}
-                          value={String(farm.id || farm._id)}
-                          color={theme.colors.inputText}
-                        />
-                      ))}
-                  </Picker>
-                </View>
+                      .map((farm) => ({
+                        label: farm.location ? `${farm.farmName || farm.name || 'Unnamed Farm'} - ${farm.location}` : (farm.farmName || farm.name || 'Unnamed Farm'),
+                        value: String(farm.id || farm._id)
+                      })) : [])
+                  ]}
+                  placeholder="Select a farm"
+                />
                 {farms.length === 0 && (
-                  <View style={styles.helperContainer}>
-                    <Text style={[styles.helperText, { color: theme.colors.textSecondary }]}>
+                  <View style={styles(theme).helperContainer}>
+                    <Text style={[styles(theme).helperText, { color: theme.colors.textSecondary }]}>
                       No farms available. Please create a farm in the Farms screen before adding batches.
                     </Text>
                   </View>
                 )}
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Bird Type *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Bird Type *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -811,11 +801,11 @@ const BatchesScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={styles.row}>
-                <View style={[styles.formGroup, styles.halfWidth]}>
-                  <Text style={[styles.formLabel, { color: theme.colors.text }]}>Initial Count *</Text>
+              <View style={styles(theme).row}>
+                <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                  <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Initial Count *</Text>
                   <TextInput
-                    style={[styles.formInput, {
+                    style={[styles(theme).formInput, {
                       backgroundColor: theme.colors.inputBackground,
                       borderColor: theme.colors.inputBorder,
                       color: theme.colors.inputText
@@ -830,10 +820,10 @@ const BatchesScreen = ({ route, navigation }) => {
                   />
                 </View>
 
-                <View style={[styles.formGroup, styles.halfWidth]}>
-                  <Text style={[styles.formLabel, { color: theme.colors.text }]}>Current Count</Text>
+                <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                  <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Current Count</Text>
                   <TextInput
-                    style={[styles.formInput, {
+                    style={[styles(theme).formInput, {
                       backgroundColor: theme.colors.inputBackground,
                       borderColor: theme.colors.inputBorder,
                       color: theme.colors.inputText
@@ -849,10 +839,10 @@ const BatchesScreen = ({ route, navigation }) => {
                 </View>
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Arrival Date *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Arrival Date *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -866,38 +856,34 @@ const BatchesScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Status</Text>
-                <View style={[styles.pickerContainer, {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.inputBorder
-                }]}>
-                  <Picker
-                    selectedValue={formData.status}
-                    onValueChange={(itemValue) =>
-                      setFormData(prev => ({ ...prev, status: itemValue }))
-                    }
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item label="Active" value="active" color={theme.colors.inputText} />
-                    <Picker.Item label="Completed" value="completed" color={theme.colors.inputText} />
-                    <Picker.Item label="Inactive" value="inactive" color={theme.colors.inputText} />
-                  </Picker>
-                </View>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Status</Text>
+                <CustomPicker
+                  selectedValue={formData.status}
+                  onValueChange={(itemValue) =>
+                    setFormData(prev => ({ ...prev, status: itemValue }))
+                  }
+                  items={[
+                    { label: 'Active', value: 'active' },
+                    { label: 'Completed', value: 'completed' },
+                    { label: 'Inactive', value: 'inactive' }
+                  ]}
+                  placeholder="Select status"
+                />
               </View>
 
-              <View style={styles.modalActions}>
+              <View style={styles(theme).modalActions}>
                 <TouchableOpacity
-                  style={[styles.cancelButton, { backgroundColor: theme.colors.borderSecondary }]}
+                  style={[styles(theme).cancelButton, { backgroundColor: theme.colors.borderSecondary }]}
                   onPress={closeModal}
                 >
-                  <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
+                  <Text style={[styles(theme).cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                  style={[styles(theme).saveButton, { backgroundColor: theme.colors.primary }]}
                   onPress={handleSaveBatch}
                 >
-                  <Text style={styles.saveButtonText}>
+                  <Text style={styles(theme).saveButtonText}>
                     {editingBatch ? 'Update' : 'Create'}
                   </Text>
                 </TouchableOpacity>
@@ -910,7 +896,7 @@ const BatchesScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -940,7 +926,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontWeight: 'bold',
   },
   batchesList: {
@@ -1078,7 +1064,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   emptyButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -1136,10 +1122,10 @@ const styles = StyleSheet.create({
   helperContainer: {
     marginTop: 8,
     padding: 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.inputBackground,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: theme.colors.border,
   },
   helperButton: {
     marginTop: 8,
@@ -1149,7 +1135,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   helperButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1178,7 +1164,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   saveButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',

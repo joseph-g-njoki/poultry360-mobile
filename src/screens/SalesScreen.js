@@ -352,7 +352,7 @@ const styles = (theme) => StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
   },
   saleDetails: {
     marginBottom: 12,

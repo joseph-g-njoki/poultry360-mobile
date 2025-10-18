@@ -371,17 +371,17 @@ class CrashPreventionWrapper extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <View style={styles.container}>
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>
+        <View style={styles(theme).container}>
+          <View style={styles(theme).errorContainer}>
+            <Text style={styles(theme).errorIcon}>
               {this.state.isRecovering ? '🔄' : '⚠️'}
             </Text>
 
-            <Text style={styles.errorTitle}>
+            <Text style={styles(theme).errorTitle}>
               {this.state.isRecovering ? 'Recovering...' : 'Something went wrong'}
             </Text>
 
-            <Text style={styles.errorMessage}>
+            <Text style={styles(theme).errorMessage}>
               {this.state.isRecovering
                 ? 'The app is attempting to recover automatically. Please wait...'
                 : 'The app encountered an unexpected error. Your data is safe.'}
@@ -389,10 +389,10 @@ class CrashPreventionWrapper extends Component {
 
             {/* Crash statistics */}
             {this.state.crashCount > 1 && !this.state.isRecovering && (
-              <Text style={styles.errorCount}>
+              <Text style={styles(theme).errorCount}>
                 This is crash #{this.state.crashCount}
                 {this.state.lastCrash && (
-                  <Text style={styles.errorTime}>
+                  <Text style={styles(theme).errorTime}>
                     {'\n'}Last crash: {new Date(this.state.lastCrash).toLocaleTimeString()}
                   </Text>
                 )}
@@ -401,32 +401,32 @@ class CrashPreventionWrapper extends Component {
 
             {/* Action buttons */}
             {!this.state.isRecovering && (
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.retryButton} onPress={this.handleRetry}>
-                  <Text style={styles.retryButtonText}>Try Again</Text>
+              <View style={styles(theme).buttonContainer}>
+                <TouchableOpacity style={styles(theme).retryButton} onPress={this.handleRetry}>
+                  <Text style={styles(theme).retryButtonText}>Try Again</Text>
                 </TouchableOpacity>
 
                 {this.state.crashCount > 1 && (
-                  <TouchableOpacity style={styles.restartButton} onPress={this.handleRestart}>
-                    <Text style={styles.restartButtonText}>Restart App</Text>
+                  <TouchableOpacity style={styles(theme).restartButton} onPress={this.handleRestart}>
+                    <Text style={styles(theme).restartButtonText}>Restart App</Text>
                   </TouchableOpacity>
                 )}
 
-                <TouchableOpacity style={styles.reportButton} onPress={this.handleSendCrashReport}>
-                  <Text style={styles.reportButtonText}>Send Report</Text>
+                <TouchableOpacity style={styles(theme).reportButton} onPress={this.handleSendCrashReport}>
+                  <Text style={styles(theme).reportButtonText}>Send Report</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             {/* Error details (only in development) */}
             {__DEV__ && !this.state.isRecovering && (
-              <View style={styles.errorDetails}>
-                <Text style={styles.errorDetailsTitle}>Error Details (Development):</Text>
-                <Text style={styles.errorDetailsText}>
+              <View style={styles(theme).errorDetails}>
+                <Text style={styles(theme).errorDetailsTitle}>Error Details (Development):</Text>
+                <Text style={styles(theme).errorDetailsText}>
                   {this.state.error && this.state.error.toString()}
                 </Text>
                 {this.state.errorInfo && (
-                  <Text style={styles.errorDetailsText}>
+                  <Text style={styles(theme).errorDetailsText}>
                     {this.state.errorInfo.componentStack}
                   </Text>
                 )}
@@ -442,7 +442,7 @@ class CrashPreventionWrapper extends Component {
   }
 }
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -467,13 +467,13 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   errorMessage: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 24,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   errorTime: {
     fontSize: 12,
-    color: '#999',
+    color: theme.colors.textSecondary,
     fontWeight: 'normal',
   },
   buttonContainer: {
@@ -542,12 +542,12 @@ const styles = StyleSheet.create({
   errorDetailsTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   errorDetailsText: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.textSecondary,
     fontFamily: 'monospace',
     marginBottom: 8,
   },

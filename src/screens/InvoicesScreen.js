@@ -115,42 +115,42 @@ const InvoicesScreen = ({ navigation }) => {
 
   const renderInvoiceCard = ({ item }) => (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: theme.cardBackground }]}
+      style={[styles(theme).card, { backgroundColor: theme.cardBackground }]}
       onPress={() => navigation.navigate('InvoiceDetails', { invoiceId: item.id })}
     >
-      <View style={styles.cardHeader}>
-        <View style={styles.invoiceNumber}>
-          <Text style={[styles.invoiceNumberText, { color: theme.text }]}>
+      <View style={styles(theme).cardHeader}>
+        <View style={styles(theme).invoiceNumber}>
+          <Text style={[styles(theme).invoiceNumberText, { color: theme.text }]}>
             {item.invoiceNumber}
           </Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+          <View style={[styles(theme).statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles(theme).statusText}>{item.status.toUpperCase()}</Text>
           </View>
         </View>
-        <Text style={[styles.amount, { color: theme.text }]}>
+        <Text style={[styles(theme).amount, { color: theme.text }]}>
           {formatCurrency(item.total)}
         </Text>
       </View>
 
-      <View style={styles.cardBody}>
-        <View style={styles.infoRow}>
+      <View style={styles(theme).cardBody}>
+        <View style={styles(theme).infoRow}>
           <Ionicons name="person-outline" size={16} color={theme.subText} />
-          <Text style={[styles.infoText, { color: theme.subText }]}>
+          <Text style={[styles(theme).infoText, { color: theme.subText }]}>
             {item.customer?.name || 'Unknown Customer'}
           </Text>
         </View>
 
-        <View style={styles.infoRow}>
+        <View style={styles(theme).infoRow}>
           <Ionicons name="calendar-outline" size={16} color={theme.subText} />
-          <Text style={[styles.infoText, { color: theme.subText }]}>
+          <Text style={[styles(theme).infoText, { color: theme.subText }]}>
             Due: {formatDate(item.dueDate)}
           </Text>
         </View>
 
         {item.amountDue > 0 && (
-          <View style={styles.infoRow}>
+          <View style={styles(theme).infoRow}>
             <Ionicons name="cash-outline" size={16} color="#DC143C" />
-            <Text style={[styles.infoText, { color: '#DC143C' }]}>
+            <Text style={[styles(theme).infoText, { color: '#DC143C' }]}>
               Outstanding: {formatCurrency(item.amountDue)}
             </Text>
           </View>
@@ -163,41 +163,41 @@ const InvoicesScreen = ({ navigation }) => {
     if (!summary) return null;
 
     return (
-      <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: '#2E8B57' }]}>
-          <Text style={styles.summaryValue}>{formatCurrency(summary.totalAmount)}</Text>
-          <Text style={styles.summaryLabel}>Total Invoiced</Text>
+      <View style={styles(theme).summaryContainer}>
+        <View style={[styles(theme).summaryCard, { backgroundColor: '#2E8B57' }]}>
+          <Text style={styles(theme).summaryValue}>{formatCurrency(summary.totalAmount)}</Text>
+          <Text style={styles(theme).summaryLabel}>Total Invoiced</Text>
         </View>
 
-        <View style={[styles.summaryCard, { backgroundColor: '#4A90E2' }]}>
-          <Text style={styles.summaryValue}>{formatCurrency(summary.totalPaid)}</Text>
-          <Text style={styles.summaryLabel}>Total Paid</Text>
+        <View style={[styles(theme).summaryCard, { backgroundColor: '#4A90E2' }]}>
+          <Text style={styles(theme).summaryValue}>{formatCurrency(summary.totalPaid)}</Text>
+          <Text style={styles(theme).summaryLabel}>Total Paid</Text>
         </View>
 
-        <View style={[styles.summaryCard, { backgroundColor: '#FF8C00' }]}>
-          <Text style={styles.summaryValue}>{formatCurrency(summary.totalDue)}</Text>
-          <Text style={styles.summaryLabel}>Outstanding</Text>
+        <View style={[styles(theme).summaryCard, { backgroundColor: '#FF8C00' }]}>
+          <Text style={styles(theme).summaryValue}>{formatCurrency(summary.totalDue)}</Text>
+          <Text style={styles(theme).summaryLabel}>Outstanding</Text>
         </View>
       </View>
     );
   };
 
   const renderFilterButtons = () => (
-    <View style={styles.filterContainer}>
+    <View style={styles(theme).filterContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {['all', 'paid', 'partial', 'overdue', 'draft'].map((filterOption) => (
           <TouchableOpacity
             key={filterOption}
             style={[
-              styles.filterButton,
-              filter === filterOption && styles.filterButtonActive,
+              styles(theme).filterButton,
+              filter === filterOption && styles(theme).filterButtonActive,
             ]}
             onPress={() => setFilter(filterOption)}
           >
             <Text
               style={[
-                styles.filterButtonText,
-                filter === filterOption && styles.filterButtonTextActive,
+                styles(theme).filterButtonText,
+                filter === filterOption && styles(theme).filterButtonTextActive,
               ]}
             >
               {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
@@ -211,9 +211,9 @@ const InvoicesScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <ScreenWrapper>
-        <View style={styles.loadingContainer}>
+        <View style={styles(theme).loadingContainer}>
           <ActivityIndicator size="large" color="#2E8B57" />
-          <Text style={styles.loadingText}>Loading invoices...</Text>
+          <Text style={styles(theme).loadingText}>Loading invoices...</Text>
         </View>
       </ScreenWrapper>
     );
@@ -223,14 +223,14 @@ const InvoicesScreen = ({ navigation }) => {
     <ScreenWrapper>
       <OfflineIndicator />
 
-      <View style={[styles.header, { backgroundColor: theme.primary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <View style={[styles(theme).header, { backgroundColor: theme.primary }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles(theme).backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Invoices</Text>
+        <Text style={styles(theme).headerTitle}>Invoices</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('CreateInvoice')}
-          style={styles.addButton}
+          style={styles(theme).addButton}
         >
           <Ionicons name="add-circle" size={28} color="#fff" />
         </TouchableOpacity>
@@ -243,7 +243,7 @@ const InvoicesScreen = ({ navigation }) => {
         data={invoices}
         renderItem={renderInvoiceCard}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles(theme).listContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -253,10 +253,10 @@ const InvoicesScreen = ({ navigation }) => {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <View style={styles(theme).emptyContainer}>
             <Ionicons name="document-text-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No invoices found</Text>
-            <Text style={styles.emptySubText}>
+            <Text style={styles(theme).emptyText}>No invoices found</Text>
+            <Text style={styles(theme).emptySubText}>
               Create your first invoice to get started
             </Text>
           </View>
@@ -266,7 +266,7 @@ const InvoicesScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.buttonText,
     flex: 1,
     textAlign: 'center',
   },
@@ -301,12 +301,12 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.buttonText,
     marginBottom: 4,
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#fff',
+    color: theme.colors.buttonText,
     opacity: 0.9,
   },
   filterContainer: {
@@ -325,10 +325,10 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   filterButtonTextActive: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontWeight: '600',
   },
   listContainer: {
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.buttonText,
   },
   amount: {
     fontSize: 20,
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -402,12 +402,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginTop: 16,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#999',
+    color: theme.colors.textSecondary,
     marginTop: 8,
   },
 });

@@ -121,91 +121,91 @@ const DatabaseDebugModal = ({ visible, onClose, onResetComplete }) => {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Database Debug Tools</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>×</Text>
+      <View style={styles(theme).container}>
+        <View style={styles(theme).header}>
+          <Text style={styles(theme).title}>Database Debug Tools</Text>
+          <TouchableOpacity onPress={onClose} style={styles(theme).closeButton}>
+            <Text style={styles(theme).closeButtonText}>×</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content}>
-          <Text style={styles.description}>
+        <ScrollView style={styles(theme).content}>
+          <Text style={styles(theme).description}>
             Use these tools to diagnose and fix database issues, including the "fisrt name" column error.
           </Text>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Diagnostic Tools</Text>
+          <View style={styles(theme).section}>
+            <Text style={styles(theme).sectionTitle}>Diagnostic Tools</Text>
 
             <TouchableOpacity
-              style={styles.button}
+              style={styles(theme).button}
               onPress={handleDebugDatabase}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>Debug Database Schema</Text>
+              <Text style={styles(theme).buttonText}>Debug Database Schema</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.button}
+              style={styles(theme).button}
               onPress={handleCheckHealth}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>Check Database Health</Text>
+              <Text style={styles(theme).buttonText}>Check Database Health</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Repair Tools</Text>
+          <View style={styles(theme).section}>
+            <Text style={styles(theme).sectionTitle}>Repair Tools</Text>
 
             <TouchableOpacity
-              style={[styles.button, styles.warningButton]}
+              style={[styles(theme).button, styles(theme).warningButton]}
               onPress={handleRecreateUsersTable}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>Recreate Users Table</Text>
+              <Text style={styles(theme).buttonText}>Recreate Users Table</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.dangerButton]}
+              style={[styles(theme).button, styles(theme).dangerButton]}
               onPress={handleResetDatabase}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>Reset Entire Database</Text>
+              <Text style={styles(theme).buttonText}>Reset Entire Database</Text>
             </TouchableOpacity>
           </View>
 
           {loading && (
-            <View style={styles.loadingContainer}>
+            <View style={styles(theme).loadingContainer}>
               <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={styles.loadingText}>Processing...</Text>
+              <Text style={styles(theme).loadingText}>Processing...</Text>
             </View>
           )}
 
           {debugResult && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Debug Results</Text>
-              <View style={styles.resultContainer}>
-                <Text style={styles.resultText}>
+            <View style={styles(theme).section}>
+              <Text style={styles(theme).sectionTitle}>Debug Results</Text>
+              <View style={styles(theme).resultContainer}>
+                <Text style={styles(theme).resultText}>
                   {JSON.stringify(debugResult, null, 2)}
                 </Text>
               </View>
             </View>
           )}
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Demo User Credentials</Text>
-            <View style={styles.credentialsContainer}>
-              <Text style={styles.credentialTitle}>Worker Account:</Text>
-              <Text style={styles.credentialText}>Email: demo@poultry360.com</Text>
-              <Text style={styles.credentialText}>Password: demo123</Text>
+          <View style={styles(theme).section}>
+            <Text style={styles(theme).sectionTitle}>Demo User Credentials</Text>
+            <View style={styles(theme).credentialsContainer}>
+              <Text style={styles(theme).credentialTitle}>Worker Account:</Text>
+              <Text style={styles(theme).credentialText}>Email: demo@poultry360.com</Text>
+              <Text style={styles(theme).credentialText}>Password: demo123</Text>
 
-              <Text style={styles.credentialTitle}>Owner Account:</Text>
-              <Text style={styles.credentialText}>Email: owner@poultry360.com</Text>
-              <Text style={styles.credentialText}>Password: owner123</Text>
+              <Text style={styles(theme).credentialTitle}>Owner Account:</Text>
+              <Text style={styles(theme).credentialText}>Email: owner@poultry360.com</Text>
+              <Text style={styles(theme).credentialText}>Password: owner123</Text>
 
-              <Text style={styles.credentialTitle}>Admin Account:</Text>
-              <Text style={styles.credentialText}>Email: admin@poultry360.com</Text>
-              <Text style={styles.credentialText}>Password: admin123</Text>
+              <Text style={styles(theme).credentialTitle}>Admin Account:</Text>
+              <Text style={styles(theme).credentialText}>Email: admin@poultry360.com</Text>
+              <Text style={styles(theme).credentialText}>Password: admin123</Text>
             </View>
           </View>
         </ScrollView>

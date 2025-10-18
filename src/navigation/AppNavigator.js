@@ -276,9 +276,9 @@ const MainTabNavigator = () => {
   if (!authContext || !authContext.user) {
     console.warn('MainTabNavigator: Auth context or user is null');
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles(theme).loadingContainer}>
         <ActivityIndicator size="large" color="#2E8B57" />
-        <Text style={styles.loadingText}>Loading user data...</Text>
+        <Text style={styles(theme).loadingText}>Loading user data...</Text>
       </View>
     );
   }
@@ -377,9 +377,9 @@ const LoadingScreen = () => {
   const { theme } = useTheme();
 
   return (
-    <View style={[styles.loadingContainer, { backgroundColor: theme.colors.loadingBackground }]}>
+    <View style={[styles(theme).loadingContainer, { backgroundColor: theme.colors.loadingBackground }]}>
       <ActivityIndicator size="large" color={theme.colors.loadingText} />
-      <Text style={[styles.loadingText, { color: theme.colors.loadingText }]}>Loading...</Text>
+      <Text style={[styles(theme).loadingText, { color: theme.colors.loadingText }]}>Loading...</Text>
     </View>
   );
 };
@@ -392,12 +392,12 @@ const AppNavigator = () => {
   if (!authContext) {
     console.error('AppNavigator: Auth context is null - critical error');
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles(theme).loadingContainer}>
         <ActivityIndicator size="large" color="#FF3B30" />
-        <Text style={[styles.loadingText, { color: '#FF3B30' }]}>
+        <Text style={[styles(theme).loadingText, { color: '#FF3B30' }]}>
           Authentication Error
         </Text>
-        <Text style={[styles.loadingText, { fontSize: 12, marginTop: 10 }]}>
+        <Text style={[styles(theme).loadingText, { fontSize: 12, marginTop: 10 }]}>
           Please restart the app
         </Text>
       </View>
@@ -431,11 +431,11 @@ const AppNavigator = () => {
   } catch (error) {
     console.error('Navigation error:', error);
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={[styles.loadingText, { color: '#FF3B30' }]}>
+      <View style={styles(theme).loadingContainer}>
+        <Text style={[styles(theme).loadingText, { color: '#FF3B30' }]}>
           Navigation Error
         </Text>
-        <Text style={[styles.loadingText, { fontSize: 12, marginTop: 10 }]}>
+        <Text style={[styles(theme).loadingText, { fontSize: 12, marginTop: 10 }]}>
           {error?.message || 'Unknown error'}
         </Text>
       </View>
@@ -443,7 +443,7 @@ const AppNavigator = () => {
   }
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

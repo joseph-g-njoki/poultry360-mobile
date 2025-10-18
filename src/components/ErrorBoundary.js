@@ -187,22 +187,22 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       // Error UI
       return (
-        <View style={styles.container}>
-          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.errorContainer}>
+        <View style={styles(theme).container}>
+          <ScrollView style={styles(theme).scrollView} contentContainerStyle={styles(theme).scrollContent}>
+            <View style={styles(theme).errorContainer}>
               {this.state.isRecovering ? (
                 <>
-                  <ActivityIndicator size="large" color="#007AFF" style={styles.loadingIcon} />
-                  <Text style={styles.errorTitle}>Recovering...</Text>
-                  <Text style={styles.errorMessage}>
+                  <ActivityIndicator size="large" color="#007AFF" style={styles(theme).loadingIcon} />
+                  <Text style={styles(theme).errorTitle}>Recovering...</Text>
+                  <Text style={styles(theme).errorMessage}>
                     Attempting to recover {this.state.screenName}. Please wait...
                   </Text>
                 </>
               ) : (
                 <>
-                  <Text style={styles.errorIcon}>⚠️</Text>
-                  <Text style={styles.errorTitle}>Error in {this.state.screenName}</Text>
-                  <Text style={styles.errorMessage}>
+                  <Text style={styles(theme).errorIcon}>⚠️</Text>
+                  <Text style={styles(theme).errorTitle}>Error in {this.state.screenName}</Text>
+                  <Text style={styles(theme).errorMessage}>
                     Something went wrong in {this.state.screenName}. Don't worry, your data is safe.
                   </Text>
                 </>
@@ -210,21 +210,21 @@ class ErrorBoundary extends Component {
 
               {/* Error count indicator */}
               {this.state.errorCount > 1 && (
-                <Text style={styles.errorCount}>
+                <Text style={styles(theme).errorCount}>
                   This error has occurred {this.state.errorCount} times
                 </Text>
               )}
 
               {/* Action buttons - only show when not recovering */}
               {!this.state.isRecovering && (
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={styles.retryButton} onPress={this.handleRetry}>
-                    <Text style={styles.retryButtonText}>Try Again</Text>
+                <View style={styles(theme).buttonContainer}>
+                  <TouchableOpacity style={styles(theme).retryButton} onPress={this.handleRetry}>
+                    <Text style={styles(theme).retryButtonText}>Try Again</Text>
                   </TouchableOpacity>
 
                   {this.state.errorCount > 2 && (
-                    <TouchableOpacity style={styles.restartButton} onPress={this.handleRestart}>
-                      <Text style={styles.restartButtonText}>Restart App</Text>
+                    <TouchableOpacity style={styles(theme).restartButton} onPress={this.handleRestart}>
+                      <Text style={styles(theme).restartButtonText}>Restart App</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -232,13 +232,13 @@ class ErrorBoundary extends Component {
 
               {/* Error details (only in development) */}
               {__DEV__ && (
-                <View style={styles.errorDetails}>
-                  <Text style={styles.errorDetailsTitle}>Error Details (Development Only):</Text>
-                  <Text style={styles.errorDetailsText}>
+                <View style={styles(theme).errorDetails}>
+                  <Text style={styles(theme).errorDetailsTitle}>Error Details (Development Only):</Text>
+                  <Text style={styles(theme).errorDetailsText}>
                     {this.state.error && this.state.error.toString()}
                   </Text>
                   {this.state.errorInfo && (
-                    <Text style={styles.errorDetailsText}>
+                    <Text style={styles(theme).errorDetailsText}>
                       {this.state.errorInfo.componentStack}
                     </Text>
                   )}
@@ -255,7 +255,7 @@ class ErrorBoundary extends Component {
   }
 }
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -292,13 +292,13 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   errorMessage: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 24,
@@ -350,12 +350,12 @@ const styles = StyleSheet.create({
   errorDetailsTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   errorDetailsText: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.textSecondary,
     fontFamily: 'monospace',
     marginBottom: 8,
   },

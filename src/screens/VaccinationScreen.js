@@ -13,7 +13,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../components/CustomPicker';
 import apiService from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -267,53 +267,53 @@ const VaccinationScreen = ({ navigation }) => {
     if (!item) return null;
 
     return (
-      <View style={[styles.vaccinationCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.colors.border }]}>
-          <View style={styles.cardTitleRow}>
-            <Text style={[styles.vaccinationType, { color: theme.colors.primary }]}>
+      <View style={[styles(theme).vaccinationCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
+        <View style={[styles(theme).cardHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={styles(theme).cardTitleRow}>
+            <Text style={[styles(theme).vaccinationType, { color: theme.colors.primary }]}>
               {item.vaccinationType || 'Unknown Type'}
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#4CAF50' }]}>
-              <Text style={styles.statusIcon}>💉</Text>
-              <Text style={[styles.statusText, { color: '#fff' }]}>Vaccinated</Text>
+            <View style={[styles(theme).statusBadge, { backgroundColor: '#4CAF50' }]}>
+              <Text style={styles(theme).statusIcon}>💉</Text>
+              <Text style={[styles(theme).statusText, { color: theme.colors.buttonText }]}>Vaccinated</Text>
             </View>
           </View>
-          <View style={styles.cardActions}>
+          <View style={styles(theme).cardActions}>
             {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') && (
               <>
-                <TouchableOpacity style={styles.editButton} onPress={() => openModal(item)}>
-                  <Text style={styles.editButtonText}>✏️</Text>
+                <TouchableOpacity style={styles(theme).editButton} onPress={() => openModal(item)}>
+                  <Text style={styles(theme).editButtonText}>✏️</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteVaccination(item)}>
-                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                <TouchableOpacity style={styles(theme).deleteButton} onPress={() => handleDeleteVaccination(item)}>
+                  <Text style={styles(theme).deleteButtonText}>🗑️</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
         </View>
 
-        <View style={styles.cardDetails}>
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>🐔 Batch:</Text>
-            <Text style={[styles.detailValue, { color: theme.colors.text }]}>{getBatchName(item.batchId)}</Text>
+        <View style={styles(theme).cardDetails}>
+          <View style={styles(theme).detailRow}>
+            <Text style={[styles(theme).detailLabel, { color: theme.colors.textSecondary }]}>🐔 Batch:</Text>
+            <Text style={[styles(theme).detailValue, { color: theme.colors.text }]}>{getBatchName(item.batchId)}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>📅 Date:</Text>
-            <Text style={[styles.detailValue, { color: theme.colors.text }]}>{formatDate(item.vaccinationDate || item.date)}</Text>
+          <View style={styles(theme).detailRow}>
+            <Text style={[styles(theme).detailLabel, { color: theme.colors.textSecondary }]}>📅 Date:</Text>
+            <Text style={[styles(theme).detailValue, { color: theme.colors.text }]}>{formatDate(item.vaccinationDate || item.date)}</Text>
           </View>
 
           {item.medication && (
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>💊 Medication:</Text>
-              <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.medication}</Text>
+            <View style={styles(theme).detailRow}>
+              <Text style={[styles(theme).detailLabel, { color: theme.colors.textSecondary }]}>💊 Medication:</Text>
+              <Text style={[styles(theme).detailValue, { color: theme.colors.text }]}>{item.medication}</Text>
             </View>
           )}
 
           {item.notes && (
-            <View style={[styles.notesContainer, { backgroundColor: theme.colors.background }]}>
-              <Text style={[styles.notesLabel, { color: theme.colors.textSecondary }]}>📝 Notes:</Text>
-              <Text style={[styles.notesText, { color: theme.colors.text }]}>{item.notes}</Text>
+            <View style={[styles(theme).notesContainer, { backgroundColor: theme.colors.background }]}>
+              <Text style={[styles(theme).notesLabel, { color: theme.colors.textSecondary }]}>📝 Notes:</Text>
+              <Text style={[styles(theme).notesText, { color: theme.colors.text }]}>{item.notes}</Text>
             </View>
           )}
         </View>
@@ -323,38 +323,38 @@ const VaccinationScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles(theme).loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading Vaccinations...</Text>
+        <Text style={[styles(theme).loadingText, { color: theme.colors.textSecondary }]}>Loading Vaccinations...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Vaccination Records</Text>
+      <View style={[styles(theme).header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles(theme).headerTitle, { color: theme.colors.text }]}>Vaccination Records</Text>
         {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') && (
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.colors.primary }]} onPress={() => openModal()}>
-            <Text style={styles.addButtonText}>+ Add Vaccination</Text>
+          <TouchableOpacity style={[styles(theme).addButton, { backgroundColor: theme.colors.primary }]} onPress={() => openModal()}>
+            <Text style={styles(theme).addButtonText}>+ Add Vaccination</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Vaccinations List */}
       {!Array.isArray(vaccinations) || vaccinations.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>💉</Text>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>No Vaccination Records</Text>
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+        <View style={styles(theme).emptyContainer}>
+          <Text style={styles(theme).emptyIcon}>💉</Text>
+          <Text style={[styles(theme).emptyTitle, { color: theme.colors.text }]}>No Vaccination Records</Text>
+          <Text style={[styles(theme).emptyText, { color: theme.colors.textSecondary }]}>
             {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner')
               ? 'Start tracking vaccinations for your flocks to maintain health records'
               : 'No vaccination records have been created yet'}
           </Text>
           {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') && (
-            <TouchableOpacity style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]} onPress={() => openModal()}>
-              <Text style={styles.emptyButtonText}>Add First Vaccination</Text>
+            <TouchableOpacity style={[styles(theme).emptyButton, { backgroundColor: theme.colors.primary }]} onPress={() => openModal()}>
+              <Text style={styles(theme).emptyButtonText}>Add First Vaccination</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -363,7 +363,7 @@ const VaccinationScreen = ({ navigation }) => {
           data={vaccinations}
           renderItem={renderVaccinationCard}
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-          contentContainerStyle={styles.vaccinationsList}
+          contentContainerStyle={styles(theme).vaccinationsList}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -379,60 +379,43 @@ const VaccinationScreen = ({ navigation }) => {
 
       {/* Add/Edit Vaccination Modal */}
       <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={closeModal}>
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles(theme).modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.surface }]}>
             <ScrollView>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              <Text style={[styles(theme).modalTitle, { color: theme.colors.text }]}>
                 {editingVaccination ? 'Edit Vaccination' : 'Add New Vaccination'}
               </Text>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Batch *</Text>
-                <View style={[styles.pickerContainer, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
-                  <Picker
-                    selectedValue={String(formData.batchId)}
-                    onValueChange={(itemValue) => setFormData(prev => ({ ...prev, batchId: itemValue }))}
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item
-                      label={Array.isArray(batches) && batches.length === 0 ? "No batches - Create a batch first" : "-- Select a batch --"}
-                      value=""
-                      color={theme.colors.placeholder}
-                    />
-                    {Array.isArray(batches) && batches
-                      .filter(batch => batch && (batch.id || batch._id))
-                      .map((batch) => (
-                        <Picker.Item
-                          key={batch.id || batch._id}
-                          label={batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || 'Unnamed Batch')}
-                          value={String(batch.id || batch._id)}
-                          color={theme.colors.inputText}
-                        />
-                      ))}
-                  </Picker>
-                </View>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Batch *</Text>
+                <CustomPicker
+                  selectedValue={String(formData.batchId)}
+                  onValueChange={(itemValue) => setFormData(prev => ({ ...prev, batchId: itemValue }))}
+                  items={Array.isArray(batches) && batches.length > 0
+                    ? batches.filter(batch => batch && (batch.id || batch._id)).map((batch) => ({
+                        label: batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || 'Unnamed Batch'),
+                        value: String(batch.id || batch._id)
+                      }))
+                    : []
+                  }
+                  placeholder={Array.isArray(batches) && batches.length === 0 ? "No batches - Create a batch first" : "-- Select a batch --"}
+                />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Vaccination Type *</Text>
-                <View style={[styles.pickerContainer, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
-                  <Picker
-                    selectedValue={formData.vaccinationType}
-                    onValueChange={(itemValue) => setFormData(prev => ({ ...prev, vaccinationType: itemValue }))}
-                    style={[styles.picker, { color: theme.colors.inputText }]}
-                  >
-                    <Picker.Item label="Select vaccination type" value="" color={theme.colors.placeholder} />
-                    {vaccinationTypes.map((type) => (
-                      <Picker.Item key={type} label={type} value={type} color={theme.colors.inputText} />
-                    ))}
-                  </Picker>
-                </View>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Vaccination Type *</Text>
+                <CustomPicker
+                  selectedValue={formData.vaccinationType}
+                  onValueChange={(itemValue) => setFormData(prev => ({ ...prev, vaccinationType: itemValue }))}
+                  items={vaccinationTypes.map((type) => ({ label: type, value: type }))}
+                  placeholder="Select vaccination type"
+                />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Vaccination Date *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Vaccination Date *</Text>
                 <TextInput
-                  style={[styles.formInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.inputText }]}
+                  style={[styles(theme).formInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.inputText }]}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor={theme.colors.placeholder}
                   value={formData.vaccinationDate}
@@ -440,10 +423,10 @@ const VaccinationScreen = ({ navigation }) => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Medication/Vaccine Name</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Medication/Vaccine Name</Text>
                 <TextInput
-                  style={[styles.formInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.inputText }]}
+                  style={[styles(theme).formInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.inputText }]}
                   placeholder="e.g., Lasota, Gumboro vaccine"
                   placeholderTextColor={theme.colors.placeholder}
                   value={formData.medication}
@@ -451,10 +434,10 @@ const VaccinationScreen = ({ navigation }) => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Notes</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Notes</Text>
                 <TextInput
-                  style={[styles.formTextArea, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.inputText }]}
+                  style={[styles(theme).formTextArea, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.inputText }]}
                   placeholder="Additional notes about the vaccination"
                   placeholderTextColor={theme.colors.placeholder}
                   value={formData.notes}
@@ -464,12 +447,12 @@ const VaccinationScreen = ({ navigation }) => {
                 />
               </View>
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.cancelButton, { backgroundColor: theme.colors.borderSecondary }]} onPress={closeModal}>
-                  <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
+              <View style={styles(theme).modalActions}>
+                <TouchableOpacity style={[styles(theme).cancelButton, { backgroundColor: theme.colors.borderSecondary }]} onPress={closeModal}>
+                  <Text style={[styles(theme).cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.colors.primary }]} onPress={handleSaveVaccination}>
-                  <Text style={styles.saveButtonText}>{editingVaccination ? 'Update' : 'Create'}</Text>
+                <TouchableOpacity style={[styles(theme).saveButton, { backgroundColor: theme.colors.primary }]} onPress={handleSaveVaccination}>
+                  <Text style={styles(theme).saveButtonText}>{editingVaccination ? 'Update' : 'Create'}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -480,7 +463,7 @@ const VaccinationScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -510,7 +493,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontWeight: 'bold',
   },
   vaccinationsList: {
@@ -636,7 +619,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   emptyButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -713,7 +696,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   saveButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',

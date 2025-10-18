@@ -142,14 +142,14 @@ const PaymentsScreen = ({ navigation }) => {
 
   const renderPaymentCard = ({ item }) => (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: theme.cardBackground }]}
+      style={[styles(theme).card, { backgroundColor: theme.cardBackground }]}
       onPress={() => navigation.navigate('PaymentDetails', { paymentId: item.id })}
     >
-      <View style={styles.cardHeader}>
-        <View style={styles.paymentInfo}>
+      <View style={styles(theme).cardHeader}>
+        <View style={styles(theme).paymentInfo}>
           <View
             style={[
-              styles.iconContainer,
+              styles(theme).iconContainer,
               { backgroundColor: getPaymentMethodColor(item.paymentMethod) + '20' },
             ]}
           >
@@ -159,48 +159,48 @@ const PaymentsScreen = ({ navigation }) => {
               color={getPaymentMethodColor(item.paymentMethod)}
             />
           </View>
-          <View style={styles.paymentDetails}>
-            <Text style={[styles.receiptNumber, { color: theme.text }]}>
+          <View style={styles(theme).paymentDetails}>
+            <Text style={[styles(theme).receiptNumber, { color: theme.text }]}>
               {item.receiptNumber || 'No Receipt'}
             </Text>
-            <Text style={[styles.paymentMethod, { color: theme.subText }]}>
+            <Text style={[styles(theme).paymentMethod, { color: theme.subText }]}>
               {item.paymentMethod.replace('_', ' ').toUpperCase()}
             </Text>
           </View>
         </View>
-        <Text style={[styles.amount, { color: '#2E8B57' }]}>
+        <Text style={[styles(theme).amount, { color: '#2E8B57' }]}>
           {formatCurrency(item.amount)}
         </Text>
       </View>
 
-      <View style={styles.cardBody}>
-        <View style={styles.infoRow}>
+      <View style={styles(theme).cardBody}>
+        <View style={styles(theme).infoRow}>
           <Ionicons name="person-outline" size={16} color={theme.subText} />
-          <Text style={[styles.infoText, { color: theme.subText }]}>
+          <Text style={[styles(theme).infoText, { color: theme.subText }]}>
             {item.customer?.name || 'Unknown Customer'}
           </Text>
         </View>
 
-        <View style={styles.infoRow}>
+        <View style={styles(theme).infoRow}>
           <Ionicons name="calendar-outline" size={16} color={theme.subText} />
-          <Text style={[styles.infoText, { color: theme.subText }]}>
+          <Text style={[styles(theme).infoText, { color: theme.subText }]}>
             {formatDate(item.paymentDate)} at {formatTime(item.paymentDate)}
           </Text>
         </View>
 
         {item.referenceNumber && (
-          <View style={styles.infoRow}>
+          <View style={styles(theme).infoRow}>
             <Ionicons name="barcode-outline" size={16} color={theme.subText} />
-            <Text style={[styles.infoText, { color: theme.subText }]}>
+            <Text style={[styles(theme).infoText, { color: theme.subText }]}>
               Ref: {item.referenceNumber}
             </Text>
           </View>
         )}
 
         {item.invoice && (
-          <View style={styles.infoRow}>
+          <View style={styles(theme).infoRow}>
             <Ionicons name="document-text-outline" size={16} color={theme.subText} />
-            <Text style={[styles.infoText, { color: theme.subText }]}>
+            <Text style={[styles(theme).infoText, { color: theme.subText }]}>
               Invoice: {item.invoice.invoiceNumber}
             </Text>
           </View>
@@ -213,42 +213,42 @@ const PaymentsScreen = ({ navigation }) => {
     if (!summary) return null;
 
     return (
-      <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: '#2E8B57' }]}>
-          <Text style={styles.summaryValue}>{formatCurrency(summary.totalAmount)}</Text>
-          <Text style={styles.summaryLabel}>Total Received</Text>
+      <View style={styles(theme).summaryContainer}>
+        <View style={[styles(theme).summaryCard, { backgroundColor: '#2E8B57' }]}>
+          <Text style={styles(theme).summaryValue}>{formatCurrency(summary.totalAmount)}</Text>
+          <Text style={styles(theme).summaryLabel}>Total Received</Text>
         </View>
 
-        <View style={[styles.summaryCard, { backgroundColor: '#4A90E2' }]}>
-          <Text style={styles.summaryValue}>{summary.totalPayments}</Text>
-          <Text style={styles.summaryLabel}>Transactions</Text>
+        <View style={[styles(theme).summaryCard, { backgroundColor: '#4A90E2' }]}>
+          <Text style={styles(theme).summaryValue}>{summary.totalPayments}</Text>
+          <Text style={styles(theme).summaryLabel}>Transactions</Text>
         </View>
 
-        <View style={[styles.summaryCard, { backgroundColor: '#FF8C00' }]}>
-          <Text style={styles.summaryValue}>{formatCurrency(summary.thisMonthAmount)}</Text>
-          <Text style={styles.summaryLabel}>This Month</Text>
+        <View style={[styles(theme).summaryCard, { backgroundColor: '#FF8C00' }]}>
+          <Text style={styles(theme).summaryValue}>{formatCurrency(summary.thisMonthAmount)}</Text>
+          <Text style={styles(theme).summaryLabel}>This Month</Text>
         </View>
       </View>
     );
   };
 
   const renderFilterButtons = () => (
-    <View style={styles.filterContainer}>
+    <View style={styles(theme).filterContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {['all', 'cash', 'mobile_money', 'bank_transfer', 'credit_card'].map(
           (filterOption) => (
             <TouchableOpacity
               key={filterOption}
               style={[
-                styles.filterButton,
-                filter === filterOption && styles.filterButtonActive,
+                styles(theme).filterButton,
+                filter === filterOption && styles(theme).filterButtonActive,
               ]}
               onPress={() => setFilter(filterOption)}
             >
               <Text
                 style={[
-                  styles.filterButtonText,
-                  filter === filterOption && styles.filterButtonTextActive,
+                  styles(theme).filterButtonText,
+                  filter === filterOption && styles(theme).filterButtonTextActive,
                 ]}
               >
                 {filterOption.replace('_', ' ').charAt(0).toUpperCase() +
@@ -264,9 +264,9 @@ const PaymentsScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <ScreenWrapper>
-        <View style={styles.loadingContainer}>
+        <View style={styles(theme).loadingContainer}>
           <ActivityIndicator size="large" color="#2E8B57" />
-          <Text style={styles.loadingText}>Loading payments...</Text>
+          <Text style={styles(theme).loadingText}>Loading payments...</Text>
         </View>
       </ScreenWrapper>
     );
@@ -276,14 +276,14 @@ const PaymentsScreen = ({ navigation }) => {
     <ScreenWrapper>
       <OfflineIndicator />
 
-      <View style={[styles.header, { backgroundColor: theme.primary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <View style={[styles(theme).header, { backgroundColor: theme.primary }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles(theme).backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payments</Text>
+        <Text style={styles(theme).headerTitle}>Payments</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('RecordPayment')}
-          style={styles.addButton}
+          style={styles(theme).addButton}
         >
           <Ionicons name="add-circle" size={28} color="#fff" />
         </TouchableOpacity>
@@ -296,7 +296,7 @@ const PaymentsScreen = ({ navigation }) => {
         data={payments}
         renderItem={renderPaymentCard}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles(theme).listContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -306,10 +306,10 @@ const PaymentsScreen = ({ navigation }) => {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <View style={styles(theme).emptyContainer}>
             <Ionicons name="wallet-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No payments found</Text>
-            <Text style={styles.emptySubText}>
+            <Text style={styles(theme).emptyText}>No payments found</Text>
+            <Text style={styles(theme).emptySubText}>
               Record your first payment to get started
             </Text>
           </View>
@@ -319,7 +319,7 @@ const PaymentsScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.buttonText,
     flex: 1,
     textAlign: 'center',
   },
@@ -354,12 +354,12 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.buttonText,
     marginBottom: 4,
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#fff',
+    color: theme.colors.buttonText,
     opacity: 0.9,
   },
   filterContainer: {
@@ -378,10 +378,10 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   filterButtonTextActive: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontWeight: '600',
   },
   listContainer: {
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -460,12 +460,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginTop: 16,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#999',
+    color: theme.colors.textSecondary,
     marginTop: 8,
   },
 });

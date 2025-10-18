@@ -107,10 +107,10 @@ const OrganizationSelectionScreen = ({ route, navigation }) => {
 
   if (loading && organizations.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
+        <View style={styles(theme).loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+          <Text style={[styles(theme).loadingText, { color: theme.colors.text }]}>
             Loading organizations...
           </Text>
         </View>
@@ -119,22 +119,22 @@ const OrganizationSelectionScreen = ({ route, navigation }) => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.headerContainer}>
-          <Text style={styles.logoText}>🏢</Text>
-          <Text style={[styles.title, { color: theme.colors.text }]}>
+    <SafeAreaView style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
+      <ScrollView contentContainerStyle={styles(theme).scrollContainer}>
+        <View style={styles(theme).headerContainer}>
+          <Text style={styles(theme).logoText}>🏢</Text>
+          <Text style={[styles(theme).title, { color: theme.colors.text }]}>
             Select Organization
           </Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          <Text style={[styles(theme).subtitle, { color: theme.colors.textSecondary }]}>
             Choose which organization to access
           </Text>
         </View>
 
-        <View style={[styles.organizationsContainer, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles(theme).organizationsContainer, { backgroundColor: theme.colors.surface }]}>
           {organizations.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+            <View style={styles(theme).emptyContainer}>
+              <Text style={[styles(theme).emptyText, { color: theme.colors.textSecondary }]}>
                 No organizations found
               </Text>
             </View>
@@ -143,38 +143,38 @@ const OrganizationSelectionScreen = ({ route, navigation }) => {
               <TouchableOpacity
                 key={org.id || index}
                 style={[
-                  styles.organizationCard,
+                  styles(theme).organizationCard,
                   {
                     backgroundColor: theme.colors.cardBackground || theme.colors.background,
                     borderColor: theme.colors.border
                   },
-                  selectedOrg === org.id && styles.selectedCard
+                  selectedOrg === org.id && styles(theme).selectedCard
                 ]}
                 onPress={() => handleOrganizationSelect(org)}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <View style={styles.orgCardContent}>
-                  <View style={styles.orgInfo}>
-                    <Text style={[styles.orgName, { color: theme.colors.text }]}>
+                <View style={styles(theme).orgCardContent}>
+                  <View style={styles(theme).orgInfo}>
+                    <Text style={[styles(theme).orgName, { color: theme.colors.text }]}>
                       {org.name || 'Unknown Organization'}
                     </Text>
-                    <Text style={[styles.orgRole, { color: theme.colors.textSecondary }]}>
+                    <Text style={[styles(theme).orgRole, { color: theme.colors.textSecondary }]}>
                       Role: {org.userRole || 'Unknown'}
                     </Text>
                     {org.isActive === false && (
-                      <Text style={[styles.orgStatus, { color: theme.colors.error }]}>
+                      <Text style={[styles(theme).orgStatus, { color: theme.colors.error }]}>
                         Inactive
                       </Text>
                     )}
                   </View>
 
-                  <View style={styles.orgActions}>
+                  <View style={styles(theme).orgActions}>
                     {loading && selectedOrg === org.id ? (
                       <ActivityIndicator size="small" color={theme.colors.primary} />
                     ) : (
-                      <View style={[styles.selectButton, { backgroundColor: theme.colors.primary }]}>
-                        <Text style={styles.selectButtonText}>Select</Text>
+                      <View style={[styles(theme).selectButton, { backgroundColor: theme.colors.primary }]}>
+                        <Text style={styles(theme).selectButtonText}>Select</Text>
                       </View>
                     )}
                   </View>
@@ -184,14 +184,14 @@ const OrganizationSelectionScreen = ({ route, navigation }) => {
           )}
         </View>
 
-        <View style={styles.actionContainer}>
+        <View style={styles(theme).actionContainer}>
           <TouchableOpacity
-            style={[styles.cancelButton, { borderColor: theme.colors.border }]}
+            style={[styles(theme).cancelButton, { borderColor: theme.colors.border }]}
             onPress={handleCancel}
             disabled={loading}
             activeOpacity={0.7}
           >
-            <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles(theme).cancelButtonText, { color: theme.colors.textSecondary }]}>
               Cancel
             </Text>
           </TouchableOpacity>
@@ -201,7 +201,7 @@ const OrganizationSelectionScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },

@@ -177,58 +177,58 @@ export const SyncStatusIndicator = ({ onPress }) => {
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={styles(theme).container}
       onPress={handleSyncPress}
       disabled={syncStatus.isSyncing}
       activeOpacity={0.7}
     >
-      <View style={styles.content}>
+      <View style={styles(theme).content}>
         {syncStatus.isSyncing ? (
-          <ActivityIndicator size="small" color="#007AFF" style={styles.icon} />
+          <ActivityIndicator size="small" color="#007AFF" style={styles(theme).icon} />
         ) : (
           <Ionicons
             name={statusIcon.name}
             size={20}
             color={statusIcon.color}
-            style={styles.icon}
+            style={styles(theme).icon}
           />
         )}
 
-        <View style={styles.textContainer}>
-          <View style={styles.row}>
-            <Text style={styles.label}>
+        <View style={styles(theme).textContainer}>
+          <View style={styles(theme).row}>
+            <Text style={styles(theme).label}>
               {getStatusLabel()}
             </Text>
             {syncStatus.queue.pending > 0 && !syncStatus.isSyncing && !isRetrying && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{syncStatus.queue.pending}</Text>
+              <View style={styles(theme).badge}>
+                <Text style={styles(theme).badgeText}>{syncStatus.queue.pending}</Text>
               </View>
             )}
           </View>
 
-          <View style={styles.detailsRow}>
+          <View style={styles(theme).detailsRow}>
             {/* CRASH-003 FIX: Show retry/circuit breaker info */}
             {retryInfo?.blocked && (
-              <Text style={styles.blockedText}>
+              <Text style={styles(theme).blockedText}>
                 Circuit breaker active
               </Text>
             )}
             {isRetrying && retryInfo && !retryInfo.blocked && (
-              <Text style={styles.retryText}>
+              <Text style={styles(theme).retryText}>
                 Waiting {Math.round(retryInfo.delay / 1000)}s...
               </Text>
             )}
             {!isRetrying && !retryInfo?.blocked && syncStatus.queue.failed > 0 && (
-              <Text style={styles.failedText}>
+              <Text style={styles(theme).failedText}>
                 {syncStatus.queue.failed} failed
               </Text>
             )}
             {!isRetrying && !retryInfo?.blocked && syncStatus.queue.pending > 0 && !syncStatus.isSyncing && (
-              <Text style={styles.pendingText}>
+              <Text style={styles(theme).pendingText}>
                 {syncStatus.queue.pending} pending
               </Text>
             )}
-            <Text style={styles.lastSyncText}>{lastSyncFormatted}</Text>
+            <Text style={styles(theme).lastSyncText}>{lastSyncFormatted}</Text>
           </View>
         </View>
 
@@ -239,10 +239,10 @@ export const SyncStatusIndicator = ({ onPress }) => {
 
       {/* Health score bar */}
       {syncStatus.healthScore < 100 && (
-        <View style={styles.healthBar}>
+        <View style={styles(theme).healthBar}>
           <View
             style={[
-              styles.healthBarFill,
+              styles(theme).healthBarFill,
               {
                 width: `${syncStatus.healthScore}%`,
                 backgroundColor:
@@ -260,9 +260,9 @@ export const SyncStatusIndicator = ({ onPress }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 12,
     marginVertical: 8,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
     fontSize: 11,
     fontWeight: '700',
   },

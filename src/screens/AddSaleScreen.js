@@ -156,10 +156,10 @@ const AddSaleScreen = () => {
   };
 
   const renderInput = (label, field, placeholder, keyboardType = 'default', multiline = false) => (
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={styles(theme).inputGroup}>
+      <Text style={styles(theme).label}>{label}</Text>
       <TextInput
-        style={[styles.input, multiline && styles.textArea]}
+        style={[styles(theme).input, multiline && styles(theme).textArea]}
         value={formData[field]}
         onChangeText={(value) => setFormData({ ...formData, [field]: value })}
         placeholder={placeholder}
@@ -171,8 +171,8 @@ const AddSaleScreen = () => {
   );
 
   const renderPicker = (label, field, options) => (
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={styles(theme).inputGroup}>
+      <Text style={styles(theme).label}>{label}</Text>
       <CustomPicker
         selectedValue={formData[field]}
         onValueChange={(value) => setFormData({ ...formData, [field]: value })}
@@ -185,16 +185,16 @@ const AddSaleScreen = () => {
   const styles = getStyles(theme);
 
   return (
-    <View style={styles.container}>
+    <View style={styles(theme).container}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={styles(theme).scrollView}
+        contentContainerStyle={styles(theme).scrollContent}
       >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer & Product</Text>
+        <View style={styles(theme).section}>
+          <Text style={styles(theme).sectionTitle}>Customer & Product</Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Customer (Optional)</Text>
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).label}>Customer (Optional)</Text>
             <CustomPicker
               selectedValue={String(formData.customerId)}
               onValueChange={(value) =>
@@ -211,8 +211,8 @@ const AddSaleScreen = () => {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Batch (Optional)</Text>
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).label}>Batch (Optional)</Text>
             <CustomPicker
               selectedValue={String(formData.batchId)}
               onValueChange={(value) =>
@@ -238,14 +238,14 @@ const AddSaleScreen = () => {
             { label: 'Other', value: 'other' },
           ])}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Sale Date</Text>
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).label}>Sale Date</Text>
             <TouchableOpacity
-              style={styles.dateButton}
+              style={styles(theme).dateButton}
               onPress={() => setShowDatePicker(true)}
             >
               <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-              <Text style={styles.dateText}>
+              <Text style={styles(theme).dateText}>
                 {formData.saleDate.toLocaleDateString('en-GB')}
               </Text>
             </TouchableOpacity>
@@ -265,25 +265,25 @@ const AddSaleScreen = () => {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quantity & Pricing</Text>
+        <View style={styles(theme).section}>
+          <Text style={styles(theme).sectionTitle}>Quantity & Pricing</Text>
 
           {renderInput('Quantity', 'quantity', 'Enter quantity', 'numeric')}
           {renderInput('Unit', 'unit', 'e.g., birds, kg, trays', 'default')}
           {renderInput('Unit Price', 'unitPrice', 'Enter price per unit', 'numeric')}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Total Amount</Text>
-            <View style={styles.totalAmountContainer}>
-              <Text style={styles.totalAmountText}>
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).label}>Total Amount</Text>
+            <View style={styles(theme).totalAmountContainer}>
+              <Text style={styles(theme).totalAmountText}>
                 UGX {parseFloat(formData.totalAmount || 0).toLocaleString()}
               </Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Information</Text>
+        <View style={styles(theme).section}>
+          <Text style={styles(theme).sectionTitle}>Payment Information</Text>
 
           {renderPicker('Payment Status', 'paymentStatus', [
             { label: 'Paid', value: 'paid' },
@@ -301,24 +301,24 @@ const AddSaleScreen = () => {
 
           {renderInput('Amount Paid', 'amountPaid', 'Enter amount paid', 'numeric')}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Amount Due</Text>
-            <View style={styles.amountDueContainer}>
-              <Text style={styles.amountDueText}>
+          <View style={styles(theme).inputGroup}>
+            <Text style={styles(theme).label}>Amount Due</Text>
+            <View style={styles(theme).amountDueContainer}>
+              <Text style={styles(theme).amountDueText}>
                 UGX {parseFloat(formData.amountDue || 0).toLocaleString()}
               </Text>
             </View>
           </View>
 
           {formData.paymentStatus === 'paid' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Payment Date</Text>
+            <View style={styles(theme).inputGroup}>
+              <Text style={styles(theme).label}>Payment Date</Text>
               <TouchableOpacity
-                style={styles.dateButton}
+                style={styles(theme).dateButton}
                 onPress={() => setShowPaymentDatePicker(true)}
               >
                 <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={styles.dateText}>
+                <Text style={styles(theme).dateText}>
                   {formData.paymentDate.toLocaleDateString('en-GB')}
                 </Text>
               </TouchableOpacity>
@@ -339,25 +339,25 @@ const AddSaleScreen = () => {
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Details</Text>
+        <View style={styles(theme).section}>
+          <Text style={styles(theme).sectionTitle}>Additional Details</Text>
           {renderInput('Invoice Number', 'invoiceNumber', 'Enter invoice number (optional)')}
           {renderInput('Delivery Address', 'deliveryAddress', 'Enter delivery address (optional)')}
           {renderInput('Notes', 'notes', 'Enter any additional notes', 'default', true)}
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={styles(theme).footer}>
         <TouchableOpacity
-          style={styles.cancelButton}
+          style={styles(theme).cancelButton}
           onPress={() => navigation.goBack()}
           disabled={loading}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={styles(theme).cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+          style={[styles(theme).submitButton, loading && styles(theme).submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={loading}
         >
@@ -366,7 +366,7 @@ const AddSaleScreen = () => {
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-              <Text style={styles.submitButtonText}>Record Sale</Text>
+              <Text style={styles(theme).submitButtonText}>Record Sale</Text>
             </>
           )}
         </TouchableOpacity>
@@ -514,7 +514,7 @@ const getStyles = (theme) => StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
   },
 });
 

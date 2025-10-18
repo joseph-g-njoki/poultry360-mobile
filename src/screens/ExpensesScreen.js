@@ -31,7 +31,7 @@ const ExpensesScreen = ({ navigation, route }) => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <ActivityIndicator size="large" color="#2E8B57" />
-        <Text style={{ fontSize: 14, color: '#666', marginTop: 10 }}>Loading...</Text>
+        <Text style={{ fontSize: 14, color: theme.colors.textSecondary, marginTop: 10 }}>Loading...</Text>
       </View>
     );
   }
@@ -253,14 +253,14 @@ const ExpensesScreen = ({ navigation, route }) => {
 
   return (
     <ScreenWrapper>
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles(theme).container, { backgroundColor: theme.background }]}>
         <OfflineIndicator />
 
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Expenses</Text>
+        <View style={styles(theme).header}>
+          <Text style={[styles(theme).headerTitle, { color: theme.text }]}>Expenses</Text>
           <TouchableOpacity
-            style={styles.addButton}
+            style={styles(theme).addButton}
             onPress={() => navigation.navigate('AddExpense', { expense: null })}
           >
             <Ionicons name="add-circle" size={32} color="#2E8B57" />
@@ -268,10 +268,10 @@ const ExpensesScreen = ({ navigation, route }) => {
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: theme.cardBackground }]}>
+        <View style={[styles(theme).searchContainer, { backgroundColor: theme.cardBackground }]}>
           <Ionicons name="search" size={20} color={theme.secondaryText} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles(theme).searchInput, { color: theme.text }]}
             placeholder="Search by supplier..."
             placeholderTextColor={theme.secondaryText}
             value={searchQuery}
@@ -286,12 +286,12 @@ const ExpensesScreen = ({ navigation, route }) => {
         </View>
 
         {/* Filter Pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles(theme).filterContainer}>
           {['all', 'feed', 'medication', 'labor', 'utilities', 'equipment', 'other'].map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[
-                styles.filterPill,
+                styles(theme).filterPill,
                 {
                   backgroundColor: filter.category === (cat === 'all' ? null : cat) ? '#2E8B57' : theme.cardBackground,
                 },
@@ -303,7 +303,7 @@ const ExpensesScreen = ({ navigation, route }) => {
             >
               <Text
                 style={[
-                  styles.filterPillText,
+                  styles(theme).filterPillText,
                   { color: filter.category === (cat === 'all' ? null : cat) ? '#FFF' : theme.text },
                 ]}
               >
@@ -323,25 +323,25 @@ const ExpensesScreen = ({ navigation, route }) => {
           keyExtractor={(item) => item.id.toString()}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2E8B57']} />}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
+            <View style={styles(theme).emptyState}>
               <Ionicons name="wallet-outline" size={64} color={theme.secondaryText} />
-              <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>No expenses recorded yet</Text>
+              <Text style={[styles(theme).emptyStateText, { color: theme.secondaryText }]}>No expenses recorded yet</Text>
               <TouchableOpacity
-                style={styles.emptyStateButton}
+                style={styles(theme).emptyStateButton}
                 onPress={() => navigation.navigate('AddExpense', { expense: null })}
               >
-                <Text style={styles.emptyStateButtonText}>Add First Expense</Text>
+                <Text style={styles(theme).emptyStateButtonText}>Add First Expense</Text>
               </TouchableOpacity>
             </View>
           }
-          contentContainerStyle={expenses.length === 0 ? styles.emptyListContainer : styles.listContainer}
+          contentContainerStyle={expenses.length === 0 ? styles(theme).emptyListContainer : styles(theme).listContainer}
         />
       </View>
     </ScreenWrapper>
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   emptyStateButtonText: {
-    color: '#FFF',
+    color: theme.colors.buttonText,
     fontSize: 14,
     fontWeight: '600',
   },

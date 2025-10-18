@@ -15,6 +15,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useOffline } from '../context/OfflineContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
 import fastApiService from '../services/fastApiService';
+import dataEventBus, { EventTypes } from '../services/dataEventBus';
 import OfflineIndicator from '../components/OfflineIndicator';
 import ScreenWrapper from '../components/ScreenWrapper';
 import LoadingState from '../components/LoadingState';
@@ -29,7 +30,7 @@ const DashboardScreen = ({ navigation }) => {
 
   // CRASH FIX: Validate contexts are available
   if (!authContext || !themeContext || !offlineContext || !dashboardRefreshContext) {
-    // Fallback loading without theme context
+    // Fallback loading without theme context - use basic light theme defaults
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#f8f9fa' }}>
         <ActivityIndicator size="large" color="#2E8B57" />
@@ -140,6 +141,47 @@ const DashboardScreen = ({ navigation }) => {
     };
   }, [refreshTrigger, resetRefreshTrigger]);
 
+  // REAL-TIME EVENT-BASED UPDATES: Listen for data changes and refresh immediately
+  useEffect(() => {
+    console.log('🎧 Dashboard subscribing to real-time data events');
+
+    // Define refresh handler for any record change
+    const handleRecordChange = (payload) => {
+      console.log('📡 Dashboard received real-time data event:', payload);
+      if (isMountedRef.current) {
+        loadDashboardData(false); // Refresh dashboard immediately
+      }
+    };
+
+    // Subscribe to all record events that affect dashboard
+    const unsubscribers = [
+      dataEventBus.subscribe(EventTypes.FEED_RECORD_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.FEED_RECORD_DELETED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.PRODUCTION_RECORD_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.PRODUCTION_RECORD_DELETED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.MORTALITY_RECORD_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.MORTALITY_RECORD_DELETED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.HEALTH_RECORD_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.HEALTH_RECORD_DELETED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.WATER_RECORD_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.WATER_RECORD_DELETED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.WEIGHT_RECORD_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.WEIGHT_RECORD_DELETED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.FARM_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.FARM_UPDATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.FARM_DELETED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.BATCH_CREATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.BATCH_UPDATED, handleRecordChange),
+      dataEventBus.subscribe(EventTypes.BATCH_DELETED, handleRecordChange),
+    ];
+
+    // Cleanup: unsubscribe from all events when component unmounts
+    return () => {
+      console.log('🔇 Dashboard unsubscribing from real-time events');
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+    };
+  }, []); // Empty deps - only subscribe once on mount
+
   const loadDashboardData = async (showLoadingIndicator = true) => {
     // CRASH FIX: Check mount status before any state updates
     if (!isMountedRef.current) {
@@ -148,53 +190,19 @@ const DashboardScreen = ({ navigation }) => {
     }
 
     try {
-      if (showLoadingIndicator && isMountedRef.current) {
-        setLoading(true);
+      // INSTANT DISPLAY FIX: Set loading to false immediately for local data
+      if (isMountedRef.current) {
+        setLoading(false); // Data is local - show immediately
       }
 
-      // Add timeout to prevent hanging with proper cleanup
-      let timeoutId = null;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('Dashboard load timeout')), 15000);
-      });
+      console.log('🔄 Loading dashboard from LOCAL STORAGE (instant)');
 
-      let result = null;
-      try {
-        // Load real data from database with timeout
-        result = await Promise.race([
-          fastApiService.getDashboard(),
-          timeoutPromise
-        ]);
-
-        // Clear timeout on success
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-      } catch (error) {
-        // Clear timeout on error
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-
-        // CRASH FIX: Handle timeout rejection safely
-        if (!isMountedRef.current) {
-          console.log('Dashboard timeout fired but component unmounted');
-          return; // Return early to prevent crash
-        }
-        throw error; // Re-throw if component is still mounted
-      }
+      // Load real data from database (instant - no timeout needed for local data)
+      const result = await fastApiService.getDashboard();
 
       // CRASH FIX: Always check before state updates
       if (!isMountedRef.current) {
         console.log('Dashboard component unmounted, skipping state update');
-        return;
-      }
-
-      // CRASH FIX: Handle null result from timeout
-      if (result === null) {
-        console.log('Dashboard load cancelled (timeout or unmount)');
         return;
       }
 
@@ -216,7 +224,7 @@ const DashboardScreen = ({ navigation }) => {
 
         setDashboardData(processedData);
         setDataSource(result.source || 'database');
-        console.log('✅ Dashboard data updated from database');
+        console.log('✅ INSTANT DISPLAY: Dashboard data loaded from local storage');
       } else {
         // No data found - show zero state
         const emptyData = {
@@ -234,11 +242,7 @@ const DashboardScreen = ({ navigation }) => {
 
         setDashboardData(emptyData);
         setDataSource('database');
-        console.log('ℹ️ No dashboard data found in database - showing empty state');
-      }
-
-      if (showLoadingIndicator && isMountedRef.current) {
-        setLoading(false);
+        console.log('ℹ️ No dashboard data found - showing empty state');
       }
 
     } catch (error) {
@@ -265,10 +269,7 @@ const DashboardScreen = ({ navigation }) => {
 
       setDashboardData(emptyData);
       setDataSource('error');
-
-      if (showLoadingIndicator && isMountedRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -278,26 +279,11 @@ const DashboardScreen = ({ navigation }) => {
       setRefreshing(true);
       console.log('🔄 Dashboard refresh initiated...');
 
-      // Quick refresh - load data immediately without complex sync logic
+      // OFFLINE-FIRST: Only load local data on refresh
+      // Do NOT attempt sync - that should be manual only
       await loadDashboardData(false); // Don't show loading indicator during refresh
 
-      // Optional: Try sync in background if available (non-blocking)
-      if (isConnected && performSync) {
-        performSync()
-          .then(syncResult => {
-            if (syncResult?.success) {
-              console.log('✅ Background sync completed');
-              // Optionally reload data after sync
-              loadDashboardData(false);
-            }
-          })
-          .catch(syncError => {
-            console.log('ℹ️  Background sync failed:', syncError.message);
-            // Ignore sync failures during refresh
-          });
-      }
-
-      console.log('✅ Dashboard refresh completed');
+      console.log('✅ Dashboard refresh completed (local data only)');
 
     } catch (refreshError) {
       console.warn('⚠️  Refresh error:', refreshError.message);
@@ -321,7 +307,7 @@ const DashboardScreen = ({ navigation }) => {
     } finally {
       setRefreshing(false);
     }
-  }, [isConnected, performSync]);
+  }, []);
 
   // Navigation handlers for quick actions
   const handleRecordFeed = useCallback(() => {
@@ -467,7 +453,7 @@ const DashboardScreen = ({ navigation }) => {
               title="Total Farms"
               value={dashboardData?.totalFarms || 0}
               icon="🏠"
-              color="#2E8B57"
+              color={theme.colors.primary}
             />
           )}
 
@@ -475,7 +461,7 @@ const DashboardScreen = ({ navigation }) => {
             title="Active Flocks"
             value={dashboardData?.totalFlocks || 0}
             icon="🐔"
-            color="#FF6B35"
+            color={theme.colors.error}
           />
 
           <StatCard
@@ -483,7 +469,7 @@ const DashboardScreen = ({ navigation }) => {
             value={dashboardData?.totalBirds || 0}
             subtitle={`${dashboardData?.totalBirds || 0} total`}
             icon="🐓"
-            color="#4ECDC4"
+            color={theme.colors.info}
           />
 
           <StatCard
@@ -491,7 +477,7 @@ const DashboardScreen = ({ navigation }) => {
             value={`${dashboardData?.eggsToday || 0} eggs`}
             subtitle={`${dashboardData?.deathsToday || 0} deaths`}
             icon="📊"
-            color="#45B7D1"
+            color={theme.colors.link}
           />
 
           {/* Worker-specific stat */}
@@ -501,7 +487,7 @@ const DashboardScreen = ({ navigation }) => {
               value={dashboardData?.myRecordsToday || 0}
               subtitle="Records today"
               icon="📝"
-              color="#9B59B6"
+              color={theme.colors.secondary}
             />
           )}
         </View>
@@ -625,7 +611,7 @@ const DashboardScreen = ({ navigation }) => {
                   key={index}
                   style={[
                     styles.alertItem,
-                    { borderLeftColor: getAlertColor(alert.severity), backgroundColor: theme.colors.cardBackground }
+                    { borderLeftColor: getAlertColor(alert.severity, theme), backgroundColor: theme.colors.cardBackground }
                   ]}
                 >
                   <Text style={[styles.alertTitle, { color: theme.colors.text }]}>{alert.title || 'Unknown Alert'}</Text>
@@ -655,13 +641,13 @@ const getActivityIcon = (type) => {
   return icons[type] || '📝';
 };
 
-const getAlertColor = (severity) => {
+const getAlertColor = (severity, theme) => {
   const colors = {
-    high: '#FF3B30',    // Red for high severity
-    medium: '#FF9500',  // Orange for medium severity
-    low: '#FFCC00',     // Yellow for low severity
+    high: theme?.colors?.error || '#FF3B30',      // Red for high severity
+    medium: theme?.colors?.warning || '#FF9500',  // Warning/Orange for medium severity
+    low: theme?.colors?.warning || '#FFCC00',     // Yellow/Warning for low severity
   };
-  return colors[severity] || '#FFCC00';  // These are always bright colors for alerts, not theme-dependent
+  return colors[severity] || theme?.colors?.warning || '#FFCC00';
 };
 
 const formatTime = (timestamp) => {

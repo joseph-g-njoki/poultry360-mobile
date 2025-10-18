@@ -451,7 +451,7 @@ const styles = (theme) => StyleSheet.create({
   avatarText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
   },
   customerInfo: {
     flex: 1,
@@ -480,7 +480,7 @@ const styles = (theme) => StyleSheet.create({
   typeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
   },
   statsSection: {
     flexDirection: 'row',
@@ -614,7 +614,7 @@ const styles = (theme) => StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   typeButtonTextActive: {
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -650,7 +650,7 @@ const styles = (theme) => StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
   },
 });
 

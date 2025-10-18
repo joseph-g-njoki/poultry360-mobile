@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import databaseService from '../services/database';
+import databaseService from '../services/fastDatabase';
 
 const DatabaseInitializationError = ({ error, onRetry, onContinueOnline }) => {
   const [retrying, setRetrying] = useState(false);
@@ -47,51 +47,51 @@ const DatabaseInitializationError = ({ error, onRetry, onContinueOnline }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.errorCard}>
-        <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorTitle}>Database Initialization Failed</Text>
-        <Text style={styles.errorMessage}>{getErrorMessage()}</Text>
+    <View style={styles(theme).container}>
+      <View style={styles(theme).errorCard}>
+        <Text style={styles(theme).errorIcon}>⚠️</Text>
+        <Text style={styles(theme).errorTitle}>Database Initialization Failed</Text>
+        <Text style={styles(theme).errorMessage}>{getErrorMessage()}</Text>
 
-        <View style={styles.detailsContainer}>
-          <Text style={styles.detailsTitle}>Technical Details:</Text>
-          <Text style={styles.detailsText}>{getTechnicalDetails()}</Text>
+        <View style={styles(theme).detailsContainer}>
+          <Text style={styles(theme).detailsTitle}>Technical Details:</Text>
+          <Text style={styles(theme).detailsText}>{getTechnicalDetails()}</Text>
         </View>
 
-        <View style={styles.optionsContainer}>
-          <Text style={styles.optionsTitle}>What would you like to do?</Text>
+        <View style={styles(theme).optionsContainer}>
+          <Text style={styles(theme).optionsTitle}>What would you like to do?</Text>
 
           <TouchableOpacity
-            style={[styles.button, styles.primaryButton, retrying && styles.buttonDisabled]}
+            style={[styles(theme).button, styles(theme).primaryButton, retrying && styles(theme).buttonDisabled]}
             onPress={handleRetry}
             disabled={retrying}
           >
             {retrying ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryButtonText}>Retry Initialization</Text>
+              <Text style={styles(theme).primaryButtonText}>Retry Initialization</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.secondaryButton, retrying && styles.buttonDisabled]}
+            style={[styles(theme).button, styles(theme).secondaryButton, retrying && styles(theme).buttonDisabled]}
             onPress={handleForceReset}
             disabled={retrying}
           >
-            <Text style={styles.secondaryButtonText}>Reset Database & Retry</Text>
+            <Text style={styles(theme).secondaryButtonText}>Reset Database & Retry</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.tertiaryButton, retrying && styles.buttonDisabled]}
+            style={[styles(theme).button, styles(theme).tertiaryButton, retrying && styles(theme).buttonDisabled]}
             onPress={onContinueOnline}
             disabled={retrying}
           >
-            <Text style={styles.tertiaryButtonText}>Continue in Online-Only Mode</Text>
+            <Text style={styles(theme).tertiaryButtonText}>Continue in Online-Only Mode</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.warningContainer}>
-          <Text style={styles.warningText}>
+        <View style={styles(theme).warningContainer}>
+          <Text style={styles(theme).warningText}>
             Note: Online-only mode means offline features will not be available. Your data will not be cached locally.
           </Text>
         </View>
@@ -100,16 +100,16 @@ const DatabaseInitializationError = ({ error, onRetry, onContinueOnline }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.inputBackground,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   errorCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     padding: 24,
     maxWidth: 450,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   detailsContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.inputBackground,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E8B57',
   },
   primaryButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6c757d',
   },
   tertiaryButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import CustomPicker from '../components/CustomPicker';
-import offlineFirstService from '../services/offlineFirstService';
+import fastApiService from '../services/fastApiService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
@@ -105,8 +105,10 @@ const RecordsScreen = ({ route, navigation }) => {
     }
 
     try {
-      if (showLoadingIndicator && isMountedRef.current) {
-        setLoading(true);
+      // INSTANT DISPLAY FIX: Don't show loading spinner for local data
+      // Set loading to false immediately since data is local and instant
+      if (isMountedRef.current) {
+        setLoading(false); // Data is local - no need for loading spinner
       }
 
       // FIX #4: Reset pagination on initial load or tab change
@@ -115,8 +117,10 @@ const RecordsScreen = ({ route, navigation }) => {
         setHasMore(true);
       }
 
+      console.log(`🔄 Loading ${activeTab} records from LOCAL STORAGE (instant)`);
+
       // Load records for current tab (farms and batches come from context)
-      const recordsResponse = await offlineFirstService.getRecords(activeTab);
+      const recordsResponse = await fastApiService.getRecords(activeTab);
 
       // CRASH FIX: Check mount status after async operations
       if (!isMountedRef.current) {
@@ -131,15 +135,11 @@ const RecordsScreen = ({ route, navigation }) => {
         const paginatedRecords = allRecords.slice(0, RECORDS_PER_PAGE);
         setRecords(paginatedRecords);
         setHasMore(allRecords.length > RECORDS_PER_PAGE);
-        console.log(`✅ Loaded ${paginatedRecords.length} of ${allRecords.length} ${activeTab} records (page 1)`);
+        console.log(`✅ INSTANT DISPLAY: Loaded ${paginatedRecords.length} of ${allRecords.length} ${activeTab} records (page 1)`);
       } else {
         setRecords([]);
         setHasMore(false);
         console.log(`ℹ️ No ${activeTab} records found in database`);
-      }
-
-      if (showLoadingIndicator && isMountedRef.current) {
-        setLoading(false);
       }
 
     } catch (error) {
@@ -153,10 +153,7 @@ const RecordsScreen = ({ route, navigation }) => {
       // On error, show empty state - no mock data
       setRecords([]);
       setHasMore(false);
-
-      if (showLoadingIndicator && isMountedRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -171,7 +168,7 @@ const RecordsScreen = ({ route, navigation }) => {
       console.log(`📄 Loading more ${activeTab} records - page ${page + 1}`);
 
       // Load all records again and paginate
-      const recordsResponse = await offlineFirstService.getRecords(activeTab);
+      const recordsResponse = await fastApiService.getRecords(activeTab);
 
       if (!isMountedRef.current) return;
 
@@ -297,15 +294,15 @@ const RecordsScreen = ({ route, navigation }) => {
           recordData.quantity = parseFloat(formData.quantity);
           recordData.feedType = formData.feedType;
           recordData.cost = parseFloat(formData.cost) || 0;
-          console.log('🔄 Creating feed record with offline-first service...');
-          await offlineFirstService.createRecord('feed', recordData);
+          console.log('🔄 Creating feed record with fastApiService...');
+          await fastApiService.createRecord('feed', recordData);
           break;
 
         case 'health':
           recordData.healthStatus = formData.healthStatus;
           recordData.treatment = formData.treatment;
-          console.log('🔄 Creating health record with offline-first service...');
-          await offlineFirstService.createRecord('health', recordData);
+          console.log('🔄 Creating health record with fastApiService...');
+          await fastApiService.createRecord('health', recordData);
           break;
 
         case 'mortality':
@@ -315,15 +312,15 @@ const RecordsScreen = ({ route, navigation }) => {
           }
           recordData.count = parseInt(formData.count);
           recordData.cause = formData.cause;
-          console.log('🔄 Creating mortality record with offline-first service...');
-          await offlineFirstService.createRecord('mortality', recordData);
+          console.log('🔄 Creating mortality record with fastApiService...');
+          await fastApiService.createRecord('mortality', recordData);
           break;
 
         case 'production':
           recordData.eggsCollected = parseInt(formData.eggsCollected) || 0;
           recordData.weight = parseFloat(formData.weight) || 0;
-          console.log('🔄 Creating production record with offline-first service...');
-          await offlineFirstService.createRecord('production', recordData);
+          console.log('🔄 Creating production record with fastApiService...');
+          await fastApiService.createRecord('production', recordData);
           break;
 
         case 'water':
@@ -336,8 +333,8 @@ const RecordsScreen = ({ route, navigation }) => {
           recordData.quality = formData.quality || null;
           recordData.temperature = formData.temperature ? parseFloat(formData.temperature) : null;
           recordData.dateRecorded = formData.date;
-          console.log('🔄 Creating water record with offline-first service...');
-          await offlineFirstService.createWaterRecord(recordData);
+          console.log('🔄 Creating water record with fastApiService...');
+          await fastApiService.createRecord('water', recordData);
           break;
 
         case 'weight':
@@ -349,8 +346,8 @@ const RecordsScreen = ({ route, navigation }) => {
           recordData.sampleSize = parseInt(formData.sampleSize);
           recordData.weightUnit = 'kg';
           recordData.dateRecorded = formData.date;
-          console.log('🔄 Creating weight record with offline-first service...');
-          await offlineFirstService.createWeightRecord(recordData);
+          console.log('🔄 Creating weight record with fastApiService...');
+          await fastApiService.createRecord('weight', recordData);
           break;
       }
 
@@ -404,8 +401,8 @@ const RecordsScreen = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🔄 Starting record delete operation with offline-first service:', activeTab, record.id);
-              const response = await offlineFirstService.deleteRecord(activeTab, record.id);
+              console.log('🔄 Starting record delete operation with fastApiService:', activeTab, record.id);
+              const response = await fastApiService.deleteRecord(activeTab, record.id);
 
               if (response.success) {
                 Alert.alert('Success', 'Deleted successfully!');
@@ -428,16 +425,20 @@ const RecordsScreen = ({ route, navigation }) => {
     );
   };
 
-  const getFarmName = (farmId) => {
+  const getFarmName = (item) => {
+    // Handle both camelCase (farmId) and snake_case (farm_id)
+    const farmId = item?.farmId || item?.farm_id;
     if (!farmId || !Array.isArray(farms)) return 'Unknown Farm';
     const farm = farms.find(f => f && f.id === farmId);
-    return farm?.name || 'Unknown Farm';
+    return farm?.farmName || farm?.name || 'Unknown Farm';
   };
 
-  const getBatchName = (batchId) => {
+  const getBatchName = (item) => {
+    // Handle both camelCase (batchId) and snake_case (batch_id)
+    const batchId = item?.batchId || item?.batch_id;
     if (!batchId || !Array.isArray(batches)) return 'Unknown Batch';
     const batch = batches.find(b => b && b.id === batchId);
-    return batch?.name || batch?.batchName || 'Unknown Batch';
+    return batch?.batchName || batch?.name || 'Unknown Batch';
   };
 
   const renderRecord = useCallback(({ item, index }) => {
@@ -456,48 +457,78 @@ const RecordsScreen = ({ route, navigation }) => {
     const renderContent = () => {
       switch (activeTab) {
         case 'feed':
+          // Handle both camelCase and snake_case from database
+          const feedType = item.feedType || item.feed_type || 'Unknown Feed';
+          const quantity = item.quantity || item.quantity_kg || 0;
+          const cost = item.cost || 0;
+
           return (
-            <View style={styles.recordContent}>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>🌾 {item.feedType || 'Unknown Feed'}</Text>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>📊 {item.quantity || 0} kg</Text>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>💰 ${item.cost || 0}</Text>
+            <View style={styles(theme).recordContent}>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🌾 Type: {feedType}</Text>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>📊 Quantity: {quantity} kg</Text>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>💰 Cost: ${cost}</Text>
             </View>
           );
         case 'health':
+          // Handle both camelCase and snake_case from database
+          const healthStatus = item.healthStatus || item.health_status || 'Unknown Status';
+          const treatment = item.treatment || '';
+
           return (
-            <View style={styles.recordContent}>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>🏥 {item.healthStatus || 'Unknown Status'}</Text>
-              {item.treatment && <Text style={[styles.recordDetail, { color: theme.colors.text }]}>💊 {item.treatment}</Text>}
+            <View style={styles(theme).recordContent}>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🏥 Status: {healthStatus}</Text>
+              {treatment && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>💊 Treatment: {treatment}</Text>}
             </View>
           );
         case 'mortality':
+          // Handle both camelCase and snake_case from database
+          const mortalityCount = item.count || 0;
+          const mortalityCause = item.cause || '';
+
           return (
-            <View style={styles.recordContent}>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>⚠️ {item.count} birds</Text>
-              {item.cause && <Text style={[styles.recordDetail, { color: theme.colors.text }]}>🔍 {item.cause}</Text>}
+            <View style={styles(theme).recordContent}>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚠️ Deaths: {mortalityCount} birds</Text>
+              {mortalityCause && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🔍 Cause: {mortalityCause}</Text>}
             </View>
           );
         case 'production':
+          // Handle both camelCase and snake_case from database
+          const eggsCollected = item.eggsCollected || item.eggs_collected || 0;
+          const productionWeight = item.weight || item.total_weight || item.egg_weight_avg || 0;
+
+          // DEBUG: Log production record to see field names
+          console.log('🔍 Production record item:', JSON.stringify(item, null, 2));
+
           return (
-            <View style={styles.recordContent}>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>🥚 {item.eggsCollected || 0} eggs</Text>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>⚖️ {item.weight || 0} kg</Text>
+            <View style={styles(theme).recordContent}>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🥚 {eggsCollected} eggs</Text>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚖️ {productionWeight} kg</Text>
             </View>
           );
         case 'water':
+          // Handle both camelCase and snake_case from database
+          const waterQuantity = item.quantityLiters || item.quantity_liters || 0;
+          const waterSource = item.waterSource || item.water_source || '';
+          const waterQuality = item.quality || '';
+          const waterTemp = item.temperature || '';
+
           return (
-            <View style={styles.recordContent}>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>💧 {item.quantityLiters || 0} liters</Text>
-              {item.waterSource && <Text style={[styles.recordDetail, { color: theme.colors.text }]}>🚰 {item.waterSource}</Text>}
-              {item.quality && <Text style={[styles.recordDetail, { color: theme.colors.text }]}>✨ {item.quality}</Text>}
-              {item.temperature && <Text style={[styles.recordDetail, { color: theme.colors.text }]}>🌡️ {item.temperature}°C</Text>}
+            <View style={styles(theme).recordContent}>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>💧 {waterQuantity} liters</Text>
+              {waterSource && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🚰 Source: {waterSource}</Text>}
+              {waterQuality && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>✨ Quality: {waterQuality}</Text>}
+              {waterTemp && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🌡️ {waterTemp}°C</Text>}
             </View>
           );
         case 'weight':
+          // Handle both camelCase and snake_case from database
+          const avgWeight = item.averageWeight || item.average_weight || 0;
+          const sampleSize = item.sampleSize || item.sample_size || 0;
+
           return (
-            <View style={styles.recordContent}>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>⚖️ {item.averageWeight || 0} kg</Text>
-              <Text style={[styles.recordDetail, { color: theme.colors.text }]}>📊 Sample: {item.sampleSize || 0} birds</Text>
+            <View style={styles(theme).recordContent}>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚖️ Average: {avgWeight} kg</Text>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>📊 Sample: {sampleSize} birds</Text>
             </View>
           );
         default:
@@ -523,8 +554,8 @@ const RecordsScreen = ({ route, navigation }) => {
         </View>
 
         <View style={styles(theme).recordDetails}>
-          <Text style={[styles(theme).recordFarm, { color: theme.colors.textSecondary }]}>🏠 {getFarmName(item.farmId)}</Text>
-          <Text style={[styles(theme).recordBatch, { color: theme.colors.textSecondary }]}>🐔 {getBatchName(item.batchId)}</Text>
+          <Text style={[styles(theme).recordFarm, { color: theme.colors.textSecondary }]}>🏠 {getFarmName(item)}</Text>
+          <Text style={[styles(theme).recordBatch, { color: theme.colors.textSecondary }]}>🐔 {getBatchName(item)}</Text>
         </View>
 
         {renderContent()}
@@ -553,16 +584,16 @@ const RecordsScreen = ({ route, navigation }) => {
     <TouchableOpacity
       key={tabKey}
       style={[
-        styles.tabButton,
-        activeTab === tabKey && [styles.activeTabButton, { borderBottomColor: theme.colors.primary }]
+        styles(theme).tabButton,
+        activeTab === tabKey && [styles(theme).activeTabButton, { borderBottomColor: theme.colors.primary }]
       ]}
       onPress={() => setActiveTab(tabKey)}
     >
-      <Text style={styles.tabIcon}>{icon}</Text>
+      <Text style={styles(theme).tabIcon}>{icon}</Text>
       <Text style={[
-        styles.tabText,
+        styles(theme).tabText,
         { color: theme.colors.textSecondary },
-        activeTab === tabKey && [styles.activeTabText, { color: theme.colors.primary }]
+        activeTab === tabKey && [styles(theme).activeTabText, { color: theme.colors.primary }]
       ]}>
         {label}
       </Text>
@@ -574,10 +605,10 @@ const RecordsScreen = ({ route, navigation }) => {
       case 'feed':
         return (
           <>
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Feed Type *</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Feed Type *</Text>
               <TextInput
-                style={[styles.formInput, {
+                style={[styles(theme).formInput, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.inputBorder,
                   color: theme.colors.inputText
@@ -591,11 +622,11 @@ const RecordsScreen = ({ route, navigation }) => {
               />
             </View>
 
-            <View style={styles.row}>
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Quantity (kg) *</Text>
+            <View style={styles(theme).row}>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Quantity (kg) *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -610,10 +641,10 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Cost ($)</Text>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Cost ($)</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -634,8 +665,8 @@ const RecordsScreen = ({ route, navigation }) => {
       case 'health':
         return (
           <>
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Health Status *</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Health Status *</Text>
               <CustomPicker
                 selectedValue={formData.healthStatus}
                 onValueChange={(itemValue) =>
@@ -651,10 +682,10 @@ const RecordsScreen = ({ route, navigation }) => {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Treatment</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Treatment</Text>
               <TextInput
-                style={[styles.formInput, {
+                style={[styles(theme).formInput, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.inputBorder,
                   color: theme.colors.inputText
@@ -673,11 +704,11 @@ const RecordsScreen = ({ route, navigation }) => {
       case 'mortality':
         return (
           <>
-            <View style={styles.row}>
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Count *</Text>
+            <View style={styles(theme).row}>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Count *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -692,10 +723,10 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Cause</Text>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Cause</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -715,11 +746,11 @@ const RecordsScreen = ({ route, navigation }) => {
       case 'production':
         return (
           <>
-            <View style={styles.row}>
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Eggs Collected</Text>
+            <View style={styles(theme).row}>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Eggs Collected</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -734,10 +765,10 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Weight (kg)</Text>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Weight (kg)</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -758,10 +789,10 @@ const RecordsScreen = ({ route, navigation }) => {
       case 'water':
         return (
           <>
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Quantity (Liters) *</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Quantity (Liters) *</Text>
               <TextInput
-                style={[styles.formInput, {
+                style={[styles(theme).formInput, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.inputBorder,
                   color: theme.colors.inputText
@@ -776,9 +807,9 @@ const RecordsScreen = ({ route, navigation }) => {
               />
             </View>
 
-            <View style={styles.row}>
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Water Source</Text>
+            <View style={styles(theme).row}>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Water Source</Text>
                 <CustomPicker
                   selectedValue={formData.waterSource}
                   onValueChange={(itemValue) =>
@@ -796,8 +827,8 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Quality</Text>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Quality</Text>
                 <CustomPicker
                   selectedValue={formData.quality}
                   onValueChange={(itemValue) =>
@@ -814,10 +845,10 @@ const RecordsScreen = ({ route, navigation }) => {
               </View>
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Temperature (°C)</Text>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Temperature (°C)</Text>
               <TextInput
-                style={[styles.formInput, {
+                style={[styles(theme).formInput, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.inputBorder,
                   color: theme.colors.inputText
@@ -837,11 +868,11 @@ const RecordsScreen = ({ route, navigation }) => {
       case 'weight':
         return (
           <>
-            <View style={styles.row}>
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Average Weight (kg) *</Text>
+            <View style={styles(theme).row}>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Average Weight (kg) *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -856,10 +887,10 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={[styles.formGroup, styles.halfWidth]}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Sample Size *</Text>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Sample Size *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -881,28 +912,28 @@ const RecordsScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles(theme).loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading Records...</Text>
+        <Text style={[styles(theme).loadingText, { color: theme.colors.textSecondary }]}>Loading Records...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Records</Text>
+      <View style={[styles(theme).header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles(theme).headerTitle, { color: theme.colors.text }]}>Records</Text>
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles(theme).addButton, { backgroundColor: theme.colors.primary }]}
           onPress={openModal}
         >
-          <Text style={styles.addButtonText}>+ Add Record</Text>
+          <Text style={styles(theme).addButtonText}>+ Add Record</Text>
         </TouchableOpacity>
       </View>
 
       {/* Tabs */}
-      <ScrollView horizontal style={[styles.tabsContainer, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]} showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal style={[styles(theme).tabsContainer, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]} showsHorizontalScrollIndicator={false}>
         {renderTabButton('feed', 'Feed', '🌾')}
         {renderTabButton('health', 'Health', '🏥')}
         {renderTabButton('mortality', 'Mortality', '⚠️')}
@@ -913,17 +944,17 @@ const RecordsScreen = ({ route, navigation }) => {
 
       {/* Records List */}
       {safeRecords.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📝</Text>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>No {activeTab} records</Text>
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+        <View style={styles(theme).emptyContainer}>
+          <Text style={styles(theme).emptyIcon}>📝</Text>
+          <Text style={[styles(theme).emptyTitle, { color: theme.colors.text }]}>No {activeTab} records</Text>
+          <Text style={[styles(theme).emptyText, { color: theme.colors.textSecondary }]}>
             Start recording your {activeTab} data to track your farm's performance
           </Text>
           <TouchableOpacity
-            style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles(theme).emptyButton, { backgroundColor: theme.colors.primary }]}
             onPress={openModal}
           >
-            <Text style={styles.emptyButtonText}>Add First Record</Text>
+            <Text style={styles(theme).emptyButtonText}>Add First Record</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -936,7 +967,7 @@ const RecordsScreen = ({ route, navigation }) => {
             }
             return `record_${activeTab}_${index}`;
           }}
-          contentContainerStyle={styles.recordsList}
+          contentContainerStyle={styles(theme).recordsList}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -958,9 +989,9 @@ const RecordsScreen = ({ route, navigation }) => {
           onEndReachedThreshold={0.3}
           ListFooterComponent={
             loadingMore && hasMore ? (
-              <View style={styles.loadingMoreContainer}>
+              <View style={styles(theme).loadingMoreContainer}>
                 <ActivityIndicator size="small" color={theme.colors.primary} />
-                <Text style={[styles.loadingMoreText, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles(theme).loadingMoreText, { color: theme.colors.textSecondary }]}>
                   Loading more records...
                 </Text>
               </View>
@@ -976,16 +1007,16 @@ const RecordsScreen = ({ route, navigation }) => {
         visible={modalVisible}
         onRequestClose={closeModal}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles(theme).modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.surface }]}>
             <ScrollView>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              <Text style={[styles(theme).modalTitle, { color: theme.colors.text }]}>
                 Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Record
               </Text>
 
               {/* Common fields */}
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Farm *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Farm *</Text>
                 <CustomPicker
                   selectedValue={String(formData.farmId)}
                   onValueChange={(itemValue) =>
@@ -1007,8 +1038,8 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Batch *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Batch *</Text>
                 <CustomPicker
                   selectedValue={String(formData.batchId)}
                   onValueChange={(itemValue) =>
@@ -1030,10 +1061,10 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Date *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Date *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -1050,10 +1081,10 @@ const RecordsScreen = ({ route, navigation }) => {
               {/* Type-specific fields */}
               {renderForm()}
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Notes</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Notes</Text>
                 <TextInput
-                  style={[styles.formInput, styles.textArea, {
+                  style={[styles(theme).formInput, styles(theme).textArea, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -1069,18 +1100,18 @@ const RecordsScreen = ({ route, navigation }) => {
                 />
               </View>
 
-              <View style={styles.modalActions}>
+              <View style={styles(theme).modalActions}>
                 <TouchableOpacity
-                  style={[styles.cancelButton, { backgroundColor: theme.colors.borderSecondary }]}
+                  style={[styles(theme).cancelButton, { backgroundColor: theme.colors.borderSecondary }]}
                   onPress={closeModal}
                 >
-                  <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
+                  <Text style={[styles(theme).cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                  style={[styles(theme).saveButton, { backgroundColor: theme.colors.primary }]}
                   onPress={handleSaveRecord}
                 >
-                  <Text style={styles.saveButtonText}>Save Record</Text>
+                  <Text style={styles(theme).saveButtonText}>Save Record</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1091,7 +1122,7 @@ const RecordsScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -1121,7 +1152,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontWeight: 'bold',
   },
   tabsContainer: {
@@ -1241,7 +1272,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   emptyButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -1320,7 +1351,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   saveButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',

@@ -60,18 +60,18 @@ const OfflineIndicator = ({ style, showSyncButton = true, compact = false }) => 
 
   if (compact) {
     return (
-      <View style={[styles.compactContainer, style]}>
-        <View style={[styles.compactDot, { backgroundColor: getIndicatorColor() }]} />
-        <Text style={[styles.compactText, { color: getIndicatorColor() }]}>
+      <View style={[styles(theme).compactContainer, style]}>
+        <View style={[styles(theme).compactDot, { backgroundColor: getIndicatorColor() }]} />
+        <Text style={[styles(theme).compactText, { color: getIndicatorColor() }]}>
           {getIndicatorText()}
         </Text>
         {canSync && showSyncButton && (
           <TouchableOpacity
-            style={styles.compactSyncButton}
+            style={styles(theme).compactSyncButton}
             onPress={handleSyncPress}
             disabled={isSyncing}
           >
-            <Text style={styles.compactSyncButtonText}>↻</Text>
+            <Text style={styles(theme).compactSyncButtonText}>↻</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -79,19 +79,19 @@ const OfflineIndicator = ({ style, showSyncButton = true, compact = false }) => 
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: getIndicatorColor() }, style]}>
-      <View style={styles.content}>
-        <View style={styles.textContainer}>
-          <Text style={styles.primaryText}>{getIndicatorText()}</Text>
-          <Text style={styles.secondaryText}>{getConnectionStatusText()}</Text>
+    <View style={[styles(theme).container, { backgroundColor: getIndicatorColor() }, style]}>
+      <View style={styles(theme).content}>
+        <View style={styles(theme).textContainer}>
+          <Text style={styles(theme).primaryText}>{getIndicatorText()}</Text>
+          <Text style={styles(theme).secondaryText}>{getConnectionStatusText()}</Text>
         </View>
 
         {isSyncing && (
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
+          <View style={styles(theme).progressContainer}>
+            <View style={styles(theme).progressBar}>
               <Animated.View
                 style={[
-                  styles.progressFill,
+                  styles(theme).progressFill,
                   { width: `${syncProgress}%` }
                 ]}
               />
@@ -101,11 +101,11 @@ const OfflineIndicator = ({ style, showSyncButton = true, compact = false }) => 
 
         {canSync && showSyncButton && (
           <TouchableOpacity
-            style={styles.syncButton}
+            style={styles(theme).syncButton}
             onPress={handleSyncPress}
             disabled={isSyncing}
           >
-            <Text style={styles.syncButtonText}>Sync Now</Text>
+            <Text style={styles(theme).syncButtonText}>Sync Now</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -128,8 +128,8 @@ const SyncStatusBadge = ({ style }) => {
                     isSyncing ? '#2196F3' : '#FF9800';
 
   return (
-    <View style={[styles.badge, { backgroundColor: badgeColor }, style]}>
-      <Text style={styles.badgeText}>
+    <View style={[styles(theme).badge, { backgroundColor: badgeColor }, style]}>
+      <Text style={styles(theme).badgeText}>
         {isSyncing ? '⟳' : totalCount}
       </Text>
     </View>
@@ -160,13 +160,13 @@ const ConnectionQualityIndicator = ({ style, showText = false }) => {
   const isOffline = !isConnected || forceOfflineMode;
 
   return (
-    <View style={[styles.signalContainer, style]}>
-      <View style={styles.signalBars}>
+    <View style={[styles(theme).signalContainer, style]}>
+      <View style={styles(theme).signalBars}>
         {[1, 2, 3, 4].map(bar => (
           <View
             key={bar}
             style={[
-              styles.signalBar,
+              styles(theme).signalBar,
               {
                 height: bar * 3 + 2,
                 backgroundColor: bar <= strength
@@ -179,7 +179,7 @@ const ConnectionQualityIndicator = ({ style, showText = false }) => {
       </View>
 
       {showText && (
-        <Text style={styles.signalText}>
+        <Text style={styles(theme).signalText}>
           {isOffline ? 'Offline' : connectionType}
         </Text>
       )}
@@ -187,7 +187,7 @@ const ConnectionQualityIndicator = ({ style, showText = false }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     padding: 12,
     borderRadius: 8,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   },
   signalText: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
 });
 

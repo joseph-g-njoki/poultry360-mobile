@@ -211,56 +211,56 @@ const FlockPerformanceScreen = ({ navigation }) => {
   const renderFlockList = () => {
     if (!performanceData || !performanceData.flocks || performanceData.flocks.length === 0) {
       return (
-        <View style={[styles.emptyContainer, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.emptyText, { color: theme.colors.textLight }]}>No flock data available</Text>
+        <View style={[styles(theme).emptyContainer, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles(theme).emptyText, { color: theme.colors.textLight }]}>No flock data available</Text>
         </View>
       );
     }
 
     return (
-      <View style={styles.flockListContainer}>
+      <View style={styles(theme).flockListContainer}>
         {performanceData.flocks.map((flock, index) => (
-          <View key={flock.id || index} style={[styles.flockCard, { backgroundColor: theme.colors.surface }]}>
-            <View style={[styles.flockHeader, { borderBottomColor: theme.colors.border }]}>
-              <Text style={[styles.flockName, { color: theme.colors.text }]}>{flock.name || `Batch ${flock.id}`}</Text>
-              <Text style={[styles.flockAge, { color: theme.colors.textSecondary }]}>Age: {flock.age || 0} days</Text>
+          <View key={flock.id || index} style={[styles(theme).flockCard, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles(theme).flockHeader, { borderBottomColor: theme.colors.border }]}>
+              <Text style={[styles(theme).flockName, { color: theme.colors.text }]}>{flock.name || `Batch ${flock.id}`}</Text>
+              <Text style={[styles(theme).flockAge, { color: theme.colors.textSecondary }]}>Age: {flock.age || 0} days</Text>
             </View>
 
-            <View style={styles.flockMetrics}>
-              <View style={styles.metricItem}>
-                <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>FCR</Text>
-                <Text style={[styles.metricValue, { color: theme.colors.text }]}>{(flock.fcr || 0).toFixed(2)}</Text>
+            <View style={styles(theme).flockMetrics}>
+              <View style={styles(theme).metricItem}>
+                <Text style={[styles(theme).metricLabel, { color: theme.colors.textSecondary }]}>FCR</Text>
+                <Text style={[styles(theme).metricValue, { color: theme.colors.text }]}>{(flock.fcr || 0).toFixed(2)}</Text>
               </View>
 
-              <View style={styles.metricItem}>
-                <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>Mortality</Text>
-                <Text style={[styles.metricValue, { color: theme.colors.text }]}>{(flock.mortality || 0).toFixed(1)}%</Text>
+              <View style={styles(theme).metricItem}>
+                <Text style={[styles(theme).metricLabel, { color: theme.colors.textSecondary }]}>Mortality</Text>
+                <Text style={[styles(theme).metricValue, { color: theme.colors.text }]}>{(flock.mortality || 0).toFixed(1)}%</Text>
               </View>
 
-              <View style={styles.metricItem}>
-                <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>Growth</Text>
-                <Text style={[styles.metricValue, { color: theme.colors.text }]}>{flock.growth || 0}g/day</Text>
+              <View style={styles(theme).metricItem}>
+                <Text style={[styles(theme).metricLabel, { color: theme.colors.textSecondary }]}>Growth</Text>
+                <Text style={[styles(theme).metricValue, { color: theme.colors.text }]}>{flock.growth || 0}g/day</Text>
               </View>
 
-              <View style={styles.metricItem}>
-                <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>Birds</Text>
-                <Text style={[styles.metricValue, { color: theme.colors.text }]}>{flock.count || 0}</Text>
+              <View style={styles(theme).metricItem}>
+                <Text style={[styles(theme).metricLabel, { color: theme.colors.textSecondary }]}>Birds</Text>
+                <Text style={[styles(theme).metricValue, { color: theme.colors.text }]}>{flock.count || 0}</Text>
               </View>
             </View>
 
             {/* Performance indicator */}
-            <View style={styles.performanceIndicator}>
-              <Text style={[styles.performanceLabel, { color: theme.colors.textSecondary }]}>Performance:</Text>
+            <View style={styles(theme).performanceIndicator}>
+              <Text style={[styles(theme).performanceLabel, { color: theme.colors.textSecondary }]}>Performance:</Text>
               <View
                 style={[
-                  styles.performanceBadge,
-                  flock.performance === 'excellent' && styles.performanceExcellent,
-                  flock.performance === 'good' && styles.performanceGood,
-                  flock.performance === 'average' && styles.performanceAverage,
-                  flock.performance === 'poor' && styles.performancePoor,
+                  styles(theme).performanceBadge,
+                  flock.performance === 'excellent' && styles(theme).performanceExcellent,
+                  flock.performance === 'good' && styles(theme).performanceGood,
+                  flock.performance === 'average' && styles(theme).performanceAverage,
+                  flock.performance === 'poor' && styles(theme).performancePoor,
                 ]}
               >
-                <Text style={styles.performanceBadgeText}>
+                <Text style={styles(theme).performanceBadgeText}>
                   {flock.performance || 'N/A'}
                 </Text>
               </View>
@@ -276,9 +276,9 @@ const FlockPerformanceScreen = ({ navigation }) => {
    */
   if (loading && !performanceData) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles(theme).loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading performance data...</Text>
+        <Text style={[styles(theme).loadingText, { color: theme.colors.textSecondary }]}>Loading performance data...</Text>
       </View>
     );
   }
@@ -288,26 +288,26 @@ const FlockPerformanceScreen = ({ navigation }) => {
    */
   return (
     <ErrorBoundary>
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={styles(theme).scrollView}
+          contentContainerStyle={styles(theme).scrollContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} />
           }
         >
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>Flock Performance</Text>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Last 30 days</Text>
+          <View style={styles(theme).header}>
+            <Text style={[styles(theme).title, { color: theme.colors.text }]}>Flock Performance</Text>
+            <Text style={[styles(theme).subtitle, { color: theme.colors.textSecondary }]}>Last 30 days</Text>
           </View>
 
           {/* KPI Cards */}
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Summary Metrics</Text>
+          <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Summary Metrics</Text>
           {renderKPICards()}
 
           {/* FCR Comparison Chart */}
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Feed Conversion Ratio (FCR)</Text>
+          <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Feed Conversion Ratio (FCR)</Text>
           <BarChart
             title="FCR Comparison by Flock"
             data={prepareFCRData()}
@@ -319,7 +319,7 @@ const FlockPerformanceScreen = ({ navigation }) => {
           />
 
           {/* Mortality Comparison Chart */}
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Mortality Rate</Text>
+          <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Mortality Rate</Text>
           <BarChart
             title="Mortality Comparison by Flock"
             data={prepareMortalityData()}
@@ -333,7 +333,7 @@ const FlockPerformanceScreen = ({ navigation }) => {
           {/* Growth Rate Trend */}
           {performanceData?.growthTrend && (
             <>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Growth Rate Trend</Text>
+              <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Growth Rate Trend</Text>
               <LineChart
                 title="Average Daily Growth"
                 data={prepareGrowthRateData()}
@@ -346,7 +346,7 @@ const FlockPerformanceScreen = ({ navigation }) => {
           )}
 
           {/* Flock List */}
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Flock Details</Text>
+          <Text style={[styles(theme).sectionTitle, { color: theme.colors.text }]}>Flock Details</Text>
           {renderFlockList()}
         </ScrollView>
       </View>
@@ -354,7 +354,7 @@ const FlockPerformanceScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   performanceBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.buttonText,
     textTransform: 'capitalize',
   },
 });

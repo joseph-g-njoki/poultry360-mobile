@@ -12,7 +12,6 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import CustomPicker from '../components/CustomPicker';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../context/AuthContext';
@@ -59,7 +58,7 @@ const RegisterScreen = ({ navigation }) => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <Text style={{ fontSize: 18, color: '#FF3B30', marginBottom: 10 }}>{languageContext?.t?.('profile.contextError') || 'Context Error'}</Text>
-        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
+        <Text style={{ fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center' }}>
           Required app contexts are not available. Please restart the app.
         </Text>
       </View>
@@ -383,25 +382,25 @@ const RegisterScreen = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles(theme).container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={styles(theme).scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>🐔</Text>
-          <Text style={[styles.appTitle, { color: theme.colors.primary }]}>{t('auth.joinPoultry360') || 'Join Poultry360'}</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>{t('auth.startManaging') || 'Start managing your poultry farm'}</Text>
+        <View style={styles(theme).logoContainer}>
+          <Text style={styles(theme).logoText}>🐔</Text>
+          <Text style={[styles(theme).appTitle, { color: theme.colors.primary }]}>{t('auth.joinPoultry360') || 'Join Poultry360'}</Text>
+          <Text style={[styles(theme).subtitle, { color: theme.colors.textSecondary }]}>{t('auth.startManaging') || 'Start managing your poultry farm'}</Text>
         </View>
 
-        <View style={[styles.formContainer, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadowColor }]}>
-          <Text style={[styles.formTitle, { color: theme.colors.text }]}>{t('auth.createAccount')}</Text>
+        <View style={[styles(theme).formContainer, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadowColor }]}>
+          <Text style={[styles(theme).formTitle, { color: theme.colors.text }]}>{t('auth.createAccount')}</Text>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.username')} *</Text>
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.username')} *</Text>
             <TextInput
-              style={[styles.input, {
+              style={[styles(theme).input, {
                 backgroundColor: theme.colors.inputBackground,
                 borderColor: theme.colors.inputBorder,
                 color: theme.colors.inputText
@@ -414,16 +413,16 @@ const RegisterScreen = ({ navigation }) => {
               autoCorrect={false}
               editable={!loading}
             />
-            <Text style={[styles.inputHint, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles(theme).inputHint, { color: theme.colors.textSecondary }]}>
               Minimum 3 characters. Letters, numbers, and underscores only.
             </Text>
           </View>
 
-          <View style={styles.row}>
-            <View style={[styles.inputContainer, styles.halfWidth]}>
-              <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.firstName')}</Text>
+          <View style={styles(theme).row}>
+            <View style={[styles(theme).inputContainer, styles(theme).halfWidth]}>
+              <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.firstName')}</Text>
               <TextInput
-                style={[styles.input, {
+                style={[styles(theme).input, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.inputBorder,
                   color: theme.colors.inputText
@@ -437,10 +436,10 @@ const RegisterScreen = ({ navigation }) => {
               />
             </View>
 
-            <View style={[styles.inputContainer, styles.halfWidth]}>
-              <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.lastName')}</Text>
+            <View style={[styles(theme).inputContainer, styles(theme).halfWidth]}>
+              <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.lastName')}</Text>
               <TextInput
-                style={[styles.input, {
+                style={[styles(theme).input, {
                   backgroundColor: theme.colors.inputBackground,
                   borderColor: theme.colors.inputBorder,
                   color: theme.colors.inputText
@@ -455,10 +454,10 @@ const RegisterScreen = ({ navigation }) => {
             </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.email')}</Text>
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.email')}</Text>
             <TextInput
-              style={[styles.input, {
+              style={[styles(theme).input, {
                 backgroundColor: theme.colors.inputBackground,
                 borderColor: theme.colors.inputBorder,
                 color: theme.colors.inputText
@@ -474,10 +473,10 @@ const RegisterScreen = ({ navigation }) => {
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.phoneNumber')}</Text>
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.phoneNumber')}</Text>
             <TextInput
-              style={[styles.input, {
+              style={[styles(theme).input, {
                 backgroundColor: theme.colors.inputBackground,
                 borderColor: theme.colors.inputBorder,
                 color: theme.colors.inputText
@@ -491,30 +490,25 @@ const RegisterScreen = ({ navigation }) => {
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Registration Type</Text>
-            <View style={[styles.pickerContainer, {
-              backgroundColor: theme.colors.inputBackground,
-              borderColor: theme.colors.inputBorder
-            }]}>
-              <Picker
-                selectedValue={formData.registrationType}
-                style={[styles.picker, { color: theme.colors.inputText }]}
-                onValueChange={(value) => handleInputChange('registrationType', value)}
-                enabled={!loading}
-              >
-                <Picker.Item label="🏢 Join Existing Organization" value="join" />
-                <Picker.Item label="🆕 Create New Organization" value="create" />
-              </Picker>
-            </View>
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>Registration Type</Text>
+            <CustomPicker
+              selectedValue={formData.registrationType}
+              onValueChange={(value) => handleInputChange('registrationType', value)}
+              items={[
+                { label: '🏢 Join Existing Organization', value: 'join' },
+                { label: '🆕 Create New Organization', value: 'create' }
+              ]}
+              enabled={!loading}
+            />
           </View>
 
           {formData.registrationType === 'create' && (
             <>
-              <View style={styles.inputContainer}>
-                <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.organizationName')} *</Text>
+              <View style={styles(theme).inputContainer}>
+                <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.organizationName')} *</Text>
                 <TextInput
-                  style={[styles.input, {
+                  style={[styles(theme).input, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -528,10 +522,10 @@ const RegisterScreen = ({ navigation }) => {
                 />
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Organization Description (Optional)</Text>
+              <View style={styles(theme).inputContainer}>
+                <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>Organization Description (Optional)</Text>
                 <TextInput
-                  style={[styles.input, {
+                  style={[styles(theme).input, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -549,45 +543,35 @@ const RegisterScreen = ({ navigation }) => {
           )}
 
           {formData.registrationType === 'join' && (
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Select Organization *</Text>
-              <View style={[styles.pickerContainer, {
-                backgroundColor: theme.colors.inputBackground,
-                borderColor: theme.colors.inputBorder
-              }]}>
-                <Picker
-                  selectedValue={formData.organizationId}
-                  style={[styles.picker, { color: theme.colors.inputText }]}
-                  onValueChange={(value) => handleInputChange('organizationId', value)}
-                  enabled={!loading && !loadingOrgs}
-                >
-                  <Picker.Item label="Select an organization..." value="" />
-                  <Picker.Item label="Demo Poultry Farm" value="1" />
-                  <Picker.Item label="Sunrise Poultry Co." value="2" />
-                </Picker>
-              </View>
+            <View style={styles(theme).inputContainer}>
+              <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>Select Organization *</Text>
+              <CustomPicker
+                selectedValue={formData.organizationId}
+                onValueChange={(value) => handleInputChange('organizationId', value)}
+                items={[
+                  { label: 'Demo Poultry Farm', value: '1' },
+                  { label: 'Sunrise Poultry Co.', value: '2' }
+                ]}
+                placeholder="Select an organization..."
+                enabled={!loading && !loadingOrgs}
+              />
             </View>
           )}
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Role</Text>
-            <View style={[styles.pickerContainer, {
-              backgroundColor: theme.colors.inputBackground,
-              borderColor: theme.colors.inputBorder
-            }]}>
-              <Picker
-                selectedValue={formData.role}
-                style={[styles.picker, { color: theme.colors.inputText }]}
-                onValueChange={(value) => handleInputChange('role', value)}
-                enabled={!loading}
-              >
-                <Picker.Item label="👷 Worker" value="worker" />
-                <Picker.Item label="👨‍💼 Manager" value="manager" />
-                <Picker.Item label="⭐ Admin" value="admin" />
-                <Picker.Item label="👑 Owner" value="owner" />
-              </Picker>
-            </View>
-            <Text style={[styles.inputHint, { color: theme.colors.textSecondary }]}>
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>Role</Text>
+            <CustomPicker
+              selectedValue={formData.role}
+              onValueChange={(value) => handleInputChange('role', value)}
+              items={[
+                { label: '👷 Worker', value: 'worker' },
+                { label: '👨‍💼 Manager', value: 'manager' },
+                { label: '⭐ Admin', value: 'admin' },
+                { label: '👑 Owner', value: 'owner' }
+              ]}
+              enabled={!loading}
+            />
+            <Text style={[styles(theme).inputHint, { color: theme.colors.textSecondary }]}>
               {formData.registrationType === 'create'
                 ? 'Select your role in the new organization'
                 : 'Select your role. Admin/Owner roles require approval.'}
@@ -595,81 +579,81 @@ const RegisterScreen = ({ navigation }) => {
           </View>
 
           {/* Password Requirements Section */}
-          <View style={[styles.passwordRequirementsContainer, {
+          <View style={[styles(theme).passwordRequirementsContainer, {
             backgroundColor: theme.colors.inputBackground || '#f8f9fa',
             borderColor: theme.colors.inputBorder || '#dee2e6'
           }]}>
-            <Text style={[styles.passwordRequirementsTitle, { color: theme.colors.text }]}>
+            <Text style={[styles(theme).passwordRequirementsTitle, { color: theme.colors.text }]}>
               {t('auth.passwordRequirements') || 'Password Requirements'}
             </Text>
-            <View style={styles.requirementsList}>
-              <View style={styles.requirementItem}>
-                <Text style={[styles.requirementIcon, passwordValidation.minLength && styles.requirementMet]}>
+            <View style={styles(theme).requirementsList}>
+              <View style={styles(theme).requirementItem}>
+                <Text style={[styles(theme).requirementIcon, passwordValidation.minLength && styles(theme).requirementMet]}>
                   {passwordValidation.minLength ? '✓' : '○'}
                 </Text>
-                <Text style={[styles.requirementText, { color: theme.colors.textSecondary }, passwordValidation.minLength && styles.requirementTextMet]}>
+                <Text style={[styles(theme).requirementText, { color: theme.colors.textSecondary }, passwordValidation.minLength && styles(theme).requirementTextMet]}>
                   {t('auth.minLength') || 'At least 8 characters'}
                 </Text>
               </View>
-              <View style={styles.requirementItem}>
-                <Text style={[styles.requirementIcon, passwordValidation.uppercase && styles.requirementMet]}>
+              <View style={styles(theme).requirementItem}>
+                <Text style={[styles(theme).requirementIcon, passwordValidation.uppercase && styles(theme).requirementMet]}>
                   {passwordValidation.uppercase ? '✓' : '○'}
                 </Text>
-                <Text style={[styles.requirementText, { color: theme.colors.textSecondary }, passwordValidation.uppercase && styles.requirementTextMet]}>
+                <Text style={[styles(theme).requirementText, { color: theme.colors.textSecondary }, passwordValidation.uppercase && styles(theme).requirementTextMet]}>
                   {t('auth.uppercase') || 'One uppercase letter (A-Z)'}
                 </Text>
               </View>
-              <View style={styles.requirementItem}>
-                <Text style={[styles.requirementIcon, passwordValidation.lowercase && styles.requirementMet]}>
+              <View style={styles(theme).requirementItem}>
+                <Text style={[styles(theme).requirementIcon, passwordValidation.lowercase && styles(theme).requirementMet]}>
                   {passwordValidation.lowercase ? '✓' : '○'}
                 </Text>
-                <Text style={[styles.requirementText, { color: theme.colors.textSecondary }, passwordValidation.lowercase && styles.requirementTextMet]}>
+                <Text style={[styles(theme).requirementText, { color: theme.colors.textSecondary }, passwordValidation.lowercase && styles(theme).requirementTextMet]}>
                   {t('auth.lowercase') || 'One lowercase letter (a-z)'}
                 </Text>
               </View>
-              <View style={styles.requirementItem}>
-                <Text style={[styles.requirementIcon, passwordValidation.number && styles.requirementMet]}>
+              <View style={styles(theme).requirementItem}>
+                <Text style={[styles(theme).requirementIcon, passwordValidation.number && styles(theme).requirementMet]}>
                   {passwordValidation.number ? '✓' : '○'}
                 </Text>
-                <Text style={[styles.requirementText, { color: theme.colors.textSecondary }, passwordValidation.number && styles.requirementTextMet]}>
+                <Text style={[styles(theme).requirementText, { color: theme.colors.textSecondary }, passwordValidation.number && styles(theme).requirementTextMet]}>
                   {t('auth.number') || 'One number (0-9)'}
                 </Text>
               </View>
-              <View style={styles.requirementItem}>
-                <Text style={[styles.requirementIcon, passwordValidation.specialChar && styles.requirementMet]}>
+              <View style={styles(theme).requirementItem}>
+                <Text style={[styles(theme).requirementIcon, passwordValidation.specialChar && styles(theme).requirementMet]}>
                   {passwordValidation.specialChar ? '✓' : '○'}
                 </Text>
-                <Text style={[styles.requirementText, { color: theme.colors.textSecondary }, passwordValidation.specialChar && styles.requirementTextMet]}>
+                <Text style={[styles(theme).requirementText, { color: theme.colors.textSecondary }, passwordValidation.specialChar && styles(theme).requirementTextMet]}>
                   {t('auth.specialChar') || 'One special character (@$!%*?&)'}
                 </Text>
               </View>
-              <View style={styles.requirementItem}>
-                <Text style={[styles.requirementIcon, passwordValidation.noCommon && styles.requirementMet]}>
+              <View style={styles(theme).requirementItem}>
+                <Text style={[styles(theme).requirementIcon, passwordValidation.noCommon && styles(theme).requirementMet]}>
                   {passwordValidation.noCommon ? '✓' : '○'}
                 </Text>
-                <Text style={[styles.requirementText, { color: theme.colors.textSecondary }, passwordValidation.noCommon && styles.requirementTextMet]}>
+                <Text style={[styles(theme).requirementText, { color: theme.colors.textSecondary }, passwordValidation.noCommon && styles(theme).requirementTextMet]}>
                   {t('auth.noCommon') || 'No common passwords'}
                 </Text>
               </View>
-              <View style={styles.requirementItem}>
-                <Text style={[styles.requirementIcon, passwordValidation.noSequential && styles.requirementMet]}>
+              <View style={styles(theme).requirementItem}>
+                <Text style={[styles(theme).requirementIcon, passwordValidation.noSequential && styles(theme).requirementMet]}>
                   {passwordValidation.noSequential ? '✓' : '○'}
                 </Text>
-                <Text style={[styles.requirementText, { color: theme.colors.textSecondary }, passwordValidation.noSequential && styles.requirementTextMet]}>
+                <Text style={[styles(theme).requirementText, { color: theme.colors.textSecondary }, passwordValidation.noSequential && styles(theme).requirementTextMet]}>
                   {t('auth.noSequential') || 'No sequential characters'}
                 </Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.password')}</Text>
-            <View style={[styles.passwordContainer, {
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.password')}</Text>
+            <View style={[styles(theme).passwordContainer, {
               backgroundColor: theme.colors.inputBackground,
               borderColor: theme.colors.inputBorder
             }]}>
               <TextInput
-                style={[styles.passwordInput, { color: theme.colors.inputText }]}
+                style={[styles(theme).passwordInput, { color: theme.colors.inputText }]}
                 placeholder={t('auth.enterPassword')}
                 placeholderTextColor={theme.colors.placeholder}
                 value={formData.password}
@@ -678,7 +662,7 @@ const RegisterScreen = ({ navigation }) => {
                 editable={!loading}
               />
               <TouchableOpacity
-                style={styles.eyeIcon}
+                style={styles(theme).eyeIcon}
                 onPress={() => {
                   try {
                     setShowPassword(prev => !prev);
@@ -689,19 +673,19 @@ const RegisterScreen = ({ navigation }) => {
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.eyeIconText}>{showPassword ? '🙈' : '👁️'}</Text>
+                <Text style={styles(theme).eyeIconText}>{showPassword ? '🙈' : '👁️'}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{t('auth.confirmPassword')}</Text>
-            <View style={[styles.passwordContainer, {
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>{t('auth.confirmPassword')}</Text>
+            <View style={[styles(theme).passwordContainer, {
               backgroundColor: theme.colors.inputBackground,
               borderColor: theme.colors.inputBorder
             }]}>
               <TextInput
-                style={[styles.passwordInput, { color: theme.colors.inputText }]}
+                style={[styles(theme).passwordInput, { color: theme.colors.inputText }]}
                 placeholder={t('auth.confirmPassword')}
                 placeholderTextColor={theme.colors.placeholder}
                 value={formData.confirmPassword}
@@ -710,7 +694,7 @@ const RegisterScreen = ({ navigation }) => {
                 editable={!loading}
               />
               <TouchableOpacity
-                style={styles.eyeIcon}
+                style={styles(theme).eyeIcon}
                 onPress={() => {
                   try {
                     setShowConfirmPassword(prev => !prev);
@@ -721,30 +705,30 @@ const RegisterScreen = ({ navigation }) => {
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.eyeIconText}>{showConfirmPassword ? '🙈' : '👁️'}</Text>
+                <Text style={styles(theme).eyeIconText}>{showConfirmPassword ? '🙈' : '👁️'}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.registerButton, { backgroundColor: theme.colors.primary }, loading && styles.disabledButton]}
+            style={[styles(theme).registerButton, { backgroundColor: theme.colors.primary }, loading && styles(theme).disabledButton]}
             onPress={handleRegister}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.registerButtonText}>{t('auth.createAccount')}</Text>
+              <Text style={styles(theme).registerButtonText}>{t('auth.createAccount')}</Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.loginContainer}>
-            <Text style={[styles.loginText, { color: theme.colors.textSecondary }]}>{t('auth.alreadyHaveAccount')}</Text>
+          <View style={styles(theme).loginContainer}>
+            <Text style={[styles(theme).loginText, { color: theme.colors.textSecondary }]}>{t('auth.alreadyHaveAccount')}</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Login')}
               disabled={loading}
             >
-              <Text style={[styles.loginLink, { color: theme.colors.primary }]}>{t('auth.signIn')}</Text>
+              <Text style={[styles(theme).loginLink, { color: theme.colors.primary }]}>{t('auth.signIn')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -753,7 +737,7 @@ const RegisterScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -860,7 +844,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
   },
   registerButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -901,7 +885,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginRight: 8,
     width: 20,
-    color: '#999',
+    color: theme.colors.textSecondary,
   },
   requirementMet: {
     color: '#2ecc71',

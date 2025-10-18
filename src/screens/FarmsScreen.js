@@ -268,56 +268,56 @@ const FarmsScreen = () => {
     }
 
     return (
-      <View style={[styles.farmCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
-        <View style={[styles.farmHeader, { borderBottomColor: theme.colors.border }]}>
-          <Text style={[styles.farmName, { color: theme.colors.primary }]}>{item.name || 'Unnamed Farm'}</Text>
-        <View style={styles.farmActions}>
+      <View style={[styles(theme).farmCard, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.shadowColor }]}>
+        <View style={[styles(theme).farmHeader, { borderBottomColor: theme.colors.border }]}>
+          <Text style={[styles(theme).farmName, { color: theme.colors.primary }]}>{item.name || 'Unnamed Farm'}</Text>
+        <View style={styles(theme).farmActions}>
           <TouchableOpacity
-            style={styles.editButton}
+            style={styles(theme).editButton}
             onPress={() => openModal(item)}
           >
-            <Text style={styles.editButtonText}>✏️</Text>
+            <Text style={styles(theme).editButtonText}>✏️</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.deleteButton}
+            style={styles(theme).deleteButton}
             onPress={() => handleDeleteFarm(item)}
           >
-            <Text style={styles.deleteButtonText}>🗑️</Text>
+            <Text style={styles(theme).deleteButtonText}>🗑️</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.farmDetails}>
-        <View style={styles.farmDetailRow}>
-          <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>📍 {t('farms.location')}:</Text>
-          <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.location || t('farms.location')}</Text>
+      <View style={styles(theme).farmDetails}>
+        <View style={styles(theme).farmDetailRow}>
+          <Text style={[styles(theme).farmDetailLabel, { color: theme.colors.textSecondary }]}>📍 {t('farms.location')}:</Text>
+          <Text style={[styles(theme).farmDetailValue, { color: theme.colors.text }]}>{item.location || t('farms.location')}</Text>
         </View>
 
-        <View style={styles.farmDetailRow}>
-          <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>🏭 {t('farms.farmType')}:</Text>
-          <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.farmType ? t(`farmTypes.${item.farmType}`) : t('farmTypes.broiler')}</Text>
+        <View style={styles(theme).farmDetailRow}>
+          <Text style={[styles(theme).farmDetailLabel, { color: theme.colors.textSecondary }]}>🏭 {t('farms.farmType')}:</Text>
+          <Text style={[styles(theme).farmDetailValue, { color: theme.colors.text }]}>{item.farmType ? t(`farmTypes.${item.farmType}`) : t('farmTypes.broiler')}</Text>
         </View>
 
         {(item.description || item.notes) && (
-          <View style={styles.farmDetailRow}>
-            <Text style={[styles.farmDetailLabel, { color: theme.colors.textSecondary }]}>📝 {t('expenses.description')}:</Text>
-            <Text style={[styles.farmDetailValue, { color: theme.colors.text }]}>{item.description || item.notes}</Text>
+          <View style={styles(theme).farmDetailRow}>
+            <Text style={[styles(theme).farmDetailLabel, { color: theme.colors.textSecondary }]}>📝 {t('expenses.description')}:</Text>
+            <Text style={[styles(theme).farmDetailValue, { color: theme.colors.text }]}>{item.description || item.notes}</Text>
           </View>
         )}
 
-        <View style={styles.farmStats}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.primary }]}>{item.batchCount || 0}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>{t('batches.title')}</Text>
+        <View style={styles(theme).farmStats}>
+          <View style={styles(theme).statItem}>
+            <Text style={[styles(theme).statValue, { color: theme.colors.primary }]}>{item.batchCount || 0}</Text>
+            <Text style={[styles(theme).statLabel, { color: theme.colors.textSecondary }]}>{t('batches.title')}</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.primary }]}>{item.totalBirds || 0}</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>{t('placeholders.numberOfBirds')}</Text>
+          <View style={styles(theme).statItem}>
+            <Text style={[styles(theme).statValue, { color: theme.colors.primary }]}>{item.totalBirds || 0}</Text>
+            <Text style={[styles(theme).statLabel, { color: theme.colors.textSecondary }]}>{t('placeholders.numberOfBirds')}</Text>
           </View>
         </View>
 
-        <View style={[styles.farmMeta, { borderTopColor: theme.colors.border }]}>
-          <Text style={[styles.farmDate, { color: theme.colors.textLight }]}>
+        <View style={[styles(theme).farmMeta, { borderTopColor: theme.colors.border }]}>
+          <Text style={[styles(theme).farmDate, { color: theme.colors.textLight }]}>
             {formatDate(item.createdAt)}
           </Text>
         </View>
@@ -333,39 +333,39 @@ const FarmsScreen = () => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles(theme).loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>{t('common.loading')}</Text>
+        <Text style={[styles(theme).loadingText, { color: theme.colors.textSecondary }]}>{t('common.loading')}</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('farms.title')}</Text>
+      <View style={[styles(theme).header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles(theme).headerTitle, { color: theme.colors.text }]}>{t('farms.title')}</Text>
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles(theme).addButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => openModal()}
         >
-          <Text style={styles.addButtonText}>+ {t('farms.addFarm')}</Text>
+          <Text style={styles(theme).addButtonText}>+ {t('farms.addFarm')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Farms List */}
       {farms.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🏠</Text>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>{t('dropdowns.noFarms')}</Text>
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+        <View style={styles(theme).emptyContainer}>
+          <Text style={styles(theme).emptyIcon}>🏠</Text>
+          <Text style={[styles(theme).emptyTitle, { color: theme.colors.text }]}>{t('dropdowns.noFarms')}</Text>
+          <Text style={[styles(theme).emptyText, { color: theme.colors.textSecondary }]}>
             {t('farms.enterFarmName')}
           </Text>
           <TouchableOpacity
-            style={[styles.emptyButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles(theme).emptyButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => openModal()}
           >
-            <Text style={styles.emptyButtonText}>{t('farms.addFarm')}</Text>
+            <Text style={styles(theme).emptyButtonText}>{t('farms.addFarm')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -373,7 +373,7 @@ const FarmsScreen = () => {
           data={Array.isArray(farms) ? farms : []}
           renderItem={renderFarmCard}
           keyExtractor={(item, index) => (item?.id ? item.id.toString() : `farm_${index}`)}
-          contentContainerStyle={styles.farmsList}
+          contentContainerStyle={styles(theme).farmsList}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -395,17 +395,17 @@ const FarmsScreen = () => {
         visible={modalVisible}
         onRequestClose={closeModal}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles(theme).modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.surface }]}>
             <ScrollView>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              <Text style={[styles(theme).modalTitle, { color: theme.colors.text }]}>
                 {editingFarm ? t('farms.editFarm') : t('farms.addFarm')}
               </Text>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('farms.farmName')} *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>{t('farms.farmName')} *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -419,10 +419,10 @@ const FarmsScreen = () => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('farms.location')} *</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>{t('farms.location')} *</Text>
                 <TextInput
-                  style={[styles.formInput, {
+                  style={[styles(theme).formInput, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -436,8 +436,8 @@ const FarmsScreen = () => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('farms.farmType')}</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>{t('farms.farmType')}</Text>
                 <CustomPicker
                   selectedValue={formData.farmType}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, farmType: value }))}
@@ -451,10 +451,10 @@ const FarmsScreen = () => {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: theme.colors.text }]}>{t('expenses.description')}</Text>
+              <View style={styles(theme).formGroup}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>{t('expenses.description')}</Text>
                 <TextInput
-                  style={[styles.formInput, styles.textArea, {
+                  style={[styles(theme).formInput, styles(theme).textArea, {
                     backgroundColor: theme.colors.inputBackground,
                     borderColor: theme.colors.inputBorder,
                     color: theme.colors.inputText
@@ -470,18 +470,18 @@ const FarmsScreen = () => {
                 />
               </View>
 
-              <View style={styles.modalActions}>
+              <View style={styles(theme).modalActions}>
                 <TouchableOpacity
-                  style={[styles.cancelButton, { backgroundColor: theme.colors.borderSecondary }]}
+                  style={[styles(theme).cancelButton, { backgroundColor: theme.colors.borderSecondary }]}
                   onPress={closeModal}
                 >
-                  <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>{t('common.cancel')}</Text>
+                  <Text style={[styles(theme).cancelButtonText, { color: theme.colors.text }]}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                  style={[styles(theme).saveButton, { backgroundColor: theme.colors.primary }]}
                   onPress={handleSaveFarm}
                 >
-                  <Text style={styles.saveButtonText}>
+                  <Text style={styles(theme).saveButtonText}>
                     {editingFarm ? t('common.save') : t('common.add')}
                   </Text>
                 </TouchableOpacity>
@@ -494,7 +494,7 @@ const FarmsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontWeight: 'bold',
   },
   farmsList: {
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   emptyButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   saveButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',

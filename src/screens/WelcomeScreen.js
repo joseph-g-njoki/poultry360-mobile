@@ -9,7 +9,6 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, languages } from '../context/LanguageContext';
 import CustomPicker from '../components/CustomPicker';
@@ -80,87 +79,77 @@ const WelcomeScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={styles(theme).scrollContainer}
         showsVerticalScrollIndicator={false}
       >
         {/* Header with Logo */}
-        <View style={styles.headerContainer}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoEmoji}>🐔</Text>
-            <Text style={[styles.appTitle, { color: theme.colors.primary }]}>
+        <View style={styles(theme).headerContainer}>
+          <View style={styles(theme).logoContainer}>
+            <Text style={styles(theme).logoEmoji}>🐔</Text>
+            <Text style={[styles(theme).appTitle, { color: theme.colors.primary }]}>
               Poultry360
             </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles(theme).subtitle, { color: theme.colors.textSecondary }]}>
               {t('auth.farmManagement') || 'Poultry Farm Management System'}
             </Text>
           </View>
         </View>
 
         {/* Language Selection */}
-        <View style={[styles.languageContainer, {
+        <View style={[styles(theme).languageContainer, {
           backgroundColor: theme.colors.surface,
           shadowColor: theme.colors.shadowColor
         }]}>
-          <Text style={[styles.languageTitle, { color: theme.colors.text }]}>
+          <Text style={[styles(theme).languageTitle, { color: theme.colors.text }]}>
             {t('settings.language') || 'Choose Language'} / Olulimi / Lugha
           </Text>
-          <Text style={[styles.languageSubtitle, { color: theme.colors.textSecondary }]}>
+          <Text style={[styles(theme).languageSubtitle, { color: theme.colors.textSecondary }]}>
             {t('welcome.selectLanguage') || 'Select your preferred language to continue'}
           </Text>
 
-          <View style={[styles.pickerContainer, {
-            backgroundColor: theme.colors.inputBackground,
-            borderColor: theme.colors.inputBorder
-          }]}>
-            <Picker
-              selectedValue={selectedLanguage}
-              style={[styles.picker, { color: theme.colors.inputText }]}
-              onValueChange={handleLanguageChange}
-            >
-              {Object.entries(languages).map(([code, lang]) => (
-                <Picker.Item
-                  key={code}
-                  label={`${lang.flag} ${lang.name} (${lang.nativeName})`}
-                  value={code}
-                />
-              ))}
-            </Picker>
-          </View>
+          <CustomPicker
+            selectedValue={selectedLanguage}
+            onValueChange={handleLanguageChange}
+            items={Object.entries(languages).map(([code, lang]) => ({
+              label: `${lang.flag} ${lang.name} (${lang.nativeName})`,
+              value: code
+            }))}
+          />
         </View>
 
         {/* Welcome Message */}
-        <View style={[styles.welcomeContainer, {
+        <View style={[styles(theme).welcomeContainer, {
           backgroundColor: theme.colors.surface,
           shadowColor: theme.colors.shadowColor
         }]}>
-          <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>
+          <Text style={[styles(theme).welcomeTitle, { color: theme.colors.text }]}>
             {t('dashboard.welcome') || 'Welcome to Poultry360'}
           </Text>
-          <Text style={[styles.welcomeDescription, { color: theme.colors.textSecondary }]}>
+          <Text style={[styles(theme).welcomeDescription, { color: theme.colors.textSecondary }]}>
             {t('welcome.description') || 'The complete solution for managing your poultry farm operations. Track production, monitor health, manage feed schedules, and analyze performance - all in one place.'}
           </Text>
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
+        <View style={styles(theme).buttonContainer}>
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: theme.colors.primary }, navigating && { opacity: 0.6 }]}
+            style={[styles(theme).primaryButton, { backgroundColor: theme.colors.primary }, navigating && { opacity: 0.6 }]}
             onPress={handleLogin}
             activeOpacity={0.8}
             disabled={navigating}
           >
-            <Text style={styles.primaryButtonText}>
+            <Text style={styles(theme).primaryButtonText}>
               {t('auth.login') || 'Sign In'}
             </Text>
-            <Text style={styles.buttonSubtext}>
+            <Text style={styles(theme).buttonSubtext}>
               {t('welcome.existingAccount') || 'Already have an account?'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.secondaryButton, {
+            style={[styles(theme).secondaryButton, {
               backgroundColor: 'transparent',
               borderColor: theme.colors.primary,
               borderWidth: 2
@@ -169,49 +158,49 @@ const WelcomeScreen = ({ navigation }) => {
             activeOpacity={0.8}
             disabled={navigating}
           >
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
+            <Text style={[styles(theme).secondaryButtonText, { color: theme.colors.primary }]}>
               {t('auth.register') || 'Create Account'}
             </Text>
-            <Text style={[styles.buttonSubtext, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles(theme).buttonSubtext, { color: theme.colors.textSecondary }]}>
               {t('welcome.newUser') || 'New to Poultry360?'}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Features Preview */}
-        <View style={[styles.featuresContainer, {
+        <View style={[styles(theme).featuresContainer, {
           backgroundColor: theme.colors.surface,
           shadowColor: theme.colors.shadowColor
         }]}>
-          <Text style={[styles.featuresTitle, { color: theme.colors.text }]}>
+          <Text style={[styles(theme).featuresTitle, { color: theme.colors.text }]}>
             {t('welcome.features') || 'Key Features'}
           </Text>
 
-          <View style={styles.featuresGrid}>
-            <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>📊</Text>
-              <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>
+          <View style={styles(theme).featuresGrid}>
+            <View style={styles(theme).featureItem}>
+              <Text style={styles(theme).featureIcon}>📊</Text>
+              <Text style={[styles(theme).featureText, { color: theme.colors.textSecondary }]}>
                 {t('navigation.dashboard') || 'Dashboard'}
               </Text>
             </View>
 
-            <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>🐔</Text>
-              <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>
+            <View style={styles(theme).featureItem}>
+              <Text style={styles(theme).featureIcon}>🐔</Text>
+              <Text style={[styles(theme).featureText, { color: theme.colors.textSecondary }]}>
                 {t('navigation.flocks') || 'Flock Management'}
               </Text>
             </View>
 
-            <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>📝</Text>
-              <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>
+            <View style={styles(theme).featureItem}>
+              <Text style={styles(theme).featureIcon}>📝</Text>
+              <Text style={[styles(theme).featureText, { color: theme.colors.textSecondary }]}>
                 {t('navigation.production') || 'Production Records'}
               </Text>
             </View>
 
-            <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>💊</Text>
-              <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>
+            <View style={styles(theme).featureItem}>
+              <Text style={styles(theme).featureIcon}>💊</Text>
+              <Text style={[styles(theme).featureText, { color: theme.colors.textSecondary }]}>
                 {t('navigation.health') || 'Health Monitoring'}
               </Text>
             </View>
@@ -219,32 +208,32 @@ const WelcomeScreen = ({ navigation }) => {
         </View>
 
         {/* Demo Access */}
-        <View style={[styles.demoContainer, {
+        <View style={[styles(theme).demoContainer, {
           backgroundColor: theme.colors.demoBackground || '#f8f9fa',
           borderColor: theme.colors.demoBorder || '#dee2e6'
         }]}>
-          <Text style={[styles.demoTitle, { color: theme.colors.demoText || '#6c757d' }]}>
+          <Text style={[styles(theme).demoTitle, { color: theme.colors.demoText || '#6c757d' }]}>
             {t('welcome.tryDemo') || 'Try Demo Mode'}
           </Text>
-          <Text style={[styles.demoSubtitle, { color: theme.colors.demoText || '#6c757d' }]}>
+          <Text style={[styles(theme).demoSubtitle, { color: theme.colors.demoText || '#6c757d' }]}>
             {t('welcome.demoDescription') || 'Explore the app with sample data - no registration required'}
           </Text>
 
           <TouchableOpacity
-            style={[styles.demoButton, { backgroundColor: '#28a745' }, navigating && { opacity: 0.6 }]}
+            style={[styles(theme).demoButton, { backgroundColor: '#28a745' }, navigating && { opacity: 0.6 }]}
             onPress={handleDemoAccess}
             activeOpacity={0.8}
             disabled={navigating}
           >
-            <Text style={styles.demoButtonText}>
+            <Text style={styles(theme).demoButtonText}>
               {t('welcome.demoAccess') || '🚀 Quick Demo Access'}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
+        <View style={styles(theme).footer}>
+          <Text style={[styles(theme).footerText, { color: theme.colors.textSecondary }]}>
             {t('welcome.poweredBy') || 'Powered by Poultry360'} © 2024
           </Text>
         </View>
@@ -253,7 +242,7 @@ const WelcomeScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -353,7 +342,7 @@ const styles = StyleSheet.create({
     minHeight: 70,
   },
   primaryButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,

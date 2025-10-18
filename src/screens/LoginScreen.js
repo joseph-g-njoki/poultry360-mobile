@@ -37,7 +37,7 @@ const LoginScreen = ({ navigation, route }) => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <Text style={{ fontSize: 18, color: '#FF3B30', marginBottom: 10 }}>Context Error</Text>
-        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
+        <Text style={{ fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center' }}>
           Required app contexts are not available. Please restart the app.
         </Text>
       </View>
@@ -263,25 +263,25 @@ const LoginScreen = ({ navigation, route }) => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles(theme).container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={styles(theme).scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>🐔</Text>
-          <Text style={[styles.appTitle, { color: theme.colors.primary }]}>Poultry360</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Poultry Farm Management</Text>
+        <View style={styles(theme).logoContainer}>
+          <Text style={styles(theme).logoText}>🐔</Text>
+          <Text style={[styles(theme).appTitle, { color: theme.colors.primary }]}>Poultry360</Text>
+          <Text style={[styles(theme).subtitle, { color: theme.colors.textSecondary }]}>Poultry Farm Management</Text>
         </View>
 
-        <View style={[styles.formContainer, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadowColor }]}>
-          <Text style={[styles.formTitle, { color: theme.colors.text }]}>{t('auth.welcomeBack')}</Text>
+        <View style={[styles(theme).formContainer, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadowColor }]}>
+          <Text style={[styles(theme).formTitle, { color: theme.colors.text }]}>{t('auth.welcomeBack')}</Text>
 
           {isPreFilled && (
-            <View style={[styles.successBanner, { backgroundColor: '#d4edda', borderColor: '#c3e6cb' }]}>
-              <Text style={styles.successIcon}>✓</Text>
-              <Text style={styles.successText}>
+            <View style={[styles(theme).successBanner, { backgroundColor: '#d4edda', borderColor: '#c3e6cb' }]}>
+              <Text style={styles(theme).successIcon}>✓</Text>
+              <Text style={styles(theme).successText}>
                 {t('auth.registerSuccess')} {t('auth.signIn')}
               </Text>
             </View>
@@ -289,20 +289,20 @@ const LoginScreen = ({ navigation, route }) => {
 
           {/* CRASH FIX: Display authError from context if present */}
           {authError && !isPreFilled && (
-            <View style={[styles.errorBanner, { backgroundColor: '#f8d7da', borderColor: '#f5c6cb' }]}>
-              <Text style={styles.errorIcon}>⚠</Text>
-              <Text style={styles.errorText}>
+            <View style={[styles(theme).errorBanner, { backgroundColor: '#f8d7da', borderColor: '#f5c6cb' }]}>
+              <Text style={styles(theme).errorIcon}>⚠</Text>
+              <Text style={styles(theme).errorText}>
                 {authError}
               </Text>
             </View>
           )}
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>
               {t('auth.email')}
             </Text>
             <TextInput
-              style={[styles.input, {
+              style={[styles(theme).input, {
                 backgroundColor: theme.colors.inputBackground,
                 borderColor: theme.colors.inputBorder,
                 color: theme.colors.inputText
@@ -318,16 +318,16 @@ const LoginScreen = ({ navigation, route }) => {
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
+          <View style={styles(theme).inputContainer}>
+            <Text style={[styles(theme).inputLabel, { color: theme.colors.text }]}>
               {t('auth.password')}
             </Text>
-            <View style={[styles.passwordContainer, {
+            <View style={[styles(theme).passwordContainer, {
               backgroundColor: theme.colors.inputBackground,
               borderColor: theme.colors.inputBorder
             }]}>
               <TextInput
-                style={[styles.passwordInput, { color: theme.colors.inputText }]}
+                style={[styles(theme).passwordInput, { color: theme.colors.inputText }]}
                 placeholder={t('auth.passwordPlaceholder')}
                 placeholderTextColor={theme.colors.placeholder}
                 value={password}
@@ -336,7 +336,7 @@ const LoginScreen = ({ navigation, route }) => {
                 editable={!loading}
               />
               <TouchableOpacity
-                style={styles.eyeIcon}
+                style={styles(theme).eyeIcon}
                 onPress={() => {
                   try {
                     setShowPassword(prev => !prev);
@@ -347,32 +347,32 @@ const LoginScreen = ({ navigation, route }) => {
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.eyeIconText}>{showPassword ? '🙈' : '👁️'}</Text>
+                <Text style={styles(theme).eyeIconText}>{showPassword ? '🙈' : '👁️'}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.loginButton, { backgroundColor: theme.colors.primary }, loading && styles.disabledButton]}
+            style={[styles(theme).loginButton, { backgroundColor: theme.colors.primary }, loading && styles(theme).disabledButton]}
             onPress={handleLogin}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.loginButtonText}>{t('auth.signIn')}</Text>
+              <Text style={styles(theme).loginButtonText}>{t('auth.signIn')}</Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.registerContainer}>
-            <Text style={[styles.registerText, { color: theme.colors.textSecondary }]}>
+          <View style={styles(theme).registerContainer}>
+            <Text style={[styles(theme).registerText, { color: theme.colors.textSecondary }]}>
               {t('auth.noAccount')}
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Register')}
               disabled={loading}
             >
-              <Text style={[styles.registerLink, { color: theme.colors.primary }]}>
+              <Text style={[styles(theme).registerLink, { color: theme.colors.primary }]}>
                 {t('auth.createAccount')}
               </Text>
             </TouchableOpacity>
@@ -383,7 +383,7 @@ const LoginScreen = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
   },
   loginButtonText: {
-    color: '#fff',
+    color: theme.colors.buttonText,
     fontSize: 18,
     fontWeight: 'bold',
   },

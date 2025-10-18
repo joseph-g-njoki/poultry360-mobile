@@ -47,8 +47,8 @@ const KPICard = ({
     const trendIcon = isPositive ? '↑' : '↓';
 
     return (
-      <View style={styles.trendContainer}>
-        <Text style={[styles.trendText, { color: trendColor }]}>
+      <View style={styles(theme).trendContainer}>
+        <Text style={[styles(theme).trendText, { color: trendColor }]}>
           {trendIcon} {Math.abs(trend.value)}%
         </Text>
       </View>
@@ -56,19 +56,19 @@ const KPICard = ({
   };
 
   const CardContent = (
-    <View style={[styles.card, { borderLeftColor: color }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-        {icon && <Text style={styles.icon}>{icon}</Text>}
+    <View style={[styles(theme).card, { borderLeftColor: color }]}>
+      <View style={styles(theme).header}>
+        <Text style={styles(theme).title}>{title}</Text>
+        {icon && <Text style={styles(theme).icon}>{icon}</Text>}
       </View>
 
-      <View style={styles.body}>
+      <View style={styles(theme).body}>
         {loading ? (
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles(theme).loadingText}>Loading...</Text>
         ) : (
           <>
-            <Text style={[styles.value, { color }]}>{formatValue(value)}</Text>
-            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+            <Text style={[styles(theme).value, { color }]}>{formatValue(value)}</Text>
+            {subtitle && <Text style={styles(theme).subtitle}>{subtitle}</Text>}
             {renderTrend()}
           </>
         )}
@@ -87,7 +87,7 @@ const KPICard = ({
   return CardContent;
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: theme.colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 12,
-    color: '#999',
+    color: theme.colors.textSecondary,
     marginTop: 4,
   },
   trendContainer: {
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#999',
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
 });

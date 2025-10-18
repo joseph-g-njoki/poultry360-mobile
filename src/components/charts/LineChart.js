@@ -75,10 +75,10 @@ const LineChart = ({
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        {title && <Text style={styles.title}>{title}</Text>}
-        <View style={[styles.loadingContainer, { height }]}>
-          <Text style={styles.loadingText}>Loading chart data...</Text>
+      <View style={styles(theme).container}>
+        {title && <Text style={styles(theme).title}>{title}</Text>}
+        <View style={[styles(theme).loadingContainer, { height }]}>
+          <Text style={styles(theme).loadingText}>Loading chart data...</Text>
         </View>
       </View>
     );
@@ -86,26 +86,26 @@ const LineChart = ({
 
   if (error) {
     return (
-      <View style={styles.container}>
-        {title && <Text style={styles.title}>{title}</Text>}
-        <View style={[styles.errorContainer, { height }]}>
-          <Text style={styles.errorText}>{error}</Text>
+      <View style={styles(theme).container}>
+        {title && <Text style={styles(theme).title}>{title}</Text>}
+        <View style={[styles(theme).errorContainer, { height }]}>
+          <Text style={styles(theme).errorText}>{error}</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {title && <Text style={styles.title}>{title}</Text>}
-      <View style={styles.chartWrapper}>
+    <View style={styles(theme).container}>
+      {title && <Text style={styles(theme).title}>{title}</Text>}
+      <View style={styles(theme).chartWrapper}>
         <RNLineChart
           data={chartData}
           width={screenWidth}
           height={height}
           chartConfig={chartConfig}
           bezier
-          style={styles.chart}
+          style={styles(theme).chart}
           yAxisSuffix={yAxisSuffix}
           formatYLabel={yLabelFormatter}
           withInnerLines={true}
@@ -121,7 +121,7 @@ const LineChart = ({
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme) => StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 12,
   },
   chartWrapper: {
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#999',
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
   errorContainer: {

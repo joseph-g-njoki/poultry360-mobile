@@ -432,12 +432,26 @@ const BatchesScreen = ({ route, navigation }) => {
           throw new Error(response.error || 'Failed to update batch - server returned an error');
         }
       } else {
-        console.log('🔄 Creating new batch:', batchData.batchName);
+        console.log('═══════════════════════════════════════════════════');
+        console.log('🚀 CREATING NEW BATCH');
+        console.log('═══════════════════════════════════════════════════');
+        console.log('📝 Batch Name:', batchData.batchName);
+        console.log('🐔 Bird Type:', batchData.birdType);
+        console.log('🏭 Farm ID:', batchData.farmId);
+        console.log('📊 Initial Count:', batchData.initialCount);
+        console.log('═══════════════════════════════════════════════════');
+
         // CRASH FIX: Wrap API call in try-catch to handle network/server errors
         try {
           response = await fastApiService.createFlock(batchData);
         } catch (apiError) {
-          console.error('❌ API call failed for create:', apiError);
+          console.error('═══════════════════════════════════════════════════');
+          console.error('❌ API CALL FAILED FOR CREATE BATCH');
+          console.error('═══════════════════════════════════════════════════');
+          console.error('Error:', apiError.message);
+          console.error('Full error:', apiError);
+          console.error('═══════════════════════════════════════════════════');
+
           // CRASH FIX: Provide specific error message based on error type
           let errorMsg = 'Failed to create batch';
           if (apiError.message?.includes('farm')) {
@@ -449,6 +463,13 @@ const BatchesScreen = ({ route, navigation }) => {
           }
           throw new Error(errorMsg);
         }
+
+        console.log('═══════════════════════════════════════════════════');
+        console.log('📥 CREATE BATCH RESPONSE');
+        console.log('═══════════════════════════════════════════════════');
+        console.log('Success:', response.success);
+        console.log('Data:', JSON.stringify(response.data, null, 2));
+        console.log('═══════════════════════════════════════════════════');
 
         // CRASH FIX: Validate response object
         if (!response || typeof response !== 'object') {
@@ -464,7 +485,7 @@ const BatchesScreen = ({ route, navigation }) => {
         }
       }
 
-      console.log('✅ Batch save operation completed successfully');
+      console.log('✅ BATCH SAVE OPERATION COMPLETED SUCCESSFULLY');
       closeModal();
 
       // CRASH FIX: Wrap data reload in try-catch to prevent crash if reload fails

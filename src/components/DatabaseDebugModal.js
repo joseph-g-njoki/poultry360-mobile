@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import databaseResetUtil from '../utils/databaseReset';
+import fastDatabase from '../services/fastDatabase';
 
 const DatabaseDebugModal = ({ visible, onClose, onResetComplete }) => {
   const { theme } = useTheme();
@@ -119,6 +120,31 @@ const DatabaseDebugModal = ({ visible, onClose, onResetComplete }) => {
     );
   };
 
+  const handleClearUnsyncedRecords = () => {
+    Alert.alert(
+      'Clear Unsynced Records',
+      'This will delete all records that have not been synced to the server. This is useful for clearing corrupted data. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const deletedCount = fastDatabase.clearUnsyncedRecords();
+              Alert.alert('Success', `Cleared ${deletedCount} unsynced records. Please restart the app.`);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear unsynced records: ' + error.message);
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles(theme).container}>
@@ -156,6 +182,14 @@ const DatabaseDebugModal = ({ visible, onClose, onResetComplete }) => {
 
           <View style={styles(theme).section}>
             <Text style={styles(theme).sectionTitle}>Repair Tools</Text>
+
+            <TouchableOpacity
+              style={[styles(theme).button, styles(theme).warningButton]}
+              onPress={handleClearUnsyncedRecords}
+              disabled={loading}
+            >
+              <Text style={styles(theme).buttonText}>Clear Unsynced Records</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles(theme).button, styles(theme).warningButton]}

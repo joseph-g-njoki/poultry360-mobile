@@ -203,8 +203,23 @@ const FarmsScreen = () => {
           throw new Error(response.error || t('farms.createError'));
         }
       } else {
-        console.log('🔄 Creating new farm:', formData.name);
+        console.log('═══════════════════════════════════════════════════');
+        console.log('🚀 CREATING NEW FARM');
+        console.log('═══════════════════════════════════════════════════');
+        console.log('📝 Farm Name:', formData.name);
+        console.log('📍 Location:', formData.location);
+        console.log('🏭 Type:', formData.farmType);
+        console.log('═══════════════════════════════════════════════════');
+
         response = await fastApiService.createFarm(formData);
+
+        console.log('═══════════════════════════════════════════════════');
+        console.log('📥 CREATE FARM RESPONSE');
+        console.log('═══════════════════════════════════════════════════');
+        console.log('Success:', response.success);
+        console.log('Data:', JSON.stringify(response.data, null, 2));
+        console.log('═══════════════════════════════════════════════════');
+
         if (response.success) {
           Alert.alert(t('common.success'), t('farms.farmCreated'));
         } else {
@@ -212,7 +227,7 @@ const FarmsScreen = () => {
         }
       }
 
-      console.log('🔄 Farm save operation completed successfully');
+      console.log('✅ FARM SAVE OPERATION COMPLETED SUCCESSFULLY');
       closeModal();
       await loadFarms(); // Wait for farms to reload
 

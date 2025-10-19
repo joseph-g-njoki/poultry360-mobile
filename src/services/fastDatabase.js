@@ -4075,6 +4075,63 @@ class FastDatabaseService {
       return false;
     }
   }
+
+  /**
+   * Clear all unsynced records from database (useful for clearing corrupted data)
+   * WARNING: This will delete all records that haven't been synced to the server
+   */
+  clearUnsyncedRecords() {
+    try {
+      if (!this.isReady) this.init();
+
+      console.log('🧹 FastDatabase: Starting to clear unsynced records...');
+
+      const tables = [
+        'farms',
+        'poultry_batches',
+        'feed_records',
+        'production_records',
+        'mortality_records',
+        'health_records',
+        'water_records',
+        'weight_records',
+        'vaccination_records',
+        'expenses',
+        'sales'
+      ];
+
+      let totalDeleted = 0;
+
+      for (const table of tables) {
+        try {
+          // Count unsynced records
+          const count = this.db.getFirstSync(
+            `SELECT COUNT(*) as count FROM ${table} WHERE needs_sync = 1`
+          );
+
+          if (count && count.count > 0) {
+            console.log(`   Deleting ${count.count} unsynced records from ${table}...`);
+
+            // Delete unsynced records
+            const result = this.db.runSync(
+              `DELETE FROM ${table} WHERE needs_sync = 1`
+            );
+
+            totalDeleted += count.count;
+            console.log(`   ✅ Deleted ${count.count} records from ${table}`);
+          }
+        } catch (tableError) {
+          console.warn(`   ⚠️ Could not clear ${table}:`, tableError.message);
+        }
+      }
+
+      console.log(`✅ FastDatabase: Cleared ${totalDeleted} total unsynced records`);
+      return totalDeleted;
+    } catch (error) {
+      console.error('❌ FastDatabase: Failed to clear unsynced records:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

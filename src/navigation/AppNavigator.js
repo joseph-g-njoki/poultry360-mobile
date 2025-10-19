@@ -453,14 +453,28 @@ const AppNavigator = () => {
     return (
       <NavigationContainer
         onStateChange={(state) => {
-          // CRASH FIX: Log navigation state changes for debugging
-          if (__DEV__) {
-            console.log('Navigation state changed:', state?.index, state?.routeNames?.[state?.index]);
+          // ENHANCED LOGGING: Always log navigation changes
+          const currentRoute = state?.routes?.[state?.index];
+          const routeName = currentRoute?.name || 'Unknown';
+          const routeParams = currentRoute?.params;
+
+          console.log('═══════════════════════════════════════════════════');
+          console.log('🧭 NAVIGATION CHANGED');
+          console.log('═══════════════════════════════════════════════════');
+          console.log('📍 Current Screen:', routeName);
+          if (routeParams) {
+            console.log('📦 Params:', JSON.stringify(routeParams, null, 2));
           }
+          console.log('📊 Stack Index:', state?.index);
+          console.log('═══════════════════════════════════════════════════');
         }}
         onUnhandledAction={(action) => {
           // CRASH FIX: Handle navigation to non-existent routes
-          console.warn('Unhandled navigation action:', action);
+          console.warn('═══════════════════════════════════════════════════');
+          console.warn('⚠️  UNHANDLED NAVIGATION ACTION');
+          console.warn('═══════════════════════════════════════════════════');
+          console.warn('Action:', action);
+          console.warn('═══════════════════════════════════════════════════');
         }}
       >
         {isAuthenticated ? <MainTabNavigator /> : <AuthStack />}

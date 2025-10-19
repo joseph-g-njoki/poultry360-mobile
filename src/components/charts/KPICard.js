@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * KPICard Component
@@ -30,6 +31,8 @@ const KPICard = ({
   onPress,
   loading = false,
 }) => {
+  const { theme } = useTheme();
+
   // Format large numbers with commas
   const formatValue = (val) => {
     if (typeof val === 'number') {

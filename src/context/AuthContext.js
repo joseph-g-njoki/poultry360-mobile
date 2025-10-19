@@ -223,47 +223,43 @@ export const AuthProvider = ({ children }) => {
         timestamp: new Date().toISOString()
       });
 
-      // Check network status for offline-first login
-      const isOnline = networkService.getIsConnected();
-      console.log(`📡 Network Status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+      // OFFLINE-FIRST MODE: Always try local login first for instant access
+      // This works for ALL users (demo and registered) whether online or offline
+      console.log('🔄 [OFFLINE-FIRST] Attempting login with fastApiService (local SQLite)...');
 
-      // If OFFLINE, try offline login first
-      if (!isOnline) {
-        console.log('🔌 OFFLINE MODE - Attempting offline login...');
-        try {
-          const offlineUserData = await authStorage.validateOfflineCredentials(email, password);
+      try {
+        const localResponse = await fastApiService.login(email, password);
 
-          if (offlineUserData) {
-            // Offline login successful
-            await asyncOperationWrapper.safeStorageSet('authToken', 'offline_token');
-            await asyncOperationWrapper.safeStorageSet('userData', offlineUserData);
+        if (localResponse.success && localResponse.data) {
+          const { token, user } = localResponse.data;
 
-            setUser(offlineUserData);
-            setIsAuthenticated(true);
+          // Store token and user data
+          await asyncOperationWrapper.safeStorageSet('authToken', token);
+          await asyncOperationWrapper.safeStorageSet('userData', user);
 
-            console.log('✅ OFFLINE LOGIN SUCCESSFUL');
-            console.log('User:', offlineUserData.email);
+          setUser(user);
+          setIsAuthenticated(true);
 
-            return {
-              success: true,
-              data: { user: offlineUserData },
-              isOffline: true,
-              source: 'offline',
-              message: 'Logged in offline with cached credentials'
-            };
-          } else {
-            // No stored credentials or invalid password
-            throw new Error('Cannot login offline. Please connect to the internet for your first login.');
+          // 🔐 CRITICAL: Set organization ID in fastDatabase for data isolation
+          if (user.organizationId) {
+            const fastDatabase = require('../services/fastDatabase').default;
+            fastDatabase.setOrganizationId(user.organizationId);
+            console.log(`🏢 Organization ID set: ${user.organizationId}`);
           }
-        } catch (offlineError) {
-          console.error('❌ OFFLINE LOGIN FAILED:', offlineError.message);
+
+          console.log(`✅ [OFFLINE-FIRST] Login successful via local database (${localResponse.source})`);
+          console.log(`   User: ${user.email} | Role: ${user.role} | Org: ${user.organizationId}`);
+
           return {
-            success: false,
-            error: offlineError.message,
+            success: true,
+            data: localResponse.data,
             isOffline: true,
-            source: 'offline'
+            source: localResponse.source
           };
         }
+      } catch (localError) {
+        console.log('⚠️ [OFFLINE-FIRST] Local login failed:', localError.message);
+        console.log('   Falling through to API login...');
       }
 
       // Try real API service first for multi-org support
@@ -326,8 +322,15 @@ export const AuthProvider = ({ children }) => {
           setUser(response.user);
           setIsAuthenticated(true);
 
+          // 🔐 CRITICAL: Set organization ID in fastDatabase for data isolation
+          if (response.user.organizationId) {
+            const fastDatabase = require('../services/fastDatabase').default;
+            fastDatabase.setOrganizationId(response.user.organizationId);
+            console.log(`🏢 Organization ID set: ${response.user.organizationId}`);
+          }
+
           console.log('✅ LOGIN SUCCESSFUL via REAL API');
-          console.log('User:', response.user.email, '| Organization:', response.user.organization?.name);
+          console.log('User:', response.user.email, '| Organization:', response.user.organization?.name, '| Org ID:', response.user.organizationId);
           console.log('💾 Token and user data stored successfully');
           console.log('⚡ INSTANT LOGIN - All background tasks moved to background');
 

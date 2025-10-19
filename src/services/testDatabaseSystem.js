@@ -9,10 +9,13 @@
  * - Error recovery
  */
 
-import databaseService from './database';
+import fastDatabaseImport from './fastDatabase';
 import offlineDataService from './offlineDataService';
 import migrationService from './migrationService';
 import unifiedApiService from './unifiedApiService';
+
+// FIX: Handle both default and named exports from fastDatabase
+const databaseService = fastDatabaseImport.default || fastDatabaseImport;
 
 class DatabaseSystemTester {
   constructor() {

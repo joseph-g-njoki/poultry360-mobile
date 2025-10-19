@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import databaseService from './database';
+import fastDatabaseImport from './fastDatabase';
 import offlineDataService from './offlineDataService';
+
+// FIX: Handle both default and named exports from fastDatabase
+const databaseService = fastDatabaseImport.default || fastDatabaseImport;
 
 class MigrationService {
   constructor() {

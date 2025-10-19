@@ -1,10 +1,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import fastDatabase from './fastDatabase';
+import fastDatabaseImport from './fastDatabase';
 import dataEventBus, { EventTypes } from './dataEventBus';
+import apiService from './api';
+import networkService from './networkService';
+
+// FIX: Handle both default and named exports from fastDatabase
+const fastDatabase = fastDatabaseImport.default || fastDatabaseImport;
 
 class FastApiService {
   constructor() {
     this.isReady = false;
+  }
+
+  /**
+   * Convert camelCase API format to snake_case database format
+   */
+  convertToDbFormat(data) {
+    const dbData = { ...data };
+
+    // Convert common camelCase fields to snake_case
+    if (dbData.farmId !== undefined) {
+      dbData.farm_id = dbData.farmId;
+      delete dbData.farmId;
+    }
+    if (dbData.batchId !== undefined) {
+      dbData.batch_id = dbData.batchId;
+      delete dbData.batchId;
+    }
+
+    return dbData;
   }
 
   // INSTANT initialization - no complex logic
@@ -50,77 +74,48 @@ class FastApiService {
     }
   }
 
-  // Authentication - simplified and fast
+  // Authentication - simplified and fast with PASSWORD VALIDATION
   async login(email, password) {
     try {
-      // Demo credentials check
-      const demoCredentials = [
-        { email: 'demo@poultry360.com', password: 'demo123' },
-        { email: 'owner@poultry360.com', password: 'owner123' },
-        { email: 'admin@poultry360.com', password: 'admin123' }
-      ];
+      console.log(`🔄 FastApiService: Login attempt for ${email}`);
 
-      const isDemo = demoCredentials.some(cred =>
-        cred.email === email && cred.password === password
-      );
+      // SECURITY FIX: Validate BOTH email AND password
+      // Use validateUserCredentials which checks password_hash
+      const user = fastDatabase.validateUserCredentials(email, password);
 
-      if (isDemo) {
-        const user = fastDatabase.getUserByEmail(email);
-        if (user) {
-          // Store user data
-          await AsyncStorage.setItem('userData', JSON.stringify(user));
-          await AsyncStorage.setItem('authToken', 'demo_token');
-
-          return {
-            success: true,
-            data: {
-              user: {
-                id: user.id,
-                email: user.email,
-                firstName: user.first_name,
-                lastName: user.last_name,
-                role: user.role,
-                organizationId: user.organization_id || 1,
-                organizationName: user.organization_name || 'Demo Organization',
-                organizationSlug: user.organization_slug || 'demo-org'
-              },
-              token: 'demo_token'
-            },
-            source: 'local'
-          };
-        }
-      }
-
-      // For non-demo users, just return success (offline mode)
-      const user = fastDatabase.getUserByEmail(email);
-      if (user) {
-        await AsyncStorage.setItem('userData', JSON.stringify(user));
-        await AsyncStorage.setItem('authToken', 'offline_token');
-
+      if (!user) {
+        console.warn(`❌ FastApiService: Login failed - invalid credentials for ${email}`);
         return {
-          success: true,
-          data: {
-            user: {
-              id: user.id,
-              email: user.email,
-              firstName: user.first_name,
-              lastName: user.last_name,
-              role: user.role,
-              organizationId: user.organization_id || 1,
-              organizationName: user.organization_name || 'Demo Organization',
-              organizationSlug: user.organization_slug || 'demo-org'
-            },
-            token: 'offline_token'
-          },
-          source: 'local'
+          success: false,
+          error: 'Invalid credentials'
         };
       }
 
+      console.log(`✅ FastApiService: Login successful for ${email} with role ${user.role}`);
+
+      // Store user data
+      await AsyncStorage.setItem('userData', JSON.stringify(user));
+      await AsyncStorage.setItem('authToken', 'offline_token');
+
       return {
-        success: false,
-        error: 'Invalid credentials'
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: user.role,
+            organizationId: user.organization_id || 1,
+            organizationName: user.organization_name || 'Demo Organization',
+            organizationSlug: user.organization_slug || 'demo-org'
+          },
+          token: 'offline_token'
+        },
+        source: 'local'
       };
     } catch (error) {
+      console.error('❌ FastApiService: Login error:', error);
       return {
         success: false,
         error: 'Login failed'
@@ -130,27 +125,55 @@ class FastApiService {
 
   async register(userData) {
     try {
-      // Simple registration - return success with user's selected role
+      console.log(`🔄 FastApiService: Registration attempt for ${userData.email}`);
+
+      // SECURITY FIX: Validate required fields
+      if (!userData.email || !userData.password) {
+        console.error('❌ FastApiService: Registration failed - email and password required');
+        return {
+          success: false,
+          error: 'Email and password are required'
+        };
+      }
+
+      // SECURITY FIX: Create user with hashed password in database
+      const createdUser = fastDatabase.createUser(userData);
+
+      if (!createdUser) {
+        console.error('❌ FastApiService: Registration failed - user creation failed');
+        return {
+          success: false,
+          error: 'Registration failed. Email may already be in use.'
+        };
+      }
+
+      console.log(`✅ FastApiService: User registered successfully: ${userData.email}`);
+
+      // Store user data
+      await AsyncStorage.setItem('userData', JSON.stringify(createdUser));
+      await AsyncStorage.setItem('authToken', 'offline_token');
+
       return {
         success: true,
         data: {
           user: {
-            id: Date.now(), // Generate a unique ID
-            email: userData.email,
-            firstName: userData.firstName,
-            lastName: userData.lastName,
+            id: createdUser.id,
+            email: createdUser.email,
+            firstName: createdUser.first_name,
+            lastName: createdUser.last_name,
             username: userData.username,
             phone: userData.phone,
-            role: userData.role || 'worker', // Use selected role or default to worker
-            organizationId: userData.organizationId || 1,
-            organizationName: userData.organizationName || 'Demo Organization',
-            organizationSlug: 'demo-org'
+            role: createdUser.role,
+            organizationId: createdUser.organization_id,
+            organizationName: createdUser.organization_name,
+            organizationSlug: createdUser.organization_slug
           },
           token: 'offline_token'
         },
         source: 'local'
       };
     } catch (error) {
+      console.error('❌ FastApiService: Registration error:', error);
       return {
         success: false,
         error: 'Registration failed'
@@ -311,16 +334,144 @@ class FastApiService {
     }
   }
 
-  // REAL CRUD OPERATIONS FOR RECORDS
+  // REAL CRUD OPERATIONS FOR RECORDS - HYBRID (ONLINE → PostgreSQL, OFFLINE → SQLite)
   async createRecord(recordType, recordData) {
     try {
-      const result = fastDatabase.createRecord(recordType, recordData);
+      console.log(`🔄 FastApiService.createRecord(${recordType}) called with data:`, recordData);
+
+      // HYBRID APPROACH: Check network status
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let result;
+      let source;
+
+      if (isOnline) {
+        // ONLINE MODE: Save to PostgreSQL first, then cache in SQLite
+        try {
+          console.log(`🌐 ONLINE: Saving ${recordType} record to PostgreSQL backend...`);
+
+          // CRITICAL FIX: Get the batch's server_id before creating records that reference batches
+          let backendData = { ...recordData };
+
+          if (recordData.batchId && (recordType === 'water' || recordType === 'weight')) {
+            const batch = fastDatabase.getBatchById(recordData.batchId);
+
+            if (!batch) {
+              throw new Error(`Batch with ID ${recordData.batchId} not found in local database`);
+            }
+
+            if (!batch.server_id) {
+              throw new Error(`Batch with ID ${recordData.batchId} not found or not accessible`);
+            }
+
+            console.log(`🔍 FastApiService: Found batch "${batch.batch_name}" with server_id: ${batch.server_id}`);
+
+            // Use server_id instead of local id
+            backendData = {
+              ...recordData,
+              batchId: batch.server_id
+            };
+          }
+
+          let serverResponse;
+          // Call appropriate API endpoint based on record type
+          switch (recordType) {
+            case 'feed':
+              serverResponse = await apiService.createFeedRecord(recordData);
+              break;
+            case 'production':
+              serverResponse = await apiService.createProductionRecord(recordData);
+              break;
+            case 'mortality':
+              serverResponse = await apiService.createMortalityRecord(recordData);
+              break;
+            case 'health':
+              serverResponse = await apiService.createHealthRecord(recordData);
+              break;
+            case 'water':
+              serverResponse = await apiService.createWaterRecord(backendData);
+              break;
+            case 'weight':
+              serverResponse = await apiService.createWeightRecord(backendData);
+              break;
+            case 'vaccination':
+              serverResponse = await apiService.createVaccinationRecord(recordData);
+              break;
+            default:
+              throw new Error(`Unsupported record type: ${recordType}`);
+          }
+
+          console.log(`✅ ${recordType} record saved to PostgreSQL:`, serverResponse);
+
+          // Cache in SQLite with server ID
+          const localData = this.convertToDbFormat({
+            ...recordData,
+            server_id: serverResponse.id,
+            needs_sync: 0, // Already synced
+            synced_at: new Date().toISOString()
+          });
+
+          result = fastDatabase.createRecord(recordType, localData);
+          console.log(`✅ ${recordType} record cached in SQLite:`, result);
+
+          source = 'server';
+        } catch (onlineError) {
+          // If online save fails, fall back to offline mode
+          console.warn('⚠️  Online save failed, falling back to offline mode:', onlineError.message);
+
+          const localData = this.convertToDbFormat({
+            ...recordData,
+            needs_sync: 1, // Mark for sync
+            created_offline: true
+          });
+
+          result = fastDatabase.createRecord(recordType, localData);
+          source = 'local_fallback';
+        }
+      } else {
+        // OFFLINE MODE: Save to SQLite with needs_sync flag
+        console.log(`📴 OFFLINE: Saving ${recordType} record to SQLite for later sync...`);
+
+        const localData = this.convertToDbFormat({
+          ...recordData,
+          needs_sync: 1, // Mark for sync when online
+          created_offline: true
+        });
+
+        result = fastDatabase.createRecord(recordType, localData);
+        console.log(`✅ ${recordType} record saved to SQLite (will sync when online):`, result);
+        source = 'local';
+      }
+
+      // CRITICAL FIX: Emit specific record event to trigger real-time updates
+      const eventTypeMap = {
+        feed: EventTypes.FEED_RECORD_CREATED,
+        production: EventTypes.PRODUCTION_RECORD_CREATED,
+        mortality: EventTypes.MORTALITY_RECORD_CREATED,
+        health: EventTypes.HEALTH_RECORD_CREATED,
+        water: EventTypes.WATER_RECORD_CREATED,
+        weight: EventTypes.WEIGHT_RECORD_CREATED,
+        vaccination: EventTypes.VACCINATION_CREATED
+      };
+
+      const eventType = eventTypeMap[recordType];
+      if (eventType) {
+        console.log(`✅ ${recordType} record created, emitting ${eventType} event`);
+        dataEventBus.emit(eventType, {
+          recordType,
+          record: result,
+          source
+        });
+      }
+
       return {
         success: true,
         data: result,
-        source: 'local'
+        source
       };
     } catch (error) {
+      console.error(`❌ FastApiService.createRecord(${recordType}) failed:`, error);
       return {
         success: false,
         error: error.message
@@ -348,6 +499,27 @@ class FastApiService {
   async deleteRecord(recordType, recordId) {
     try {
       fastDatabase.deleteRecord(recordType, recordId);
+
+      // CRITICAL FIX: Emit specific record deletion event to trigger real-time updates
+      const eventTypeMap = {
+        feed: EventTypes.FEED_RECORD_DELETED,
+        production: EventTypes.PRODUCTION_RECORD_DELETED,
+        mortality: EventTypes.MORTALITY_RECORD_DELETED,
+        health: EventTypes.HEALTH_RECORD_DELETED,
+        water: EventTypes.WATER_RECORD_DELETED,
+        weight: EventTypes.WEIGHT_RECORD_DELETED
+      };
+
+      const eventType = eventTypeMap[recordType];
+      if (eventType) {
+        console.log(`✅ ${recordType} record deleted, emitting ${eventType} event`);
+        dataEventBus.emit(eventType, {
+          recordType,
+          recordId,
+          source: 'local'
+        });
+      }
+
       return {
         success: true,
         source: 'local'
@@ -360,7 +532,7 @@ class FastApiService {
     }
   }
 
-  // REAL FARM OPERATIONS
+  // REAL FARM OPERATIONS - HYBRID (ONLINE → PostgreSQL, OFFLINE → SQLite)
   async createFarm(farmData) {
     try {
       console.log('🔄 FastApiService.createFarm() called with data:', farmData);
@@ -382,7 +554,68 @@ class FastApiService {
         console.log('✅ FastApiService: Database initialized successfully on retry');
       }
 
-      const result = fastDatabase.createFarm(farmData);
+      // HYBRID APPROACH: Check network status
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let result;
+      let source;
+
+      if (isOnline) {
+        // ONLINE MODE: Save to PostgreSQL first, then cache in SQLite
+        try {
+          console.log('🌐 ONLINE: Saving farm to PostgreSQL backend...');
+
+          // Transform data to backend format
+          const backendData = {
+            farmName: farmData.name || farmData.farmName,
+            location: farmData.location,
+            farmType: farmData.farmType,
+            description: farmData.description || ''
+          };
+
+          const serverResponse = await apiService.createFarm(backendData);
+          console.log('✅ Farm saved to PostgreSQL:', serverResponse);
+
+          // Cache in SQLite with server ID
+          const localData = {
+            ...farmData,
+            server_id: serverResponse.id,
+            needs_sync: 0, // Already synced
+            synced_at: new Date().toISOString()
+          };
+
+          result = fastDatabase.createFarm(localData);
+          console.log('✅ Farm cached in SQLite:', result);
+
+          source = 'server';
+        } catch (onlineError) {
+          // If online save fails, fall back to offline mode
+          console.warn('⚠️  Online save failed, falling back to offline mode:', onlineError.message);
+
+          const localData = {
+            ...farmData,
+            needs_sync: 1, // Mark for sync
+            created_offline: true
+          };
+
+          result = fastDatabase.createFarm(localData);
+          source = 'local_fallback';
+        }
+      } else {
+        // OFFLINE MODE: Save to SQLite with needs_sync flag
+        console.log('📴 OFFLINE: Saving farm to SQLite for later sync...');
+
+        const localData = {
+          ...farmData,
+          needs_sync: 1, // Mark for sync when online
+          created_offline: true
+        };
+
+        result = fastDatabase.createFarm(localData);
+        console.log('✅ Farm saved to SQLite (will sync when online):', result);
+        source = 'local';
+      }
 
       console.log('✅ FastApiService: Farm created successfully:', result);
 
@@ -390,13 +623,13 @@ class FastApiService {
       console.log('✅ Farm created, emitting FARM_CREATED event');
       dataEventBus.emit(EventTypes.FARM_CREATED, {
         farm: result,
-        source: 'fastApiService'
+        source
       });
 
       return {
         success: true,
         data: result,
-        source: 'local'
+        source
       };
     } catch (error) {
       console.error('❌ FastApiService.createFarm() failed:', error);
@@ -456,24 +689,104 @@ class FastApiService {
     }
   }
 
-  // REAL FLOCK/BATCH OPERATIONS
+  // REAL FLOCK/BATCH OPERATIONS - HYBRID (ONLINE → PostgreSQL, OFFLINE → SQLite)
   async createFlock(flockData) {
     try {
-      const result = fastDatabase.createBatch(flockData);
+      console.log('🔄 FastApiService.createFlock() called with data:', flockData);
+
+      // HYBRID APPROACH: Check network status
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let result;
+      let source;
+
+      if (isOnline) {
+        // ONLINE MODE: Save to PostgreSQL first, then cache in SQLite
+        try {
+          console.log('🌐 ONLINE: Saving batch to PostgreSQL backend...');
+
+          // CRITICAL FIX: Get the farm's server_id before creating batch
+          const farm = fastDatabase.getFarmById(flockData.farmId);
+
+          if (!farm) {
+            throw new Error(`Farm with ID ${flockData.farmId} not found in local database`);
+          }
+
+          if (!farm.server_id) {
+            throw new Error(`Farm with ID ${flockData.farmId} not found or not accessible`);
+          }
+
+          console.log(`🔍 FastApiService: Found farm "${farm.farm_name}" with server_id: ${farm.server_id}`);
+
+          // Transform data to backend format with server_id
+          const backendData = {
+            batchName: flockData.name || flockData.batchName,
+            farmId: farm.server_id, // Use server_id instead of local id
+            birdType: flockData.birdType || flockData.breed,
+            initialCount: flockData.initialCount,
+            currentCount: flockData.currentCount || flockData.initialCount,
+            arrivalDate: flockData.arrivalDate || flockData.startDate,
+            status: flockData.status || 'active'
+          };
+
+          const serverResponse = await apiService.createFlock(backendData);
+          console.log('✅ Batch saved to PostgreSQL:', serverResponse);
+
+          // Cache in SQLite with server ID
+          const localData = {
+            ...flockData,
+            server_id: serverResponse.id,
+            needs_sync: 0, // Already synced
+            synced_at: new Date().toISOString()
+          };
+
+          result = fastDatabase.createBatch(localData);
+          console.log('✅ Batch cached in SQLite:', result);
+
+          source = 'server';
+        } catch (onlineError) {
+          // If online save fails, fall back to offline mode
+          console.warn('⚠️  Online save failed, falling back to offline mode:', onlineError.message);
+
+          const localData = {
+            ...flockData,
+            needs_sync: 1, // Mark for sync
+            created_offline: true
+          };
+
+          result = fastDatabase.createBatch(localData);
+          source = 'local_fallback';
+        }
+      } else {
+        // OFFLINE MODE: Save to SQLite with needs_sync flag
+        console.log('📴 OFFLINE: Saving batch to SQLite for later sync...');
+
+        const localData = {
+          ...flockData,
+          needs_sync: 1, // Mark for sync when online
+          created_offline: true
+        };
+
+        result = fastDatabase.createBatch(localData);
+        console.log('✅ Batch saved to SQLite (will sync when online):', result);
+        source = 'local';
+      }
 
       // CRITICAL FIX: Emit BATCH_CREATED event to trigger dashboard refresh
       console.log('✅ Batch created, emitting BATCH_CREATED event');
       dataEventBus.emit(EventTypes.BATCH_CREATED, {
         batch: result,
-        source: 'fastApiService'
+        source
       });
 
       return {
         success: true,
         data: result,
-        source: 'local'
+        source
       };
     } catch (error) {
+      console.error('❌ FastApiService.createFlock() failed:', error);
       return {
         success: false,
         error: error.message
@@ -532,6 +845,15 @@ class FastApiService {
   async createWaterRecord(recordData) {
     try {
       const result = fastDatabase.createWaterRecord(recordData);
+
+      // CRITICAL FIX: Emit WATER_RECORD_CREATED event to trigger real-time analytics updates
+      console.log('✅ Water record created, emitting WATER_RECORD_CREATED event');
+      dataEventBus.emit(EventTypes.WATER_RECORD_CREATED, {
+        recordType: 'water',
+        record: result,
+        source: 'local'
+      });
+
       return {
         success: true,
         data: result,
@@ -569,6 +891,15 @@ class FastApiService {
   async deleteWaterRecord(recordId) {
     try {
       fastDatabase.deleteWaterRecord(recordId);
+
+      // CRITICAL FIX: Emit WATER_RECORD_DELETED event to trigger real-time analytics updates
+      console.log('✅ Water record deleted, emitting WATER_RECORD_DELETED event');
+      dataEventBus.emit(EventTypes.WATER_RECORD_DELETED, {
+        recordType: 'water',
+        recordId,
+        source: 'local'
+      });
+
       return {
         success: true,
         source: 'local'
@@ -585,6 +916,15 @@ class FastApiService {
   async createWeightRecord(recordData) {
     try {
       const result = fastDatabase.createWeightRecord(recordData);
+
+      // CRITICAL FIX: Emit WEIGHT_RECORD_CREATED event to trigger real-time analytics updates
+      console.log('✅ Weight record created, emitting WEIGHT_RECORD_CREATED event');
+      dataEventBus.emit(EventTypes.WEIGHT_RECORD_CREATED, {
+        recordType: 'weight',
+        record: result,
+        source: 'local'
+      });
+
       return {
         success: true,
         data: result,
@@ -622,6 +962,15 @@ class FastApiService {
   async deleteWeightRecord(recordId) {
     try {
       fastDatabase.deleteWeightRecord(recordId);
+
+      // CRITICAL FIX: Emit WEIGHT_RECORD_DELETED event to trigger real-time analytics updates
+      console.log('✅ Weight record deleted, emitting WEIGHT_RECORD_DELETED event');
+      dataEventBus.emit(EventTypes.WEIGHT_RECORD_DELETED, {
+        recordType: 'weight',
+        recordId,
+        source: 'local'
+      });
+
       return {
         success: true,
         source: 'local'
@@ -665,79 +1014,26 @@ class FastApiService {
     };
   }
 
-  // ANALYTICS METHODS - Calculate from local data
+  // ANALYTICS METHODS - Real-time calculations from SQLite
   async getAnalytics(params = {}) {
     try {
-      // Get all records from database
-      const farms = fastDatabase.getFarms() || [];
-      const batches = fastDatabase.getBatches() || [];
-      const feedRecords = fastDatabase.getAllRecords('feed') || [];
-      const productionRecords = fastDatabase.getAllRecords('production') || [];
-      const mortalityRecords = fastDatabase.getAllRecords('mortality') || [];
-      const healthRecords = fastDatabase.getAllRecords('health') || [];
+      console.log('[FastApiService] getAnalytics() called with params:', params);
 
-      // Calculate analytics
-      const totalFarms = farms.length;
-      const totalBatches = batches.length;
-      const activeBatches = batches.filter(b => b.status === 'active').length;
+      // Use fastDatabase.getAnalyticsData() for comprehensive, real-time analytics
+      const analyticsData = fastDatabase.getAnalyticsData(params);
 
-      // Production analytics
-      const totalEggsCollected = productionRecords.reduce((sum, r) => sum + (r.eggs_collected || 0), 0);
-      const avgDailyProduction = productionRecords.length > 0
-        ? totalEggsCollected / productionRecords.length
-        : 0;
-
-      // Mortality analytics
-      const totalDeaths = mortalityRecords.reduce((sum, r) => sum + (r.count || 0), 0);
-      const mortalityRate = batches.length > 0
-        ? (totalDeaths / batches.reduce((sum, b) => sum + (b.initial_count || 0), 0)) * 100
-        : 0;
-
-      // Feed analytics
-      const totalFeedCost = feedRecords.reduce((sum, r) => sum + (r.cost || 0), 0);
+      console.log('[FastApiService] Analytics data retrieved from fastDatabase');
 
       return {
         success: true,
-        data: {
-          overview: {
-            totalFarms,
-            totalBatches,
-            activeBatches,
-            totalBirds: batches.reduce((sum, b) => sum + (b.current_count || 0), 0)
-          },
-          production: {
-            totalEggsCollected,
-            avgDailyProduction: Math.round(avgDailyProduction),
-            productionTrend: 'stable'
-          },
-          mortality: {
-            totalDeaths,
-            mortalityRate: mortalityRate.toFixed(2),
-            trend: mortalityRate < 5 ? 'good' : 'concerning'
-          },
-          feed: {
-            totalCost: totalFeedCost,
-            avgCostPerBird: batches.length > 0
-              ? (totalFeedCost / batches.reduce((sum, b) => sum + (b.current_count || 0), 1)).toFixed(2)
-              : 0
-          },
-          health: {
-            totalIssues: healthRecords.length,
-            resolvedIssues: healthRecords.filter(h => h.status === 'resolved').length
-          }
-        },
+        data: analyticsData,
         source: 'local'
       };
     } catch (error) {
+      console.error('[FastApiService] getAnalytics() error:', error);
       return {
         success: true,
-        data: {
-          overview: { totalFarms: 0, totalBatches: 0, activeBatches: 0, totalBirds: 0 },
-          production: { totalEggsCollected: 0, avgDailyProduction: 0, productionTrend: 'stable' },
-          mortality: { totalDeaths: 0, mortalityRate: '0.00', trend: 'good' },
-          feed: { totalCost: 0, avgCostPerBird: '0.00' },
-          health: { totalIssues: 0, resolvedIssues: 0 }
-        },
+        data: fastDatabase.getEmptyAnalyticsData(),
         source: 'fallback'
       };
     }

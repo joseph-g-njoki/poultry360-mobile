@@ -12,7 +12,17 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   testEnvironment: 'node',
-  testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/android/',
+    '/ios/',
+    // Exclude manual test files that use process.exit() which crashes Jest workers
+    '__tests__/auth-manual-test.js',
+    '__tests__/integration/manual-integration-test.js',
+    '__tests__/integration/run-integration-tests.js',
+    // Exclude setup files (not actual test files)
+    '__tests__/setup.js',
+  ],
   moduleNameMapper: {
     '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/__mocks__/fileMock.js',
   },

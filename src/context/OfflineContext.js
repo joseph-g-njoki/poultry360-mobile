@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import networkService from '../services/networkService';
 import syncService from '../services/syncService';
 import unifiedApiService from '../services/unifiedApiService';
-import databaseService from '../services/database';
+import databaseService from '../services/fastDatabase';
 import dataEventBus, { EventTypes } from '../services/dataEventBus';
 
 const OfflineContext = createContext();
@@ -62,40 +62,50 @@ export const OfflineProvider = ({ children }) => {
 
   const initializeServices = async () => {
     try {
-      console.log('🔧 OFFLINE-ONLY MODE: Minimal initialization...');
+      console.log('🔧 OfflineContext: Starting initialization...');
 
-      // CRITICAL FIX: DISABLE ALL NETWORK FEATURES - Pure offline mode
-      console.log('📴 Network features DISABLED - running in pure offline mode');
+      // CRITICAL FIX: Initialize network monitoring (for online/offline detection)
+      // but don't auto-trigger sync or health record downloads
+      try {
+        console.log('📡 Initializing network service...');
+        await networkService.init();
 
-      // Set offline state
-      setIsConnected(false);
-      setConnectionType('offline');
-      setConnectionQuality('offline');
-      setForceOfflineMode(true);
-      setAutoSyncEnabled(false);
+        // Subscribe to network changes
+        networkUnsubscribe.current = networkService.addListener(handleNetworkChange);
 
-      console.log('✅ OFFLINE-ONLY MODE initialized - no network/sync services loaded');
+        // Get initial connection state
+        const connectionState = networkService.getConnectionState();
+        setIsConnected(connectionState.isConnected);
+        setConnectionType(connectionState.connectionType);
+        setConnectionQuality(connectionState.connectionQuality);
 
-      // CRITICAL FIX: SKIP ALL SYNC-RELATED FEATURES
-      console.log('⏭️ Skipping event subscriptions (offline-only mode)');
-      console.log('⏭️ Skipping stats monitoring (offline-only mode)');
-      console.log('⏭️ Skipping sync status updates (offline-only mode)');
+        console.log(`✅ Network monitoring active - Status: ${connectionState.isConnected ? 'Online' : 'Offline'}`);
+      } catch (networkError) {
+        console.warn('⚠️  Network service init failed (non-critical):', networkError.message);
+        // Set default offline state if network monitoring fails
+        setIsConnected(false);
+        setConnectionType('unknown');
+        setConnectionQuality('unknown');
+      }
 
-      // Set safe default stats
-      setStorageStats({
-        farms: 0,
-        batches: 0,
-        feedRecords: 0,
-        productionRecords: 0,
-        mortalityRecords: 0,
-        healthRecords: 0,
-        pendingSync: 0,
-        failedSync: 0,
-        total: 0,
-        error: null
+      // Initialize auto-sync as enabled (but it won't trigger unless online)
+      setAutoSyncEnabled(true);
+      setForceOfflineMode(false);
+
+      // Subscribe to data sync events for sync status tracking
+      dataSyncedCleanupRef.current = dataEventBus.subscribe(EventTypes.DATA_SYNCED, (payload) => {
+        console.log('📊 Data synced event received');
+        setLastSyncTime(new Date());
+        updateSyncStatus();
       });
 
-      console.log('✅ OfflineContext initialized in OFFLINE-ONLY mode');
+      // Start monitoring storage stats
+      startStatsMonitoring();
+
+      // Initial sync status update
+      updateSyncStatus();
+
+      console.log('✅ OfflineContext initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize offline services:', error);
       // Don't throw - allow app to continue with limited functionality
@@ -354,14 +364,71 @@ export const OfflineProvider = ({ children }) => {
     }
   };
 
-  // Manual sync trigger - DISABLED in offline-only mode
+  // Manual sync trigger
   const performSync = useCallback(async () => {
-    console.log('⏭️ Sync DISABLED in offline-only mode');
-    return {
-      success: false,
-      message: 'Sync disabled - app running in offline-only mode'
-    };
-  }, []);
+    // Check if already syncing
+    if (isSyncing) {
+      console.log('⏭️ Sync already in progress');
+      return {
+        success: false,
+        message: 'Sync already in progress'
+      };
+    }
+
+    // Check network connection
+    if (!isConnected || forceOfflineMode) {
+      console.log('⏭️ Cannot sync - offline');
+      return {
+        success: false,
+        message: 'Cannot sync while offline. Please connect to the internet.'
+      };
+    }
+
+    try {
+      console.log('🔄 Starting manual sync...');
+      setIsSyncing(true);
+      setSyncProgress(10);
+
+      // Use syncService to perform the sync
+      // syncService will use fastApiService for local operations
+      // and only try to connect to backend if available
+      const result = await syncService.syncData();
+
+      if (result.success) {
+        setLastSyncTime(new Date());
+        console.log('✅ Sync completed successfully');
+
+        // Update sync status and storage stats
+        await updateSyncStatus();
+        await updateStorageStats();
+
+        return {
+          success: true,
+          message: 'Sync completed successfully',
+          stats: result
+        };
+      } else {
+        console.warn('⚠️  Sync completed with errors:', result.error);
+        return {
+          success: false,
+          message: result.error || 'Sync failed',
+          stats: result
+        };
+      }
+    } catch (error) {
+      console.error('❌ Sync error:', error);
+      return {
+        success: false,
+        message: error.message || 'Sync failed unexpectedly',
+        error
+      };
+    } finally {
+      if (isMountedRef.current) {
+        setIsSyncing(false);
+        setSyncProgress(0);
+      }
+    }
+  }, [isSyncing, isConnected, forceOfflineMode]);
 
   // Force offline mode toggle
   const toggleForceOfflineMode = useCallback(() => {

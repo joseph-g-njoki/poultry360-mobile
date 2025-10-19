@@ -1,6 +1,17 @@
 import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import databaseService from './database';
+import fastDatabaseImport from './fastDatabase';
+
+// FIX: Handle both default and named exports from fastDatabase
+const databaseService = fastDatabaseImport.default || fastDatabaseImport;
+
+// Debug log to verify correct import
+console.log('[OfflineDataService] Database import check:', {
+  hasDefault: !!fastDatabaseImport.default,
+  hasSelect: typeof databaseService.select,
+  hasCount: typeof databaseService.count,
+  isReady: databaseService.isReady
+});
 
 class OfflineDataService {
   constructor() {
@@ -104,7 +115,7 @@ class OfflineDataService {
   async create(tableName, data, skipSync = false) {
     try {
       // EMERGENCY FIX: Don't retry database init
-      if (!databaseService.isInitialized) {
+      if (!databaseService.isReady) {
         return null; // Return null instead of retrying
       }
 
@@ -224,7 +235,7 @@ class OfflineDataService {
   async getAll(tableName, includeDeleted = false) {
     try {
       // EMERGENCY FIX: Don't retry database init - just return empty
-      if (!databaseService || !databaseService.db || !databaseService.isInitialized) {
+      if (!databaseService || !databaseService.db || !databaseService.isReady) {
         return []; // SAFE FALLBACK - return empty array without retry
       }
 
@@ -262,7 +273,7 @@ class OfflineDataService {
   async getById(tableName, id) {
     try {
       // EMERGENCY FIX: Don't retry database init - just return null
-      if (!databaseService || !databaseService.db || !databaseService.isInitialized) {
+      if (!databaseService || !databaseService.db || !databaseService.isReady) {
         return null; // SAFE FALLBACK - return null without retry
       }
 
@@ -282,7 +293,7 @@ class OfflineDataService {
   async getByServerId(tableName, serverId) {
     try {
       // EMERGENCY FIX: Don't retry database init - just return null
-      if (!databaseService || !databaseService.db || !databaseService.isInitialized) {
+      if (!databaseService || !databaseService.db || !databaseService.isReady) {
         return null; // SAFE FALLBACK - return null without retry
       }
 
@@ -302,7 +313,7 @@ class OfflineDataService {
   async getWhere(tableName, whereClause, whereValues = [], includeDeleted = false) {
     try {
       // EMERGENCY FIX: Don't retry database init - just return empty
-      if (!databaseService || !databaseService.db || !databaseService.isInitialized) {
+      if (!databaseService || !databaseService.db || !databaseService.isReady) {
         return []; // SAFE FALLBACK - return empty array without retry
       }
 
@@ -344,7 +355,7 @@ class OfflineDataService {
     try {
       // CRITICAL FIX: Check database initialization WITHOUT triggering re-init
       // This prevents infinite retry loops that cause 600+ counter issues
-      if (!databaseService || !databaseService.db || !databaseService.isInitialized) {
+      if (!databaseService || !databaseService.db || !databaseService.isReady) {
         console.warn(`Database not initialized for count operation on ${tableName} - returning 0`);
         return 0; // SAFE FALLBACK - DON'T attempt re-initialization
       }
@@ -474,7 +485,7 @@ class OfflineDataService {
   async getUnsyncedRecords(tableName) {
     try {
       // EMERGENCY FIX: Check if database is initialized
-      if (!databaseService || !databaseService.db || !databaseService.isInitialized) {
+      if (!databaseService || !databaseService.db || !databaseService.isReady) {
         console.warn(`Database not initialized for getUnsyncedRecords on ${tableName}`);
         return [];
       }
@@ -497,8 +508,7 @@ class OfflineDataService {
     try {
       const updateData = {
         needs_sync: 0,
-        is_synced: 1, // Mark as synced for offline-first system
-        last_sync: new Date().toISOString()
+        updated_at: new Date().toISOString() // Use updated_at which exists in all tables
       };
 
       if (serverId) {
@@ -508,7 +518,9 @@ class OfflineDataService {
       return await databaseService.update(tableName, updateData, 'id = ?', [localId]);
     } catch (error) {
       console.error(`Error marking ${tableName} as synced:`, error);
-      throw error;
+      // Don't throw - just log the error to prevent sync from failing completely
+      console.warn(`⚠️ Non-critical: Failed to mark ${tableName} ${localId} as synced`);
+      return 0;
     }
   }
 
@@ -539,7 +551,7 @@ class OfflineDataService {
   async getUserByEmail(email) {
     try {
       // EMERGENCY FIX: Don't retry database init
-      if (!databaseService.isInitialized) {
+      if (!databaseService.isReady) {
         return null; // Return null instead of retrying
       }
 
@@ -749,7 +761,7 @@ class OfflineDataService {
   async getDashboardData() {
     try {
       // EMERGENCY FIX: Don't retry database init
-      if (!databaseService.isInitialized) {
+      if (!databaseService.isReady) {
         return null; // Return null instead of retrying
       }
 
@@ -783,7 +795,7 @@ class OfflineDataService {
 
   async getTotalBirds() {
     try {
-      if (!databaseService?.db || !databaseService?.isInitialized) {
+      if (!databaseService?.db || !databaseService?.isReady) {
         console.warn('Database not initialized for getTotalBirds');
         try {
           await databaseService.init();
@@ -830,7 +842,7 @@ class OfflineDataService {
 
   async getRecentMortality() {
     try {
-      if (!databaseService?.db || !databaseService?.isInitialized) {
+      if (!databaseService?.db || !databaseService?.isReady) {
         console.warn('Database not initialized for getRecentMortality');
         try {
           await databaseService.init();
@@ -877,7 +889,7 @@ class OfflineDataService {
 
   async getTodayProduction() {
     try {
-      if (!databaseService?.db || !databaseService?.isInitialized) {
+      if (!databaseService?.db || !databaseService?.isReady) {
         console.warn('Database not initialized for getTodayProduction');
         try {
           await databaseService.init();
@@ -947,7 +959,7 @@ class OfflineDataService {
 
   async validateData() {
     try {
-      if (!databaseService?.db || !databaseService?.isInitialized) {
+      if (!databaseService?.db || !databaseService?.isReady) {
         console.log('Database not initialized for validation, initializing...');
         try {
           await databaseService.init();

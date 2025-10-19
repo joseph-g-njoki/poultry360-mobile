@@ -11,6 +11,7 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import BatchesScreen from '../BatchesScreen';
 import fastApiService from '../../services/fastApiService';
+import { DataStoreProvider } from '../../context/DataStoreContext';
 
 // Mock dependencies
 jest.mock('../../services/fastApiService');
@@ -73,6 +74,15 @@ jest.mock('@react-navigation/native', () => ({
 // Mock Alert
 jest.spyOn(Alert, 'alert');
 
+// Helper function to wrap components with necessary providers
+const renderWithProviders = (component) => {
+  return render(
+    <DataStoreProvider>
+      {component}
+    </DataStoreProvider>
+  );
+};
+
 describe('BatchesScreen Modal Opening Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -94,7 +104,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
   describe('TEST 1: TouchableOpacity onPress Handler Binding', () => {
     test('1.1 - Add Batch button should have onPress handler', async () => {
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -120,7 +130,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
         data: []
       });
 
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -141,7 +151,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
   describe('TEST 2: openModal Function Execution', () => {
     test('2.1 - openModal should be called when Add Batch is clicked', async () => {
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -170,7 +180,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
     });
 
     test('2.2 - openModal should check user permissions', async () => {
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -201,7 +211,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
   describe('TEST 3: setModalVisible(true) Execution', () => {
     test('3.1 - Modal visibility state should change to true', async () => {
-      const { getByText, queryByText } = render(
+      const { getByText, queryByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -229,7 +239,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
   describe('TEST 4: Modal Component Visibility', () => {
     test('4.1 - Modal should render with correct title', async () => {
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -252,7 +262,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
     });
 
     test('4.2 - Modal should display form fields', async () => {
-      const { getByText, getByPlaceholderText } = render(
+      const { getByText, getByPlaceholderText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -279,7 +289,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
   describe('TEST 5: Farm Availability Check', () => {
     test('5.1 - Modal should open when farms are available', async () => {
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -316,7 +326,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
       Alert.alert.mockClear();
 
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -363,7 +373,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
       Alert.alert.mockClear();
 
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreenWorker route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -400,7 +410,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
         )
       );
 
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -436,7 +446,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
       Alert.alert.mockClear();
 
-      const { getByText } = render(
+      const { getByText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 
@@ -462,7 +472,7 @@ describe('BatchesScreen Modal Opening Tests', () => {
 
   describe('TEST 8: Complete Flow Integration', () => {
     test('8.1 - Complete flow: Button Click → Modal Open → Form Display', async () => {
-      const { getByText, getByPlaceholderText } = render(
+      const { getByText, getByPlaceholderText } = renderWithProviders(
         <BatchesScreen route={{ params: {} }} navigation={{ navigate: jest.fn(), setParams: jest.fn() }} />
       );
 

@@ -330,11 +330,18 @@ class ApiService {
   async getFarms() {
     try {
       const response = await this.api.get('/farms');
-      // Ensure we always return an array and map farmName to name for frontend compatibility
+      // Ensure we always return an array and normalize all field names
       const farms = Array.isArray(response.data?.farms) ? response.data.farms : [];
       return farms.map(farm => ({
         ...farm,
-        name: farm.farmName || farm.name // Map farmName to name for dropdown compatibility
+        // CRITICAL FIX: Normalize name field - accept farmName, farm_name, or name
+        name: farm.farmName || farm.farm_name || farm.name || 'Unnamed Farm',
+        farmName: farm.farmName || farm.farm_name || farm.name || 'Unnamed Farm',
+        // Ensure location exists for dropdown display
+        location: farm.location || '',
+        // Ensure all other fields are properly mapped
+        farmType: farm.farmType || farm.farm_type || 'broiler',
+        organizationId: farm.organizationId || farm.organization_id
       }));
     } catch (error) {
       throw this.handleError(error);

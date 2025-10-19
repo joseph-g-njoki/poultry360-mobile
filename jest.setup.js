@@ -68,12 +68,37 @@ jest.mock('expo-notifications', () => ({
   cancelAllScheduledNotificationsAsync: jest.fn(),
 }));
 
+// Mock expo-sqlite with both async and sync methods
+const mockOpenDatabaseSync = jest.fn((dbName) => ({
+  execSync: jest.fn((sql) => {
+    // Mock successful execution
+    return { changes: 0, insertId: 0 };
+  }),
+  runSync: jest.fn((sql, params) => {
+    // Mock successful run
+    return { changes: 1, lastInsertRowId: 1 };
+  }),
+  getFirstSync: jest.fn((sql, params) => {
+    // Mock returning null for missing data
+    return null;
+  }),
+  getAllSync: jest.fn((sql, params) => {
+    // Mock returning empty array
+    return [];
+  }),
+  closeSync: jest.fn(),
+}));
+
 jest.mock('expo-sqlite', () => ({
   openDatabase: jest.fn(() => ({
     transaction: jest.fn(),
     executeSql: jest.fn(),
   })),
+  openDatabaseSync: mockOpenDatabaseSync,
 }));
+
+// Export for test access
+global.mockOpenDatabaseSync = mockOpenDatabaseSync;
 
 // Mock react-native-mmkv
 jest.mock('react-native-mmkv', () => ({

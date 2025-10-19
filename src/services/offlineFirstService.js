@@ -1205,14 +1205,211 @@ class OfflineFirstService {
 
   // ==================== HELPER METHODS FOR CACHING ====================
 
+  /**
+   * Map server record format (camelCase) to local SQLite format (snake_case)
+   * This prevents SQLite errors like "table farms has no column named farmName"
+   */
+  _mapServerToLocalRecord(tableName, serverRecord) {
+    const mapped = { ...serverRecord };
+
+    // Common mappings
+    if (serverRecord.id) {
+      mapped.server_id = serverRecord.id.toString();
+      delete mapped.id;
+    }
+
+    // Table-specific mappings
+    switch (tableName) {
+      case 'farms':
+        // Backend uses 'name', not 'farmName'
+        if (serverRecord.name) mapped.farm_name = serverRecord.name;
+        if (serverRecord.farmName) mapped.farm_name = serverRecord.farmName;
+        if (serverRecord.organizationId) mapped.organization_id = serverRecord.organizationId;
+        if (serverRecord.ownerId) mapped.owner_id = serverRecord.ownerId;
+        if (serverRecord.farmSize) mapped.farm_size = serverRecord.farmSize;
+        if (serverRecord.farmType) mapped.farm_type = serverRecord.farmType;
+        if (serverRecord.contactPerson) mapped.contact_person = serverRecord.contactPerson;
+        if (serverRecord.phoneNumber) mapped.phone_number = serverRecord.phoneNumber;
+
+        // Clean up camelCase fields
+        delete mapped.name;
+        delete mapped.farmName;
+        delete mapped.organizationId;
+        delete mapped.ownerId;
+        delete mapped.farmSize;
+        delete mapped.farmType;
+        delete mapped.contactPerson;
+        delete mapped.phoneNumber;
+        delete mapped.capacity;
+        delete mapped.currentStock;
+        delete mapped.current_stock;
+        delete mapped.owner_id;
+        delete mapped.user;
+        delete mapped.organization;
+        break;
+
+      case 'poultry_batches':
+        if (serverRecord.batchName) mapped.batch_name = serverRecord.batchName;
+        if (serverRecord.batchNumber) mapped.batch_number = serverRecord.batchNumber;
+        if (serverRecord.initialCount) mapped.initial_count = serverRecord.initialCount;
+        if (serverRecord.currentCount) mapped.current_count = serverRecord.currentCount;
+        if (serverRecord.hatchDate) mapped.hatch_date = serverRecord.hatchDate;
+        if (serverRecord.acquisitionDate) mapped.acquisition_date = serverRecord.acquisitionDate;
+        if (serverRecord.arrivalDate) mapped.arrival_date = serverRecord.arrivalDate;
+        if (serverRecord.expectedEndDate) mapped.expected_end_date = serverRecord.expectedEndDate;
+        if (serverRecord.farmId) mapped.farm_id = serverRecord.farmId;
+
+        // Clean up camelCase fields
+        delete mapped.batchName;
+        delete mapped.batchNumber;
+        delete mapped.initialCount;
+        delete mapped.currentCount;
+        delete mapped.hatchDate;
+        delete mapped.acquisitionDate;
+        delete mapped.arrivalDate;
+        delete mapped.expectedEndDate;
+        delete mapped.farmId;
+        break;
+
+      case 'feed_records':
+        if (serverRecord.recordDate && !mapped.date) mapped.date = serverRecord.recordDate;
+        if (serverRecord.feedType) mapped.feed_type = serverRecord.feedType;
+        if (serverRecord.quantityKg) mapped.quantity_kg = serverRecord.quantityKg;
+        if (serverRecord.costPerKg) mapped.cost_per_kg = serverRecord.costPerKg;
+        if (serverRecord.totalCost) mapped.total_cost = serverRecord.totalCost;
+        if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up camelCase fields
+        delete mapped.feedType;
+        delete mapped.quantityKg;
+        delete mapped.costPerKg;
+        delete mapped.totalCost;
+        delete mapped.batchId;
+        delete mapped.farmId;
+        delete mapped.recordDate;
+        delete mapped.batch;
+        delete mapped.user;
+        break;
+
+      case 'production_records':
+        if (serverRecord.recordDate && !mapped.date) mapped.date = serverRecord.recordDate;
+        if (serverRecord.eggsCollected) mapped.eggs_collected = serverRecord.eggsCollected;
+        if (serverRecord.eggsBroken) mapped.eggs_broken = serverRecord.eggsBroken;
+        if (serverRecord.brokenEggs && !mapped.eggs_broken) mapped.eggs_broken = serverRecord.brokenEggs;
+        if (serverRecord.abnormalEggs) mapped.abnormal_eggs = serverRecord.abnormalEggs;
+        if (serverRecord.eggsSold) mapped.eggs_sold = serverRecord.eggsSold;
+        if (serverRecord.eggWeightKg) mapped.egg_weight_kg = serverRecord.eggWeightKg;
+        if (serverRecord.eggWeightAvg) mapped.egg_weight_avg = serverRecord.eggWeightAvg;
+        if (serverRecord.pricePerDozen) mapped.price_per_dozen = serverRecord.pricePerDozen;
+        if (serverRecord.totalRevenue) mapped.total_revenue = serverRecord.totalRevenue;
+        if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up camelCase fields
+        delete mapped.eggsCollected;
+        delete mapped.eggsBroken;
+        delete mapped.brokenEggs;
+        delete mapped.abnormalEggs;
+        delete mapped.eggsSold;
+        delete mapped.eggWeightKg;
+        delete mapped.eggWeightAvg;
+        delete mapped.pricePerDozen;
+        delete mapped.totalRevenue;
+        delete mapped.batchId;
+        delete mapped.farmId;
+        delete mapped.recordDate;
+        delete mapped.weight;
+        break;
+
+      case 'mortality_records':
+        if (serverRecord.ageWeeks) mapped.age_weeks = serverRecord.ageWeeks;
+        if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up camelCase fields
+        delete mapped.ageWeeks;
+        delete mapped.batchId;
+        delete mapped.farmId;
+        break;
+
+      case 'health_records':
+        if (serverRecord.healthIssue) mapped.health_issue = serverRecord.healthIssue;
+        if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up camelCase fields
+        delete mapped.healthIssue;
+        delete mapped.batchId;
+        delete mapped.farmId;
+        break;
+
+      case 'water_records':
+        if (serverRecord.quantityLiters) mapped.quantity_liters = serverRecord.quantityLiters;
+        if (serverRecord.sourceType) mapped.source_type = serverRecord.sourceType;
+        if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up camelCase fields
+        delete mapped.quantityLiters;
+        delete mapped.sourceType;
+        delete mapped.batchId;
+        delete mapped.farmId;
+        break;
+
+      case 'weight_records':
+        if (serverRecord.averageWeight) mapped.average_weight = serverRecord.averageWeight;
+        if (serverRecord.sampleSize) mapped.sample_size = serverRecord.sampleSize;
+        if (serverRecord.weightUnit) mapped.weight_unit = serverRecord.weightUnit;
+        if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up camelCase fields
+        delete mapped.averageWeight;
+        delete mapped.sampleSize;
+        delete mapped.weightUnit;
+        delete mapped.batchId;
+        delete mapped.farmId;
+        break;
+    }
+
+    // Universal cleanup: Map timestamp fields
+    if (serverRecord.createdAt && !mapped.created_at) mapped.created_at = serverRecord.createdAt;
+    if (serverRecord.updatedAt && !mapped.updated_at) mapped.updated_at = serverRecord.updatedAt;
+    if (serverRecord.deletedAt && !mapped.deleted_at) mapped.deleted_at = serverRecord.deletedAt;
+
+    // Delete ALL camelCase timestamp fields
+    delete mapped.createdAt;
+    delete mapped.updatedAt;
+    delete mapped.deletedAt;
+    delete mapped.organizationId;
+
+    // Universal cleanup: Remove ALL unmapped camelCase foreign key fields
+    const camelCaseForeignKeys = [
+      'ownerId', 'farmId', 'batchId', 'userId', 'customerId', 'organizationId',
+      'createdBy', 'updatedBy', 'deletedBy', 'parentId', 'recordId'
+    ];
+
+    camelCaseForeignKeys.forEach(key => {
+      if (mapped.hasOwnProperty(key)) {
+        delete mapped[key];
+      }
+    });
+
+    // Clean up undefined values
+    Object.keys(mapped).forEach(key => {
+      if (mapped[key] === undefined) {
+        delete mapped[key];
+      }
+    });
+
+    return mapped;
+  }
+
   async _cacheFarmsLocally(farms) {
     for (const farm of farms) {
       try {
         const existing = await offlineDataService.getByServerId('farms', farm.id.toString());
+        const mappedFarm = this._mapServerToLocalRecord('farms', farm);
+
         if (existing) {
-          await offlineDataService.updateFarm(existing.id, farm, true);
+          await offlineDataService.updateFarm(existing.id, mappedFarm, true);
         } else {
-          await offlineDataService.createFarm({ ...farm, server_id: farm.id }, true);
+          await offlineDataService.createFarm(mappedFarm, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache farm:', error);
@@ -1224,10 +1421,12 @@ class OfflineFirstService {
     for (const flock of flocks) {
       try {
         const existing = await offlineDataService.getByServerId('poultry_batches', flock.id.toString());
+        const mappedFlock = this._mapServerToLocalRecord('poultry_batches', flock);
+
         if (existing) {
-          await offlineDataService.updateBatch(existing.id, flock, true);
+          await offlineDataService.updateBatch(existing.id, mappedFlock, true);
         } else {
-          await offlineDataService.createBatch({ ...flock, server_id: flock.id }, true);
+          await offlineDataService.createBatch(mappedFlock, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache flock:', error);
@@ -1239,10 +1438,12 @@ class OfflineFirstService {
     for (const record of records) {
       try {
         const existing = await offlineDataService.getByServerId('feed_records', record.id.toString());
+        const mappedRecord = this._mapServerToLocalRecord('feed_records', record);
+
         if (existing) {
-          await offlineDataService.updateFeedRecord(existing.id, record, true);
+          await offlineDataService.updateFeedRecord(existing.id, mappedRecord, true);
         } else {
-          await offlineDataService.createFeedRecord({ ...record, server_id: record.id }, true);
+          await offlineDataService.createFeedRecord(mappedRecord, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache feed record:', error);
@@ -1254,10 +1455,12 @@ class OfflineFirstService {
     for (const record of records) {
       try {
         const existing = await offlineDataService.getByServerId('production_records', record.id.toString());
+        const mappedRecord = this._mapServerToLocalRecord('production_records', record);
+
         if (existing) {
-          await offlineDataService.updateProductionRecord(existing.id, record, true);
+          await offlineDataService.updateProductionRecord(existing.id, mappedRecord, true);
         } else {
-          await offlineDataService.createProductionRecord({ ...record, server_id: record.id }, true);
+          await offlineDataService.createProductionRecord(mappedRecord, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache production record:', error);
@@ -1269,10 +1472,12 @@ class OfflineFirstService {
     for (const record of records) {
       try {
         const existing = await offlineDataService.getByServerId('mortality_records', record.id.toString());
+        const mappedRecord = this._mapServerToLocalRecord('mortality_records', record);
+
         if (existing) {
-          await offlineDataService.updateMortalityRecord(existing.id, record, true);
+          await offlineDataService.updateMortalityRecord(existing.id, mappedRecord, true);
         } else {
-          await offlineDataService.createMortalityRecord({ ...record, server_id: record.id }, true);
+          await offlineDataService.createMortalityRecord(mappedRecord, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache mortality record:', error);
@@ -1284,10 +1489,12 @@ class OfflineFirstService {
     for (const record of records) {
       try {
         const existing = await offlineDataService.getByServerId('health_records', record.id.toString());
+        const mappedRecord = this._mapServerToLocalRecord('health_records', record);
+
         if (existing) {
-          await offlineDataService.updateHealthRecord(existing.id, record, true);
+          await offlineDataService.updateHealthRecord(existing.id, mappedRecord, true);
         } else {
-          await offlineDataService.createHealthRecord({ ...record, server_id: record.id }, true);
+          await offlineDataService.createHealthRecord(mappedRecord, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache health record:', error);
@@ -1299,10 +1506,12 @@ class OfflineFirstService {
     for (const record of records) {
       try {
         const existing = await offlineDataService.getByServerId('water_records', record.id.toString());
+        const mappedRecord = this._mapServerToLocalRecord('water_records', record);
+
         if (existing) {
-          await offlineDataService.updateWaterRecord(existing.id, record, true);
+          await offlineDataService.updateWaterRecord(existing.id, mappedRecord, true);
         } else {
-          await offlineDataService.createWaterRecord({ ...record, server_id: record.id }, true);
+          await offlineDataService.createWaterRecord(mappedRecord, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache water record:', error);
@@ -1314,10 +1523,12 @@ class OfflineFirstService {
     for (const record of records) {
       try {
         const existing = await offlineDataService.getByServerId('weight_records', record.id.toString());
+        const mappedRecord = this._mapServerToLocalRecord('weight_records', record);
+
         if (existing) {
-          await offlineDataService.updateWeightRecord(existing.id, record, true);
+          await offlineDataService.updateWeightRecord(existing.id, mappedRecord, true);
         } else {
-          await offlineDataService.createWeightRecord({ ...record, server_id: record.id }, true);
+          await offlineDataService.createWeightRecord(mappedRecord, true);
         }
       } catch (error) {
         console.warn('[OfflineFirst] Failed to cache weight record:', error);

@@ -15,6 +15,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useOffline } from '../context/OfflineContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
 import fastApiService from '../services/fastApiService';
+import notificationService from '../services/notificationService';
 import dataEventBus, { EventTypes } from '../services/dataEventBus';
 import OfflineIndicator from '../components/OfflineIndicator';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -66,6 +67,10 @@ const DashboardScreen = ({ navigation }) => {
             loadDashboardData();
           }
         }, 100);
+
+        // Schedule daily reminder for 6 PM
+        console.log('🔔 Scheduling daily reminder...');
+        await notificationService.scheduleDailyReminder();
       } catch (error) {
         console.error('Dashboard initialization error:', error);
       }

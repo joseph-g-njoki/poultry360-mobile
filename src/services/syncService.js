@@ -4,6 +4,10 @@ import apiService from './api';
 import offlineDataService from './offlineDataService';
 import { syncCircuitBreaker } from '../utils/circuitBreaker';
 import dataEventBus, { EventTypes } from './dataEventBus';
+import fastDatabaseImport from './fastDatabase'; // P0-1 FIX: For ID mapping support
+
+// FIX: Handle both default and named exports from fastDatabase
+const fastDatabase = fastDatabaseImport.default || fastDatabaseImport;
 
 class SyncService {
   constructor() {
@@ -355,7 +359,18 @@ class SyncService {
       // CRASH-003 FIX: Add explicit error handling for API call
       let syncResponse;
       try {
-        syncResponse = await apiService.api.post('/v1/sync', {
+        // P1-1 FIX: Implement INCREMENTAL SYNC with ?since= query parameter
+        // Only fetch records modified after lastSyncTimestamp to reduce bandwidth
+        let syncEndpoint = '/v1/sync';
+        if (lastSyncTimestamp) {
+          const encodedTimestamp = encodeURIComponent(lastSyncTimestamp);
+          syncEndpoint = `/v1/sync?since=${encodedTimestamp}`;
+          console.log(`📅 Using incremental sync (fetching changes since ${new Date(lastSyncTimestamp).toLocaleString()})`);
+        } else {
+          console.log('📦 Using full sync (first-time sync)');
+        }
+
+        syncResponse = await apiService.api.post(syncEndpoint, {
           clientData: pendingRecords,
           lastSyncTimestamp,
           deviceId
@@ -379,26 +394,32 @@ class SyncService {
 
       console.log(`✅ Batch sync completed: ${newSyncTimestamp}`);
 
-      // Step 5: Process server data (downloads)
-      console.log('📥 Processing server data...');
-      // CRASH-003 FIX: Add error handling for server data processing
-      try {
-        await this.processServerData(serverData);
-      } catch (processError) {
-        console.error('❌ Error processing server data:', processError);
-        // Don't fail entire sync - log error and continue
-        console.warn('⚠️ Continuing sync despite server data processing error');
-      }
+      // P0-3 FIX: Wrap local database operations in atomic transaction
+      // This ensures all-or-nothing execution - if anything fails, everything rolls back
+      console.log('🔒 Starting atomic transaction for local database updates...');
 
-      // Step 6: Mark local records as synced based on upload results
-      console.log('✅ Marking local records as synced...');
-      // CRASH-003 FIX: Add error handling for marking records
       try {
-        await this.markRecordsAsSynced(uploadResults);
-      } catch (markError) {
-        console.error('❌ Error marking records as synced:', markError);
-        // Don't fail entire sync - records will be retried on next sync
-        console.warn('⚠️ Continuing sync despite marking error');
+        await fastDatabase.withTransaction(async () => {
+          // P0-2 FIX: Mark local records as synced BEFORE processing server data
+          // This enforces PUSH-BEFORE-PULL to prevent data loss
+          console.log('✅ Step 5: Marking local records as synced (PUSH complete)...');
+          await this.markRecordsAsSynced(uploadResults);
+          console.log('✅ Local records marked as synced successfully');
+
+          // Step 6: Process server data (downloads) - happens AFTER push is complete
+          console.log('📥 Step 6: Processing server data (PULL)...');
+          await this.processServerData(serverData);
+          console.log('✅ Server data processed successfully');
+        });
+
+        console.log('✅ Transaction committed - all local database updates successful');
+
+      } catch (transactionError) {
+        console.error('❌ Transaction failed and rolled back:', transactionError);
+        // CRITICAL: Transaction rolled back - local database remains in consistent state
+        // Records with needs_sync=1 will be retried on next sync
+        console.warn('⚠️ Local database updates rolled back - will retry on next sync');
+        throw transactionError; // Re-throw to trigger outer catch
       }
 
       // Step 7: Update sync timestamp
@@ -536,16 +557,45 @@ class SyncService {
           const localRecord = await offlineDataService.getByServerId(tableName, serverRecord.id?.toString());
 
           if (localRecord) {
-            // CONFLICT RESOLUTION: Compare timestamps
+            // P0-4 FIX: Enhanced CONFLICT DETECTION & RESOLUTION
             const serverTime = new Date(serverRecord.updated_at || serverRecord.updatedAt || 0);
             const localTime = new Date(localRecord.updated_at || 0);
+            const localNeedsSync = localRecord.needs_sync === 1;
 
-            if (serverTime > localTime) {
-              // Server wins - update local
+            // CONFLICT: Both local and server have changes (local needs_sync=1 AND server has newer timestamp)
+            if (localNeedsSync && serverTime > localTime) {
+              console.warn(`  ⚠️  CONFLICT DETECTED: ${tableName} local_id=${localRecord.id} server_id=${serverRecord.id}`);
+
+              // Store conflict for potential user resolution
+              fastDatabase.storeConflict({
+                tableName,
+                localId: localRecord.id,
+                serverId: serverRecord.id?.toString(),
+                localData: localRecord,
+                serverData: serverRecord,
+                conflictType: 'concurrent_edit'
+              });
+
+              // AUTO-RESOLVE: Server wins (can be changed to local_wins or user_resolve)
+              console.log(`  🔄 Auto-resolving conflict: SERVER WINS (updating local with server data)`);
+              const mappedRecord = this.mapServerToLocalRecord(tableName, serverRecord);
+              await offlineDataService.update(tableName, localRecord.id, mappedRecord, true); // skipSync = true
+
+              // Emit conflict event for UI notification
+              dataEventBus.emit(EventTypes.SYNC_CONFLICT_RESOLVED, {
+                tableName,
+                localId: localRecord.id,
+                serverId: serverRecord.id,
+                resolution: 'server_wins'
+              });
+
+            } else if (serverTime > localTime) {
+              // Normal update - server newer, local not modified
               console.log(`  🔄 Updating local ${tableName} (server newer)`);
               const mappedRecord = this.mapServerToLocalRecord(tableName, serverRecord);
               await offlineDataService.update(tableName, localRecord.id, mappedRecord, true); // skipSync = true
             } else {
+              // Local is newer - keep local
               console.log(`  ⏭️  Skipping ${tableName} (local newer)`);
             }
           } else {
@@ -1000,9 +1050,29 @@ class SyncService {
         // Backend uses 'name', not 'farmName'
         if (serverRecord.name) mapped.farm_name = serverRecord.name;
         if (serverRecord.farmName) mapped.farm_name = serverRecord.farmName; // Fallback
+        if (serverRecord.organizationId) mapped.organization_id = serverRecord.organizationId;
+        if (serverRecord.ownerId) mapped.owner_id = serverRecord.ownerId;
         if (serverRecord.farmSize) mapped.farm_size = serverRecord.farmSize;
+        if (serverRecord.farmType) mapped.farm_type = serverRecord.farmType;
         if (serverRecord.contactPerson) mapped.contact_person = serverRecord.contactPerson;
         if (serverRecord.phoneNumber) mapped.phone_number = serverRecord.phoneNumber;
+
+        // Clean up ALL unmapped fields - mobile SQLite only has: farm_name, location, farm_type, organization_id, description
+        // Backend sends these fields that don't exist in mobile schema:
+        delete mapped.name; // CRITICAL: Delete 'name' after mapping to 'farm_name'
+        delete mapped.farmName;
+        delete mapped.organizationId;
+        delete mapped.ownerId;
+        delete mapped.farmSize;
+        delete mapped.farmType;
+        delete mapped.contactPerson;
+        delete mapped.phoneNumber;
+        delete mapped.capacity; // Backend field not in mobile schema
+        delete mapped.currentStock; // Backend sends 'currentStock', mobile doesn't have this
+        delete mapped.current_stock; // In case it's already snake_case
+        delete mapped.owner_id; // Mobile doesn't have owner_id column
+        delete mapped.user; // Backend sends 'user' field that doesn't exist in mobile schema
+        delete mapped.organization; // Backend sends 'organization' object that doesn't exist in mobile schema
         break;
 
       case 'poultry_batches':
@@ -1016,40 +1086,121 @@ class SyncService {
         if (serverRecord.acquisitionDate) mapped.acquisition_date = serverRecord.acquisitionDate;
         if (serverRecord.expectedEndDate) mapped.expected_end_date = serverRecord.expectedEndDate;
         if (serverRecord.farmId) mapped.farm_id = serverRecord.farmId;
+        // CRITICAL FIX: Map birdType to breed (backend sends birdType, mobile has breed column)
+        if (serverRecord.birdType) mapped.breed = serverRecord.birdType;
+
+        // Clean up ALL unmapped camelCase fields for poultry_batches
+        delete mapped.batchName;
+        delete mapped.batchNumber;
+        delete mapped.initialCount;
+        delete mapped.currentCount;
+        delete mapped.hatchDate;
+        delete mapped.acquisitionDate;
+        delete mapped.expectedEndDate;
+        delete mapped.farmId; // Will be cleaned by universal cleanup
+        delete mapped.birdType; // CRITICAL FIX: Delete after mapping to breed
         break;
 
       case 'feed_records':
+        // Map recordDate to date field (backend sends recordDate, mobile uses date)
+        if (serverRecord.recordDate && !mapped.date) {
+          mapped.date = serverRecord.recordDate;
+        }
+
         if (serverRecord.feedType) mapped.feed_type = serverRecord.feedType;
         if (serverRecord.quantityKg) mapped.quantity_kg = serverRecord.quantityKg;
         if (serverRecord.costPerKg) mapped.cost_per_kg = serverRecord.costPerKg;
         if (serverRecord.totalCost) mapped.total_cost = serverRecord.totalCost;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up ALL unmapped camelCase fields for feed_records
+        delete mapped.feedType;
+        delete mapped.quantityKg;
+        delete mapped.costPerKg;
+        delete mapped.totalCost;
+        delete mapped.batchId;
+        delete mapped.farmId; // Will be cleaned by universal cleanup
+        delete mapped.recordDate; // Backend uses recordDate, mobile uses date
+        delete mapped.batch; // Backend sends 'batch' object that doesn't exist in mobile schema
+        delete mapped.user; // Backend sends 'user' object that doesn't exist in mobile schema
         break;
 
       case 'production_records':
+        // Map recordDate to date field (backend sends recordDate, mobile uses date)
+        if (serverRecord.recordDate && !mapped.date) {
+          mapped.date = serverRecord.recordDate;
+        }
+
         if (serverRecord.eggsCollected) mapped.eggs_collected = serverRecord.eggsCollected;
         if (serverRecord.eggsBroken) mapped.eggs_broken = serverRecord.eggsBroken;
+        // Handle both brokenEggs and eggsBroken (backend might send either)
+        if (serverRecord.brokenEggs && !mapped.eggs_broken) {
+          mapped.eggs_broken = serverRecord.brokenEggs;
+        }
+        // Handle abnormalEggs mapping
+        if (serverRecord.abnormalEggs) mapped.abnormal_eggs = serverRecord.abnormalEggs;
         if (serverRecord.eggsSold) mapped.eggs_sold = serverRecord.eggsSold;
         if (serverRecord.eggWeightKg) mapped.egg_weight_kg = serverRecord.eggWeightKg;
+        // Map egg_weight_avg if backend sends eggWeightAvg
+        if (serverRecord.eggWeightAvg) mapped.egg_weight_avg = serverRecord.eggWeightAvg;
         if (serverRecord.pricePerDozen) mapped.price_per_dozen = serverRecord.pricePerDozen;
         if (serverRecord.totalRevenue) mapped.total_revenue = serverRecord.totalRevenue;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up ALL unmapped camelCase fields for production_records
+        delete mapped.eggsCollected;
+        delete mapped.eggsBroken;
+        delete mapped.brokenEggs; // Delete camelCase variant
+        delete mapped.abnormalEggs; // Delete camelCase variant after mapping
+        delete mapped.eggsSold;
+        delete mapped.eggWeightKg;
+        delete mapped.eggWeightAvg;
+        delete mapped.pricePerDozen;
+        delete mapped.totalRevenue;
+        delete mapped.batchId;
+        delete mapped.farmId; // Will be cleaned by universal cleanup
+        delete mapped.recordDate; // Backend uses recordDate, mobile uses date
+        // DO NOT map 'weight' field - it doesn't exist in production_records schema
+        delete mapped.weight;
         break;
 
       case 'mortality_records':
         if (serverRecord.ageWeeks) mapped.age_weeks = serverRecord.ageWeeks;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+        // CRITICAL FIX: Map deaths to count (backend sends deaths, mobile has count column)
+        if (serverRecord.deaths) mapped.count = serverRecord.deaths;
+
+        // Clean up ALL unmapped camelCase fields for mortality_records
+        delete mapped.ageWeeks;
+        delete mapped.batchId;
+        delete mapped.farmId; // Will be cleaned by universal cleanup
+        delete mapped.deaths; // CRITICAL FIX: Delete after mapping to count
         break;
 
       case 'health_records':
         if (serverRecord.healthIssue) mapped.health_issue = serverRecord.healthIssue;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+
+        // Clean up ALL unmapped camelCase fields for health_records
+        delete mapped.healthIssue;
+        delete mapped.batchId;
+        delete mapped.farmId; // Will be cleaned by universal cleanup
+        delete mapped.vetId; // CRITICAL FIX: Backend sends vetId but mobile doesn't have this column
         break;
 
       case 'water_records':
         if (serverRecord.quantityLiters) mapped.quantity_liters = serverRecord.quantityLiters;
         if (serverRecord.sourceType) mapped.source_type = serverRecord.sourceType;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+        // CRITICAL FIX: Map dateRecorded to date (backend sends dateRecorded, mobile uses date)
+        if (serverRecord.dateRecorded && !mapped.date) mapped.date = serverRecord.dateRecorded;
+
+        // Clean up ALL unmapped camelCase fields for water_records
+        delete mapped.quantityLiters;
+        delete mapped.sourceType;
+        delete mapped.batchId;
+        delete mapped.farmId; // Will be cleaned by universal cleanup
+        delete mapped.dateRecorded; // CRITICAL FIX: Delete after mapping to date
         break;
 
       case 'weight_records':
@@ -1057,8 +1208,50 @@ class SyncService {
         if (serverRecord.sampleSize) mapped.sample_size = serverRecord.sampleSize;
         if (serverRecord.weightUnit) mapped.weight_unit = serverRecord.weightUnit;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
+        // CRITICAL FIX: Map dateRecorded to date (backend sends dateRecorded, mobile uses date)
+        if (serverRecord.dateRecorded && !mapped.date) mapped.date = serverRecord.dateRecorded;
+
+        // Clean up ALL unmapped camelCase fields for weight_records
+        delete mapped.averageWeight;
+        delete mapped.sampleSize;
+        delete mapped.weightUnit;
+        delete mapped.batchId;
+        delete mapped.farmId; // Will be cleaned by universal cleanup
+        delete mapped.dateRecorded; // CRITICAL FIX: Delete after mapping to date
         break;
     }
+
+    // UNIVERSAL CLEANUP: Map timestamp fields from camelCase to snake_case
+    if (serverRecord.createdAt && !mapped.created_at) {
+      mapped.created_at = serverRecord.createdAt;
+    }
+    if (serverRecord.updatedAt && !mapped.updated_at) {
+      mapped.updated_at = serverRecord.updatedAt;
+    }
+
+    // CRITICAL FIX: Map deletedAt to deleted_at
+    if (serverRecord.deletedAt && !mapped.deleted_at) {
+      mapped.deleted_at = serverRecord.deletedAt;
+    }
+
+    // Delete ALL camelCase timestamp fields that backend might send
+    delete mapped.createdAt;
+    delete mapped.updatedAt;
+    delete mapped.deletedAt; // CRITICAL FIX: Remove deletedAt after mapping
+    delete mapped.organizationId; // Universal cleanup for all tables
+
+    // UNIVERSAL CLEANUP: Remove ALL unmapped camelCase foreign key fields that might cause SQLite errors
+    // These fields exist in backend but not in mobile schema
+    const camelCaseForeignKeys = [
+      'ownerId', 'farmId', 'batchId', 'userId', 'customerId', 'organizationId',
+      'createdBy', 'updatedBy', 'deletedBy', 'parentId', 'recordId'
+    ];
+
+    camelCaseForeignKeys.forEach(key => {
+      if (mapped.hasOwnProperty(key)) {
+        delete mapped[key];
+      }
+    });
 
     // Clean up undefined values
     Object.keys(mapped).forEach(key => {
@@ -1190,6 +1383,9 @@ class SyncService {
           operationResult = await this.createOnServer(table_name, recordData);
 
           if (operationResult && operationResult.id) {
+            // P0-1 FIX: Store ID mapping in centralized table
+            fastDatabase.storeIdMapping(table_name, local_id, operationResult.id.toString());
+
             // Update local record with server ID
             await offlineDataService.markAsSynced(table_name, local_id, operationResult.id.toString());
             console.log(`✅ Created ${table_name} with server ID: ${operationResult.id}`);
@@ -1285,7 +1481,11 @@ class SyncService {
 
   // Server operations
   async createOnServer(tableName, data) {
-    const mappedData = this.mapLocalToServerRecord(tableName, data);
+    // P0-1 FIX: Remap foreign keys from local IDs to server IDs before upload
+    const remappedData = fastDatabase.remapForeignKeysToServer(tableName, data);
+
+    // Then map to server format (camelCase field names)
+    const mappedData = this.mapLocalToServerRecord(tableName, remappedData);
 
     switch (tableName) {
       case 'farms':

@@ -1,5 +1,4 @@
 import NetInfo from '@react-native-community/netinfo';
-import syncService from './syncService';
 
 class NetworkService {
   constructor() {
@@ -138,21 +137,10 @@ class NetworkService {
 
   // Schedule automatic sync when connection is restored
   scheduleAutoSync() {
-    if (this.syncTimeout) {
-      clearTimeout(this.syncTimeout);
-    }
-
-    // Wait a bit for connection to stabilize, then sync
-    this.syncTimeout = setTimeout(async () => {
-      try {
-        console.log('Auto-sync triggered after connection restoration');
-        await syncService.syncData();
-      } catch (error) {
-        console.error('Auto-sync failed:', error);
-      } finally {
-        this.syncTimeout = null;
-      }
-    }, 2000); // 2 second delay
+    // NOTE: Removed redundant syncService call
+    // AutoSyncService already handles this via autoSyncService.syncAll()
+    // The old syncService.syncData() was using database.js which conflicts with fastDatabase.js
+    console.log('Network restored - AutoSyncService will handle syncing');
   }
 
   // Connection state getters

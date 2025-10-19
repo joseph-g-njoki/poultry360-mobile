@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import CustomPicker from '../components/CustomPicker';
 import fastApiService from '../services/fastApiService';
+import notificationService from '../services/notificationService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
@@ -34,7 +35,7 @@ const RecordsScreen = ({ route, navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   // Check if we have a pre-selected tab from navigation params
   const initialTab = route?.params?.initialTab || 'feed';
-  const [activeTab, setActiveTab] = useState(initialTab); // feed, health, mortality, production, water, weight
+  const [activeTab, setActiveTab] = useState(initialTab); // feed, health, mortality, production, water, weight, vaccination
 
   // CRASH FIX: Track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -71,6 +72,13 @@ const RecordsScreen = ({ route, navigation }) => {
     averageWeight: '',
     sampleSize: '',
     weightUnit: 'kg',
+    // Vaccination specific
+    vaccinationType: '',
+    vaccinationDate: '',
+    vaccinationHour: '08',
+    vaccinationMinute: '00',
+    vaccinationPeriod: 'AM',
+    medication: '',
   });
 
   useEffect(() => {
@@ -261,6 +269,12 @@ const RecordsScreen = ({ route, navigation }) => {
       averageWeight: '',
       sampleSize: '',
       weightUnit: 'kg',
+      vaccinationType: '',
+      vaccinationDate: new Date().toISOString().split('T')[0],
+      vaccinationHour: '08',
+      vaccinationMinute: '00',
+      vaccinationPeriod: 'AM',
+      medication: '',
     });
     setModalVisible(true);
   };
@@ -349,6 +363,38 @@ const RecordsScreen = ({ route, navigation }) => {
           console.log('🔄 Creating weight record with fastApiService...');
           await fastApiService.createRecord('weight', recordData);
           break;
+
+        case 'vaccination':
+          if (!formData.vaccinationType || !formData.vaccinationDate) {
+            Alert.alert('Error', 'Please enter vaccination type and date');
+            return;
+          }
+
+          // Convert 12-hour to 24-hour format
+          let hour = parseInt(formData.vaccinationHour);
+          if (formData.vaccinationPeriod === 'PM' && hour !== 12) {
+            hour += 12;
+          } else if (formData.vaccinationPeriod === 'AM' && hour === 12) {
+            hour = 0;
+          }
+          const vaccinationTime = `${hour.toString().padStart(2, '0')}:${formData.vaccinationMinute}`;
+
+          recordData.vaccinationType = formData.vaccinationType;
+          recordData.vaccinationDate = formData.vaccinationDate;
+          recordData.vaccinationTime = vaccinationTime;
+          recordData.medication = formData.medication || '';
+          console.log('🔄 Creating vaccination record with fastApiService...');
+          await fastApiService.createRecord('vaccination', recordData);
+
+          // Schedule vaccination reminder
+          console.log('🔔 Scheduling vaccination reminder...');
+          await notificationService.scheduleVaccinationReminder({
+            vaccinationType: recordData.vaccinationType,
+            vaccinationDate: recordData.vaccinationDate,
+            vaccinationTime: vaccinationTime,
+            batchId: recordData.batchId
+          });
+          break;
       }
 
       console.log('🔄 Record save operation completed successfully');
@@ -360,7 +406,8 @@ const RecordsScreen = ({ route, navigation }) => {
         mortality: 'Mortality record added successfully!',
         production: 'Production record added successfully!',
         water: 'Water record added successfully!',
-        weight: 'Weight record added successfully!'
+        weight: 'Weight record added successfully!',
+        vaccination: 'Vaccination record added successfully!'
       };
 
       Alert.alert('Success', successMessages[activeTab] || 'Record saved successfully!');
@@ -529,6 +576,20 @@ const RecordsScreen = ({ route, navigation }) => {
             <View style={styles(theme).recordContent}>
               <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚖️ Average: {avgWeight} kg</Text>
               <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>📊 Sample: {sampleSize} birds</Text>
+            </View>
+          );
+        case 'vaccination':
+          // Handle both camelCase and snake_case from database
+          const vaccinationType = item.vaccinationType || item.vaccination_type || 'Unknown';
+          const vaccinationDate = item.vaccinationDate || item.vaccination_date || '';
+          const vaccinationTime = item.vaccinationTime || item.vaccination_time || '';
+          const medication = item.medication || '';
+
+          return (
+            <View style={styles(theme).recordContent}>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>💉 Type: {vaccinationType}</Text>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>📅 Date: {formatDate(vaccinationDate)}{vaccinationTime ? ` at ${vaccinationTime}` : ''}</Text>
+              {medication && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>💊 Medication: {medication}</Text>}
             </View>
           );
         default:
@@ -907,6 +968,165 @@ const RecordsScreen = ({ route, navigation }) => {
             </View>
           </>
         );
+
+      case 'vaccination':
+        return (
+          <>
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Vaccination Type *</Text>
+              <CustomPicker
+                selectedValue={formData.vaccinationType}
+                onValueChange={(itemValue) =>
+                  setFormData(prev => ({ ...prev, vaccinationType: itemValue }))
+                }
+                items={[
+                  { label: 'Newcastle Disease', value: 'Newcastle Disease' },
+                  { label: 'Gumboro', value: 'Gumboro' },
+                  { label: 'Marek\'s Disease', value: 'Marek\'s Disease' },
+                  { label: 'Fowl Pox', value: 'Fowl Pox' },
+                  { label: 'Infectious Bronchitis', value: 'Infectious Bronchitis' },
+                  { label: 'Avian Influenza', value: 'Avian Influenza' },
+                  { label: 'Fowl Cholera', value: 'Fowl Cholera' },
+                  { label: 'Coccidiosis', value: 'Coccidiosis' }
+                ]}
+                placeholder="Select vaccination type"
+              />
+            </View>
+
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Vaccination Date *</Text>
+              <TextInput
+                style={[styles(theme).formInput, {
+                  backgroundColor: theme.colors.inputBackground,
+                  borderColor: theme.colors.inputBorder,
+                  color: theme.colors.inputText
+                }]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={theme.colors.placeholder}
+                value={formData.vaccinationDate}
+                onChangeText={(text) =>
+                  setFormData(prev => ({ ...prev, vaccinationDate: text }))
+                }
+              />
+            </View>
+
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Vaccination Time</Text>
+              <View style={styles(theme).timePickerRow}>
+                <TextInput
+                  style={[styles(theme).timeInput, {
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: theme.colors.inputBorder,
+                    color: theme.colors.inputText
+                  }]}
+                  placeholder="12"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={formData.vaccinationHour}
+                  onChangeText={(text) => {
+                    // Allow any text input while typing
+                    setFormData(prev => ({ ...prev, vaccinationHour: text }));
+                  }}
+                  onBlur={() => {
+                    // Validate and format when user leaves the field
+                    let hour = formData.vaccinationHour.trim();
+                    if (hour === '') {
+                      setFormData(prev => ({ ...prev, vaccinationHour: '08' }));
+                      return;
+                    }
+                    const num = parseInt(hour);
+                    if (isNaN(num) || num < 1 || num > 12) {
+                      setFormData(prev => ({ ...prev, vaccinationHour: '08' }));
+                      return;
+                    }
+                    setFormData(prev => ({ ...prev, vaccinationHour: num.toString().padStart(2, '0') }));
+                  }}
+                  keyboardType="numeric"
+                  maxLength={2}
+                />
+                <Text style={[styles(theme).timeSeparator, { color: theme.colors.text }]}>:</Text>
+                <TextInput
+                  style={[styles(theme).timeInput, {
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: theme.colors.inputBorder,
+                    color: theme.colors.inputText
+                  }]}
+                  placeholder="00"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={formData.vaccinationMinute}
+                  onChangeText={(text) => {
+                    // Allow any text input while typing
+                    setFormData(prev => ({ ...prev, vaccinationMinute: text }));
+                  }}
+                  onBlur={() => {
+                    // Validate and format when user leaves the field
+                    let minute = formData.vaccinationMinute.trim();
+                    if (minute === '') {
+                      setFormData(prev => ({ ...prev, vaccinationMinute: '00' }));
+                      return;
+                    }
+                    const num = parseInt(minute);
+                    if (isNaN(num) || num < 0 || num > 59) {
+                      setFormData(prev => ({ ...prev, vaccinationMinute: '00' }));
+                      return;
+                    }
+                    setFormData(prev => ({ ...prev, vaccinationMinute: num.toString().padStart(2, '0') }));
+                  }}
+                  keyboardType="numeric"
+                  maxLength={2}
+                />
+                <View style={styles(theme).periodButtons}>
+                  <TouchableOpacity
+                    style={[
+                      styles(theme).periodButton,
+                      {
+                        backgroundColor: formData.vaccinationPeriod === 'AM' ? theme.colors.primary : theme.colors.surface,
+                        borderColor: theme.colors.border
+                      }
+                    ]}
+                    onPress={() => setFormData(prev => ({ ...prev, vaccinationPeriod: 'AM' }))}
+                  >
+                    <Text style={[
+                      styles(theme).periodText,
+                      { color: formData.vaccinationPeriod === 'AM' ? theme.colors.buttonText : theme.colors.text }
+                    ]}>AM</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles(theme).periodButton,
+                      {
+                        backgroundColor: formData.vaccinationPeriod === 'PM' ? theme.colors.primary : theme.colors.surface,
+                        borderColor: theme.colors.border
+                      }
+                    ]}
+                    onPress={() => setFormData(prev => ({ ...prev, vaccinationPeriod: 'PM' }))}
+                  >
+                    <Text style={[
+                      styles(theme).periodText,
+                      { color: formData.vaccinationPeriod === 'PM' ? theme.colors.buttonText : theme.colors.text }
+                    ]}>PM</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles(theme).formGroup}>
+              <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Medication</Text>
+              <TextInput
+                style={[styles(theme).formInput, {
+                  backgroundColor: theme.colors.inputBackground,
+                  borderColor: theme.colors.inputBorder,
+                  color: theme.colors.inputText
+                }]}
+                placeholder="Vaccine name (optional)"
+                placeholderTextColor={theme.colors.placeholder}
+                value={formData.medication}
+                onChangeText={(text) =>
+                  setFormData(prev => ({ ...prev, medication: text }))
+                }
+              />
+            </View>
+          </>
+        );
     }
   };
 
@@ -940,6 +1160,7 @@ const RecordsScreen = ({ route, navigation }) => {
         {renderTabButton('production', 'Production', '🥚')}
         {renderTabButton('water', 'Water', '💧')}
         {renderTabButton('weight', 'Weight', '⚖️')}
+        {renderTabButton('vaccination', 'Vaccination', '💉')}
       </ScrollView>
 
       {/* Records List */}
@@ -1364,6 +1585,41 @@ const styles = (theme) => StyleSheet.create({
   loadingMoreText: {
     marginTop: 8,
     fontSize: 14,
+  },
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  timeInput: {
+    width: 60,
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  timeSeparator: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  periodButtons: {
+    flexDirection: 'row',
+    marginLeft: 10,
+    gap: 8,
+  },
+  periodButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  periodText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

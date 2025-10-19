@@ -20,7 +20,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dataEventBus, { EventTypes } from '../services/dataEventBus';
-import offlineFirstService from '../services/offlineFirstService';
+import fastApiService from '../services/fastApiService';
 
 const DataStoreContext = createContext();
 
@@ -93,7 +93,7 @@ export const DataStoreProvider = ({ children }) => {
   // ==================== DATA LOADING FUNCTIONS ====================
 
   /**
-   * Load farms from offlineFirstService
+   * Load farms from fastApiService (offline-first, uses local database)
    */
   const loadFarms = useCallback(async (forceRefresh = false) => {
     // Check cache first unless forced refresh
@@ -107,15 +107,18 @@ export const DataStoreProvider = ({ children }) => {
       setFarmsLoading(true);
       setFarmsError(null);
 
-      const data = await offlineFirstService.getFarms();
+      // CRITICAL FIX: Use fastApiService instead of offlineFirstService
+      // fastApiService reads directly from fastDatabase, no network required
+      const response = await fastApiService.getFarms();
+      const data = response?.data || response || [];
 
       if (isMountedRef.current) {
-        setFarms(data || []);
-        updateCache(farmsCache.current, data || []);
-        console.log(`[DataStore] Loaded ${data?.length || 0} farms`);
+        setFarms(data);
+        updateCache(farmsCache.current, data);
+        console.log(`[DataStore] Loaded ${data.length} farms from fastDatabase`);
       }
 
-      return data || [];
+      return data;
     } catch (error) {
       console.error('[DataStore] Error loading farms:', error);
       if (isMountedRef.current) {
@@ -130,7 +133,7 @@ export const DataStoreProvider = ({ children }) => {
   }, []);
 
   /**
-   * Load batches from offlineFirstService
+   * Load batches from fastApiService (offline-first, uses local database)
    */
   const loadBatches = useCallback(async (forceRefresh = false) => {
     // Check cache first unless forced refresh
@@ -144,15 +147,17 @@ export const DataStoreProvider = ({ children }) => {
       setBatchesLoading(true);
       setBatchesError(null);
 
-      const data = await offlineFirstService.getFlocks();
+      // CRITICAL FIX: Use fastApiService instead of offlineFirstService
+      const response = await fastApiService.getFlocks();
+      const data = response?.data || response || [];
 
       if (isMountedRef.current) {
-        setBatches(data || []);
-        updateCache(batchesCache.current, data || []);
-        console.log(`[DataStore] Loaded ${data?.length || 0} batches`);
+        setBatches(data);
+        updateCache(batchesCache.current, data);
+        console.log(`[DataStore] Loaded ${data.length} batches from fastDatabase`);
       }
 
-      return data || [];
+      return data;
     } catch (error) {
       console.error('[DataStore] Error loading batches:', error);
       if (isMountedRef.current) {
@@ -167,7 +172,7 @@ export const DataStoreProvider = ({ children }) => {
   }, []);
 
   /**
-   * Load records by type
+   * Load records by type from fastApiService (offline-first, uses local database)
    */
   const loadRecords = useCallback(async (recordType, forceRefresh = false) => {
     const cacheKey = `${recordType}_records`;
@@ -187,41 +192,42 @@ export const DataStoreProvider = ({ children }) => {
       setRecordsLoading(prev => ({ ...prev, [recordType]: true }));
       setRecordsError(prev => ({ ...prev, [recordType]: null }));
 
+      let response = null;
       let data = [];
 
-      switch (recordType) {
-        case 'feed':
-          data = await offlineFirstService.getFeedRecords();
-          if (isMountedRef.current) setFeedRecords(data || []);
-          break;
-        case 'production':
-          data = await offlineFirstService.getProductionRecords();
-          if (isMountedRef.current) setProductionRecords(data || []);
-          break;
-        case 'mortality':
-          data = await offlineFirstService.getMortalityRecords();
-          if (isMountedRef.current) setMortalityRecords(data || []);
-          break;
-        case 'health':
-          data = await offlineFirstService.getHealthRecords();
-          if (isMountedRef.current) setHealthRecords(data || []);
-          break;
-        case 'water':
-          data = await offlineFirstService.getWaterRecords();
-          if (isMountedRef.current) setWaterRecords(data || []);
-          break;
-        case 'weight':
-          data = await offlineFirstService.getWeightRecords();
-          if (isMountedRef.current) setWeightRecords(data || []);
-          break;
-        default:
-          console.warn(`[DataStore] Unknown record type: ${recordType}`);
+      // CRITICAL FIX: Use fastApiService.getRecords() instead of offlineFirstService
+      response = await fastApiService.getRecords(recordType);
+      data = response?.data || response || [];
+
+      if (isMountedRef.current) {
+        switch (recordType) {
+          case 'feed':
+            setFeedRecords(data);
+            break;
+          case 'production':
+            setProductionRecords(data);
+            break;
+          case 'mortality':
+            setMortalityRecords(data);
+            break;
+          case 'health':
+            setHealthRecords(data);
+            break;
+          case 'water':
+            setWaterRecords(data);
+            break;
+          case 'weight':
+            setWeightRecords(data);
+            break;
+          default:
+            console.warn(`[DataStore] Unknown record type: ${recordType}`);
+        }
       }
 
-      updateCache(recordsCache.current[cacheKey], data || []);
-      console.log(`[DataStore] Loaded ${data?.length || 0} ${recordType} records`);
+      updateCache(recordsCache.current[cacheKey], data);
+      console.log(`[DataStore] Loaded ${data.length} ${recordType} records from fastDatabase`);
 
-      return data || [];
+      return data;
     } catch (error) {
       console.error(`[DataStore] Error loading ${recordType} records:`, error);
       if (isMountedRef.current) {
@@ -236,8 +242,7 @@ export const DataStoreProvider = ({ children }) => {
   }, []);
 
   /**
-   * Load analytics data
-   * Uses offlineFirstService.getDashboardAnalytics for production trends
+   * Load analytics data from fastApiService (offline-first, uses local database)
    */
   const loadAnalytics = useCallback(async (params = {}, forceRefresh = false) => {
     // Check cache first unless forced refresh
@@ -258,13 +263,14 @@ export const DataStoreProvider = ({ children }) => {
         ...params
       };
 
-      // Fetch analytics using offlineFirstService (handles online/offline automatically)
-      const data = await offlineFirstService.getDashboardAnalytics(defaultParams);
+      // CRITICAL FIX: Use fastApiService.getAnalytics() instead of offlineFirstService
+      const response = await fastApiService.getAnalytics(defaultParams);
+      const data = response?.data || response || null;
 
       if (isMountedRef.current) {
         setAnalytics(data);
         updateCache(analyticsCache.current, data);
-        console.log('[DataStore] Loaded analytics data');
+        console.log('[DataStore] Loaded analytics data from fastDatabase');
       }
 
       return data;
@@ -282,7 +288,7 @@ export const DataStoreProvider = ({ children }) => {
   }, []);
 
   /**
-   * Load dashboard data
+   * Load dashboard data from fastApiService (offline-first, uses local database)
    */
   const loadDashboard = useCallback(async (forceRefresh = false) => {
     // Check cache first unless forced refresh
@@ -296,12 +302,14 @@ export const DataStoreProvider = ({ children }) => {
       setDashboardLoading(true);
       setDashboardError(null);
 
-      const data = await offlineFirstService.getDashboard();
+      // CRITICAL FIX: Use fastApiService.getDashboard() instead of offlineFirstService
+      const response = await fastApiService.getDashboard();
+      const data = response?.data || response || null;
 
       if (isMountedRef.current) {
         setDashboardData(data);
         updateCache(dashboardCache.current, data);
-        console.log('[DataStore] Loaded dashboard data');
+        console.log('[DataStore] Loaded dashboard data from fastDatabase');
       }
 
       return data;

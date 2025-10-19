@@ -15,10 +15,9 @@ import Constants from 'expo-constants';
 const ENV = {
   dev: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ||
-            Constants.expoConfig?.extra?.apiUrl ||
-            'https://poultry360-api.onrender.com/api', // TEMPORARY FIX: Use production API for Expo Go testing
-    enableOfflineMode: true, // Re-enabled for testing
-    enableNotifications: true, // Re-enabled for testing
+            'http://192.168.50.21:3006/api', // Local development backend
+    enableOfflineMode: true,
+    enableNotifications: true,
     logLevel: 'debug',
   },
   staging: {

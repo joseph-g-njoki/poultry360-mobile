@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { PieChart as RNPieChart } from 'react-native-chart-kit';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * PieChart Component
@@ -27,6 +28,7 @@ const PieChart = ({
   loading = false,
   error = null,
 }) => {
+  const { theme } = useTheme();
   const screenWidth = Dimensions.get('window').width - 32; // Padding
 
   // Default empty data structure

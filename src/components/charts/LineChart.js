@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { LineChart as RNLineChart } from 'react-native-chart-kit';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * LineChart Component
@@ -31,6 +32,7 @@ const LineChart = ({
   loading = false,
   error = null,
 }) => {
+  const { theme } = useTheme();
   const screenWidth = Dimensions.get('window').width - 32; // Padding
 
   // Default empty data structure

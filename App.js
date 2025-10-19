@@ -299,7 +299,8 @@ import memoryManager from './src/utils/memoryManager';
 import unifiedApiService from './src/services/unifiedApiService';
 import DatabaseInitializationError from './src/components/DatabaseInitializationError';
 import autoSyncService from './src/services/autoSyncService';
-import databaseMigration from './src/services/databaseMigration';
+// CRASH FIX: databaseMigration.js removed - fastDatabase.js handles all migrations internally
+// import databaseMigration from './src/services/databaseMigration';
 
 // Loading screen component with theme support
 const LoadingScreen = () => {
@@ -395,9 +396,9 @@ export default function App() {
 
             console.log('✅ Background: Database verified and ready');
 
-            // Run database migrations only if database is ready
-            await databaseMigration.runMigrations();
-            console.log('✅ Background: Database migrations complete');
+            // CRASH FIX: Database migrations are handled internally by fastDatabase.js during init()
+            // No need to call separate migration service - fastDatabase already migrated the schema
+            console.log('✅ Background: Database migrations complete (handled by fastDatabase)');
 
             // Initialize auto-sync service
             autoSyncService.init();

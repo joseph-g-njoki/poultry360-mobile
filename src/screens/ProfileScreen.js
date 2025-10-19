@@ -18,15 +18,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import NotificationSettingsModal from '../components/NotificationSettingsModal';
 import DataBackupModal from '../components/DataBackupModal';
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
   const { user, logout, updateUser } = useAuth();
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const [modalVisible, setModalVisible] = useState(false);
-  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
@@ -459,7 +457,7 @@ const ProfileScreen = () => {
         <MenuItem
           icon="🔔"
           title={String(t('settings.notifications') || 'Notifications')}
-          onPress={() => setNotificationModalVisible(true)}
+          onPress={() => navigation.navigate('NotificationSettings')}
         />
         <MenuItem
           icon="🌙"
@@ -550,12 +548,6 @@ const ProfileScreen = () => {
       </View>
 
       {/* Feature Modals */}
-      <NotificationSettingsModal
-        visible={notificationModalVisible}
-        onClose={() => setNotificationModalVisible(false)}
-      />
-
-
       <DataBackupModal
         visible={backupModalVisible}
         onClose={() => setBackupModalVisible(false)}

@@ -24,6 +24,7 @@ import FinancialSummaryScreen from '../screens/FinancialSummaryScreen';
 import AddSaleScreen from '../screens/AddSaleScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import VaccinationScreen from '../screens/VaccinationScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 
 // Import components
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -150,6 +151,42 @@ const SafeVaccinationScreen = (props) => (
     <VaccinationScreen {...props} />
   </ErrorBoundary>
 );
+
+const SafeNotificationSettingsScreen = (props) => (
+  <ErrorBoundary screenName="Notification Settings">
+    <NotificationSettingsScreen {...props} />
+  </ErrorBoundary>
+);
+
+// Profile Stack Navigator
+const ProfileStack = () => {
+  const { theme } = useTheme();
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.headerBackground,
+        },
+        headerTintColor: theme.colors.headerText,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
+    >
+      <Stack.Screen
+        name="ProfileMain"
+        component={SafeProfileScreen}
+        options={{ title: 'Profile' }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={SafeNotificationSettingsScreen}
+        options={{ title: 'Notification Settings' }}
+      />
+    </Stack.Navigator>
+  );
+};
 
 // Analytics Stack Navigator
 const AnalyticsStack = () => {
@@ -360,12 +397,13 @@ const MainTabNavigator = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={SafeProfileScreen}
+        component={ProfileStack}
         options={{
           tabBarIcon: ({ focused }) => (
             <Text style={{ color: focused ? theme.colors.tabBarActiveTint : theme.colors.tabBarInactiveTint }}>👤</Text>
           ),
           title: 'Profile',
+          headerShown: false,
         }}
       />
     </Tab.Navigator>

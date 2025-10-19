@@ -76,21 +76,25 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
-// Mock Platform
-const Platform = {
+// Mock Platform - FIXED: Define inline to avoid out-of-scope variable reference
+jest.mock('react-native/Libraries/Utilities/Platform', () => ({
   OS: 'ios',
   Version: '14.0',
   select: jest.fn((obj) => obj.ios || obj.default),
   isTV: false,
   isTesting: true,
-};
-
-jest.mock('react-native/Libraries/Utilities/Platform', () => Platform);
+}));
 
 // Also mock expo-modules-core Platform
 jest.mock('expo-modules-core', () => ({
   ...jest.requireActual('expo-modules-core'),
-  Platform,
+  Platform: {
+    OS: 'ios',
+    Version: '14.0',
+    select: jest.fn((obj) => obj.ios || obj.default),
+    isTV: false,
+    isTesting: true,
+  },
 }));
 
 // Mock Alert

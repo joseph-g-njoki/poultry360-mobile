@@ -2,15 +2,24 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import api from './api';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import ENV from '../config/environment';
 
 // Configure notification behavior
+// This handler controls how notifications are displayed when they TRIGGER (at their scheduled time)
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    console.log('[Notifications] 📬 Notification triggered at scheduled time:', notification.request.content.title);
+
+    return {
+      // Use new API to avoid deprecation warning
+      shouldShowBanner: true,  // Show notification banner at top
+      shouldShowList: true,    // Show in notification list/tray
+      shouldPlaySound: true,   // Play notification sound
+      shouldSetBadge: true,    // Update app badge count
+    };
+  },
 });
 
 class NotificationService {
@@ -87,11 +96,24 @@ class NotificationService {
 
       console.log('[Notifications] Registering device with backend:', { deviceId, platform });
 
-      const response = await api.post('/notifications/register-device', {
-        expoPushToken: token,
-        deviceId,
-        platform,
-      });
+      // Get auth token for API request
+      const authToken = await AsyncStorage.getItem('authToken');
+
+      const response = await axios.post(
+        `${ENV.apiUrl}/notifications/register-device`,
+        {
+          expoPushToken: token,
+          deviceId,
+          platform,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+          },
+          timeout: 10000
+        }
+      );
 
       if (response.data.success) {
         console.log('[Notifications] Device registered successfully with backend');
@@ -175,7 +197,17 @@ class NotificationService {
    */
   async getNotificationSettings() {
     try {
-      const response = await api.get('/notifications/settings');
+      const authToken = await AsyncStorage.getItem('authToken');
+      const response = await axios.get(
+        `${ENV.apiUrl}/notifications/settings`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+          },
+          timeout: 10000
+        }
+      );
       return response.data;
     } catch (error) {
       console.error('[Notifications] Failed to get settings:', error);
@@ -190,11 +222,234 @@ class NotificationService {
    */
   async updateNotificationSettings(settings) {
     try {
-      const response = await api.patch('/notifications/settings', settings);
+      const authToken = await AsyncStorage.getItem('authToken');
+      const response = await axios.patch(
+        `${ENV.apiUrl}/notifications/settings`,
+        settings,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+          },
+          timeout: 10000
+        }
+      );
       return response.data.success;
     } catch (error) {
       console.error('[Notifications] Failed to update settings:', error);
       return false;
+    }
+  }
+
+  /**
+   * Schedule vaccination reminders
+   * Sends TWO notifications:
+   * 1. Day before at 8 AM - "Reminder: vaccination tomorrow"
+   * 2. On vaccination day at exact time - "Time to vaccinate NOW"
+   * @param {object} vaccination - Vaccination record { vaccinationType, vaccinationDate, vaccinationTime, batchId }
+   * @returns {Promise<Array>} Array of notification IDs
+   */
+  async scheduleVaccinationReminder(vaccination) {
+    try {
+      const { vaccinationType, vaccinationDate, vaccinationTime = '08:00' } = vaccination;
+      const notificationIds = [];
+
+      // Validate input
+      if (!vaccinationDate || !vaccinationType) {
+        console.log('[Notifications] ❌ Missing vaccination date or type');
+        return [];
+      }
+
+      // Parse vaccination date and time
+      const [year, month, day] = vaccinationDate.split('-').map(Number);
+      const [hours, minutes] = vaccinationTime.split(':').map(Number);
+
+      // Validate parsed values
+      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+        console.log('[Notifications] ❌ Invalid date/time format:', { vaccinationDate, vaccinationTime });
+        return [];
+      }
+
+      // Create vaccination datetime
+      const vaccinationDateTime = new Date(year, month - 1, day, hours, minutes);
+      const now = new Date();
+
+      console.log('[Notifications] 📅 Vaccination Details:');
+      console.log('  - Type:', vaccinationType);
+      console.log('  - Date:', vaccinationDate);
+      console.log('  - Time:', vaccinationTime);
+      console.log('  - Parsed DateTime:', vaccinationDateTime.toLocaleString());
+      console.log('  - Current DateTime:', now.toLocaleString());
+      console.log('  - Is Future?', vaccinationDateTime > now);
+
+      // Check if vaccination is in the future
+      if (vaccinationDateTime <= now) {
+        console.log('[Notifications] ❌ Vaccination time is in the past or present. No reminders scheduled.');
+        return [];
+      }
+
+      // REMINDER 1: Day before at 8 AM
+      const dayBeforeReminder = new Date(vaccinationDateTime);
+      dayBeforeReminder.setDate(dayBeforeReminder.getDate() - 1);
+      dayBeforeReminder.setHours(8, 0, 0, 0);
+
+      const secondsUntilDayBefore = Math.floor((dayBeforeReminder - now) / 1000);
+
+      console.log('[Notifications] 📆 Day-Before Reminder:');
+      console.log('  - Target Time:', dayBeforeReminder.toLocaleString());
+      console.log('  - Seconds Until:', secondsUntilDayBefore);
+      console.log('  - Hours Until:', (secondsUntilDayBefore / 3600).toFixed(2));
+      console.log('  - Will Schedule?', dayBeforeReminder > now && secondsUntilDayBefore >= 300);
+
+      // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
+      if (dayBeforeReminder > now && secondsUntilDayBefore >= 300) {
+        console.log('[Notifications] 🔔 SCHEDULING day-before reminder NOW...');
+        console.log('[Notifications] ⏰ This notification will NOT appear until:', dayBeforeReminder.toLocaleString());
+        console.log('[Notifications] ⏰ Which is in', (secondsUntilDayBefore / 3600).toFixed(2), 'hours from now');
+
+        const id1 = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '💉 Vaccination Reminder - Tomorrow',
+            body: `Prepare for ${vaccinationType} vaccination tomorrow at ${vaccinationTime}`,
+            data: { type: 'vaccination_reminder_day_before', vaccination },
+            sound: true,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          },
+          trigger: { seconds: secondsUntilDayBefore },
+        });
+        notificationIds.push(id1);
+        console.log('[Notifications] ✅ Day-before reminder SCHEDULED (not shown yet!) with ID:', id1);
+        console.log('[Notifications] 📅 It will appear at:', dayBeforeReminder.toLocaleString());
+      } else {
+        console.log('[Notifications] ⏭️  Day-before reminder skipped (time already passed or less than 5 minutes away)');
+      }
+
+      // REMINDER 2: On vaccination day at exact time
+      const secondsUntilVaccination = Math.floor((vaccinationDateTime - now) / 1000);
+
+      console.log('[Notifications] 📆 Exact-Time Reminder:');
+      console.log('  - Target Time:', vaccinationDateTime.toLocaleString());
+      console.log('  - Seconds Until:', secondsUntilVaccination);
+      console.log('  - Hours Until:', (secondsUntilVaccination / 3600).toFixed(2));
+      console.log('  - Will Schedule?', vaccinationDateTime > now && secondsUntilVaccination >= 300);
+
+      // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
+      if (vaccinationDateTime > now && secondsUntilVaccination >= 300) {
+        console.log('[Notifications] 🔔 SCHEDULING exact-time reminder NOW...');
+        console.log('[Notifications] ⏰ This notification will NOT appear until:', vaccinationDateTime.toLocaleString());
+        console.log('[Notifications] ⏰ Which is in', (secondsUntilVaccination / 3600).toFixed(2), 'hours from now');
+
+        const id2 = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '💉 Vaccination Time NOW!',
+            body: `It's time to administer ${vaccinationType} vaccination`,
+            data: { type: 'vaccination_now', vaccination },
+            sound: true,
+            priority: Notifications.AndroidNotificationPriority.MAX,
+          },
+          trigger: { seconds: secondsUntilVaccination },
+        });
+        notificationIds.push(id2);
+        console.log('[Notifications] ✅ Exact-time reminder SCHEDULED (not shown yet!) with ID:', id2);
+        console.log('[Notifications] 📅 It will appear at:', vaccinationDateTime.toLocaleString());
+      } else {
+        console.log('[Notifications] ⏭️  Exact-time reminder skipped (time already passed or less than 5 minutes away)');
+      }
+
+      console.log(`[Notifications] ✅ TOTAL: Scheduled ${notificationIds.length} vaccination reminder(s)`);
+      return notificationIds;
+    } catch (error) {
+      console.error('[Notifications] ❌ ERROR scheduling vaccination reminders:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Schedule daily reminder at 6 PM for recording farm activities
+   * @returns {Promise<string|null>} Notification ID or null
+   */
+  async scheduleDailyReminders() {
+    try {
+      const now = new Date();
+      const reminderTime = new Date();
+      reminderTime.setHours(18, 0, 0, 0); // 6 PM
+
+      // If 6 PM has passed today, schedule for tomorrow
+      if (now >= reminderTime) {
+        reminderTime.setDate(reminderTime.getDate() + 1);
+      }
+
+      const secondsUntilReminder = Math.floor((reminderTime - now) / 1000);
+
+      console.log('[Notifications] 📅 Daily Reminder Details:');
+      console.log('  - Current Time:', now.toLocaleString());
+      console.log('  - Target Time:', reminderTime.toLocaleString());
+      console.log('  - Seconds Until:', secondsUntilReminder);
+      console.log('  - Hours Until:', (secondsUntilReminder / 3600).toFixed(2));
+      console.log('  - Will Schedule?', secondsUntilReminder >= 300);
+
+      // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
+      if (secondsUntilReminder >= 300) {
+        console.log('[Notifications] 🔔 SCHEDULING daily 6 PM reminder NOW...');
+        console.log('[Notifications] ⏰ This notification will NOT appear until:', reminderTime.toLocaleString());
+        console.log('[Notifications] ⏰ Which is in', (secondsUntilReminder / 3600).toFixed(2), 'hours from now');
+
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '📝 Daily Farm Records Reminder',
+            body: 'Time to record today\'s farm activities (feeding, production, health checks)',
+            data: { type: 'daily_reminder', hour: 18 },
+            sound: true,
+            priority: Notifications.AndroidNotificationPriority.DEFAULT,
+          },
+          trigger: { seconds: secondsUntilReminder },
+        });
+
+        console.log('[Notifications] ✅ Daily reminder SCHEDULED (not shown yet!) with ID:', id);
+        console.log('[Notifications] 📅 It will appear at:', reminderTime.toLocaleString());
+        return id;
+      } else {
+        console.log('[Notifications] ⏭️ Daily reminder skipped (less than 5 minutes away)');
+        return null;
+      }
+    } catch (error) {
+      console.error('[Notifications] ❌ ERROR scheduling daily reminder:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use scheduleDailyReminders() instead
+   */
+  async scheduleDailyReminder() {
+    return this.scheduleDailyReminders();
+  }
+
+  /**
+   * Cancel all scheduled notifications
+   */
+  async cancelAllNotifications() {
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('[Notifications] All scheduled notifications cancelled');
+    } catch (error) {
+      console.error('[Notifications] Failed to cancel notifications:', error);
+    }
+  }
+
+  /**
+   * Get all scheduled notifications
+   * @returns {Promise<Array>} Array of scheduled notifications
+   */
+  async getAllScheduledNotifications() {
+    try {
+      const notifications = await Notifications.getAllScheduledNotificationsAsync();
+      console.log('[Notifications] Scheduled notifications:', notifications.length);
+      return notifications;
+    } catch (error) {
+      console.error('[Notifications] Failed to get scheduled notifications:', error);
+      return [];
     }
   }
 

@@ -48,6 +48,16 @@ export const AuthProvider = ({ children }) => {
               if (isMountedRef.current) {
                 setUser(storedUser);
                 setIsAuthenticated(true);
+
+                // 🔐 CRITICAL FIX: Set organization ID for data isolation
+                if (storedUser.organizationId) {
+                  const fastDatabase = require('../services/fastDatabase').default;
+                  fastDatabase.setOrganizationId(storedUser.organizationId);
+                  console.log(`🏢 Organization ID restored from storage: ${storedUser.organizationId}`);
+                } else {
+                  console.warn('⚠️  WARNING: User has no organization ID!');
+                }
+
                 console.log('⚡ Instant auth check successful (from storage)');
               }
 
@@ -158,8 +168,18 @@ export const AuthProvider = ({ children }) => {
                 if (!isMounted.current) return;
                 setUser(storedUser);
                 setIsAuthenticated(true);
+
+                // 🔐 CRITICAL FIX: Set organization ID for data isolation
+                if (storedUser.organizationId) {
+                  const fastDatabase = require('../services/fastDatabase').default;
+                  fastDatabase.setOrganizationId(storedUser.organizationId);
+                  console.log(`🏢 Organization ID restored from storage: ${storedUser.organizationId}`);
+                } else {
+                  console.warn('⚠️  WARNING: User has no organization ID!');
+                }
+
                 console.log('Auth check successful using fallback stored data');
-              } else {
+              } else{
                 console.warn('Invalid stored user data, clearing auth');
                 if (isMounted.current) await clearAuthData();
               }

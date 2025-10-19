@@ -179,6 +179,17 @@ export const AuthProvider = ({ children }) => {
               if (!isMounted.current) return;
               setUser(storedUser);
               setIsAuthenticated(true);
+
+              // 🔐 CRITICAL FIX: Set organization ID when restoring session from storage
+              // This prevents data leaks across organizations
+              if (storedUser.organizationId) {
+                const fastDatabase = require('../services/fastDatabase').default;
+                fastDatabase.setOrganizationId(storedUser.organizationId);
+                console.log(`🏢 Organization ID restored from storage: ${storedUser.organizationId}`);
+              } else {
+                console.warn('⚠️  WARNING: User has no organization ID - data isolation may fail!');
+              }
+
               console.log('Auth check successful using offline data');
             } else {
               console.warn('Invalid offline user data, clearing auth');

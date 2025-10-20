@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import DataBackupModal from '../components/DataBackupModal';
+import DatabaseDebugModal from '../components/DatabaseDebugModal';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout, updateUser } = useAuth();
@@ -26,6 +27,7 @@ const ProfileScreen = ({ navigation }) => {
   const { t } = useLanguage();
   const [modalVisible, setModalVisible] = useState(false);
   const [backupModalVisible, setBackupModalVisible] = useState(false);
+  const [dbDebugModalVisible, setDbDebugModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const [profilePicture, setProfilePicture] = useState(null);
@@ -493,6 +495,11 @@ const ProfileScreen = ({ navigation }) => {
           title={String(t('profile.dataBackup') || 'Data Backup')}
           onPress={() => setBackupModalVisible(true)}
         />
+        <MenuItem
+          icon="🔧"
+          title="Database Debug"
+          onPress={() => setDbDebugModalVisible(true)}
+        />
       </MenuSection>
 
       {/* Support */}
@@ -551,6 +558,11 @@ const ProfileScreen = ({ navigation }) => {
       <DataBackupModal
         visible={backupModalVisible}
         onClose={() => setBackupModalVisible(false)}
+      />
+
+      <DatabaseDebugModal
+        visible={dbDebugModalVisible}
+        onClose={() => setDbDebugModalVisible(false)}
       />
 
       {/* Edit Profile Modal */}

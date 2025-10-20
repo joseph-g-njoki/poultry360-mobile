@@ -425,6 +425,7 @@ const LoadingScreen = () => {
 // Main App Navigator
 const AppNavigator = () => {
   const authContext = useAuth();
+  const { theme } = useTheme();
 
   // CRASH FIX: Add null check for auth context
   if (!authContext) {

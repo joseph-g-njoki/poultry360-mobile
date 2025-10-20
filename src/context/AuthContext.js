@@ -43,6 +43,19 @@ export const AuthProvider = ({ children }) => {
         if (token && userData) {
           try {
             const storedUser = JSON.parse(userData);
+
+            // ENHANCED LOGGING: Debug stored user data
+            console.log('═══════════════════════════════════════════════════');
+            console.log('🔍 AUTH RESTORATION - STORED USER DATA');
+            console.log('═══════════════════════════════════════════════════');
+            console.log('Email:', storedUser?.email);
+            console.log('Role:', storedUser?.role);
+            console.log('Organization ID:', storedUser?.organizationId);
+            console.log('Organization (alt):', storedUser?.organization_id);
+            console.log('User ID:', storedUser?.id);
+            console.log('Full user keys:', Object.keys(storedUser || {}));
+            console.log('═══════════════════════════════════════════════════');
+
             if (storedUser && typeof storedUser === 'object' && storedUser.email) {
               // INSTANT AUTH SUCCESS - show UI immediately
               if (isMountedRef.current) {
@@ -50,12 +63,25 @@ export const AuthProvider = ({ children }) => {
                 setIsAuthenticated(true);
 
                 // 🔐 CRITICAL FIX: Set organization ID for data isolation
-                if (storedUser.organizationId) {
+                // Support both camelCase and snake_case
+                const orgId = storedUser.organizationId || storedUser.organization_id;
+                if (orgId) {
                   const fastDatabase = require('../services/fastDatabase').default;
-                  fastDatabase.setOrganizationId(storedUser.organizationId);
-                  console.log(`🏢 Organization ID restored from storage: ${storedUser.organizationId}`);
+                  fastDatabase.setOrganizationId(orgId);
+                  console.log('═══════════════════════════════════════════════════');
+                  console.log('🏢 ORGANIZATION ID RESTORED FROM STORAGE');
+                  console.log('═══════════════════════════════════════════════════');
+                  console.log('Organization ID:', orgId);
+                  console.log('User:', storedUser.email);
+                  console.log('═══════════════════════════════════════════════════');
                 } else {
-                  console.warn('⚠️  WARNING: User has no organization ID!');
+                  console.error('═══════════════════════════════════════════════════');
+                  console.error('🚨 CRITICAL ERROR: USER HAS NO ORGANIZATION ID!');
+                  console.error('═══════════════════════════════════════════════════');
+                  console.error('This will cause data leaks across organizations!');
+                  console.error('User email:', storedUser.email);
+                  console.error('User data:', JSON.stringify(storedUser, null, 2));
+                  console.error('═══════════════════════════════════════════════════');
                 }
 
                 console.log('⚡ Instant auth check successful (from storage)');
@@ -68,6 +94,15 @@ export const AuthProvider = ({ children }) => {
                   .then(response => {
                     if (response.success && response.data && isMountedRef.current) {
                       setUser(response.data);
+
+                      // 🔐 CRITICAL: Update organization ID if server returns updated user data
+                      const serverOrgId = response.data.organizationId || response.data.organization_id;
+                      if (serverOrgId) {
+                        const fastDatabase = require('../services/fastDatabase').default;
+                        fastDatabase.setOrganizationId(serverOrgId);
+                        console.log('🏢 Organization ID updated from server:', serverOrgId);
+                      }
+
                       console.log('✅ Background: Auth verified with server');
                     }
                   })
@@ -264,6 +299,18 @@ export const AuthProvider = ({ children }) => {
         if (localResponse.success && localResponse.data) {
           const { token, user } = localResponse.data;
 
+          // ENHANCED LOGGING: Debug user data before storage
+          console.log('═══════════════════════════════════════════════════');
+          console.log('🔍 LOGIN - USER DATA FROM LOCAL DB');
+          console.log('═══════════════════════════════════════════════════');
+          console.log('Email:', user?.email);
+          console.log('Role:', user?.role);
+          console.log('Organization ID:', user?.organizationId);
+          console.log('Organization (alt):', user?.organization_id);
+          console.log('User ID:', user?.id);
+          console.log('Full user keys:', Object.keys(user || {}));
+          console.log('═══════════════════════════════════════════════════');
+
           // Store token and user data
           await asyncOperationWrapper.safeStorageSet('authToken', token);
           await asyncOperationWrapper.safeStorageSet('userData', user);
@@ -272,10 +319,23 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(true);
 
           // 🔐 CRITICAL: Set organization ID in fastDatabase for data isolation
-          if (user.organizationId) {
+          // Support both camelCase and snake_case
+          const orgId = user.organizationId || user.organization_id;
+          if (orgId) {
             const fastDatabase = require('../services/fastDatabase').default;
-            fastDatabase.setOrganizationId(user.organizationId);
-            console.log(`🏢 Organization ID set: ${user.organizationId}`);
+            fastDatabase.setOrganizationId(orgId);
+            console.log('═══════════════════════════════════════════════════');
+            console.log('🏢 ORGANIZATION ID SET AT LOGIN');
+            console.log('═══════════════════════════════════════════════════');
+            console.log('Organization ID:', orgId);
+            console.log('User:', user.email);
+            console.log('═══════════════════════════════════════════════════');
+          } else {
+            console.error('═══════════════════════════════════════════════════');
+            console.error('🚨 CRITICAL ERROR: LOGIN USER HAS NO ORGANIZATION ID!');
+            console.error('═══════════════════════════════════════════════════');
+            console.error('User data:', JSON.stringify(user, null, 2));
+            console.error('═══════════════════════════════════════════════════');
           }
 
           console.log(`✅ [OFFLINE-FIRST] Login successful via local database (${localResponse.source})`);

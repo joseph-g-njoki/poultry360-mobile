@@ -352,9 +352,10 @@ class FastApiService {
           console.log(`🌐 ONLINE: Saving ${recordType} record to PostgreSQL backend...`);
 
           // CRITICAL FIX: Get the batch's server_id before creating records that reference batches
+          // BUGFIX: Convert local batchId to server_id for ALL record types, not just water/weight
           let backendData = { ...recordData };
 
-          if (recordData.batchId && (recordType === 'water' || recordType === 'weight')) {
+          if (recordData.batchId) {
             const batch = fastDatabase.getBatchById(recordData.batchId);
 
             if (!batch) {
@@ -367,7 +368,7 @@ class FastApiService {
 
             console.log(`🔍 FastApiService: Found batch "${batch.batch_name}" with server_id: ${batch.server_id}`);
 
-            // Use server_id instead of local id
+            // Use server_id instead of local id for ALL record types
             backendData = {
               ...recordData,
               batchId: batch.server_id
@@ -376,18 +377,19 @@ class FastApiService {
 
           let serverResponse;
           // Call appropriate API endpoint based on record type
+          // BUGFIX: Use backendData for all record types to ensure server_id is used
           switch (recordType) {
             case 'feed':
-              serverResponse = await apiService.createFeedRecord(recordData);
+              serverResponse = await apiService.createFeedRecord(backendData);
               break;
             case 'production':
-              serverResponse = await apiService.createProductionRecord(recordData);
+              serverResponse = await apiService.createProductionRecord(backendData);
               break;
             case 'mortality':
-              serverResponse = await apiService.createMortalityRecord(recordData);
+              serverResponse = await apiService.createMortalityRecord(backendData);
               break;
             case 'health':
-              serverResponse = await apiService.createHealthRecord(recordData);
+              serverResponse = await apiService.createHealthRecord(backendData);
               break;
             case 'water':
               serverResponse = await apiService.createWaterRecord(backendData);
@@ -396,7 +398,7 @@ class FastApiService {
               serverResponse = await apiService.createWeightRecord(backendData);
               break;
             case 'vaccination':
-              serverResponse = await apiService.createVaccinationRecord(recordData);
+              serverResponse = await apiService.createVaccinationRecord(backendData);
               break;
             default:
               throw new Error(`Unsupported record type: ${recordType}`);
@@ -404,13 +406,13 @@ class FastApiService {
 
           console.log(`✅ ${recordType} record saved to PostgreSQL:`, serverResponse);
 
-          // Cache in SQLite with server ID
-          const localData = this.convertToDbFormat({
+          // Cache in SQLite with server ID (keep camelCase for local database)
+          const localData = {
             ...recordData,
             server_id: serverResponse.id,
             needs_sync: 0, // Already synced
             synced_at: new Date().toISOString()
-          });
+          };
 
           result = fastDatabase.createRecord(recordType, localData);
           console.log(`✅ ${recordType} record cached in SQLite:`, result);
@@ -420,24 +422,28 @@ class FastApiService {
           // If online save fails, fall back to offline mode
           console.warn('⚠️  Online save failed, falling back to offline mode:', onlineError.message);
 
-          const localData = this.convertToDbFormat({
+          // Keep camelCase for local database (no conversion needed)
+          const localData = {
             ...recordData,
             needs_sync: 1, // Mark for sync
             created_offline: true
-          });
+          };
 
+          console.log('🔍 FastApiService: Offline fallback data:', localData);
           result = fastDatabase.createRecord(recordType, localData);
+          console.log('✅ FastApiService: Offline record created:', result);
           source = 'local_fallback';
         }
       } else {
         // OFFLINE MODE: Save to SQLite with needs_sync flag
         console.log(`📴 OFFLINE: Saving ${recordType} record to SQLite for later sync...`);
 
-        const localData = this.convertToDbFormat({
+        // Keep camelCase for local database (no conversion needed)
+        const localData = {
           ...recordData,
           needs_sync: 1, // Mark for sync when online
           created_offline: true
-        });
+        };
 
         result = fastDatabase.createRecord(recordType, localData);
         console.log(`✅ ${recordType} record saved to SQLite (will sync when online):`, result);
@@ -498,7 +504,48 @@ class FastApiService {
 
   async deleteRecord(recordType, recordId) {
     try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log(`🗑️  DELETE ${recordType.toUpperCase()} RECORD - HYBRID MODE`);
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Record Type:', recordType);
+      console.log('Record ID:', recordId);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let source = 'local';
+
+      if (isOnline) {
+        // ONLINE: Delete from PostgreSQL first
+        try {
+          console.log('🌐 Deleting from PostgreSQL backend...');
+
+          // Map record types to API methods
+          const deleteMethodMap = {
+            feed: () => apiService.deleteFeedRecord(recordId),
+            production: () => apiService.deleteProductionRecord(recordId),
+            mortality: () => apiService.deleteMortalityRecord(recordId),
+            health: () => apiService.deleteHealthRecord(recordId),
+            water: () => apiService.deleteWaterRecord(recordId),
+            weight: () => apiService.deleteWeightRecord(recordId)
+          };
+
+          const deleteMethod = deleteMethodMap[recordType];
+          if (deleteMethod) {
+            await deleteMethod();
+            console.log(`✅ ${recordType} record deleted from PostgreSQL`);
+            source = 'server';
+          }
+        } catch (error) {
+          console.error('❌ Failed to delete from PostgreSQL:', error.message);
+          // Continue to delete locally
+        }
+      }
+
+      // Delete from local SQLite (always do this)
+      console.log('💾 Deleting from local SQLite...');
       fastDatabase.deleteRecord(recordType, recordId);
+      console.log(`✅ ${recordType} record deleted from local SQLite`);
 
       // CRITICAL FIX: Emit specific record deletion event to trigger real-time updates
       const eventTypeMap = {
@@ -512,19 +559,21 @@ class FastApiService {
 
       const eventType = eventTypeMap[recordType];
       if (eventType) {
-        console.log(`✅ ${recordType} record deleted, emitting ${eventType} event`);
+        console.log(`📢 Emitting ${eventType} event`);
         dataEventBus.emit(eventType, {
           recordType,
           recordId,
-          source: 'local'
+          source
         });
       }
 
+      console.log('═══════════════════════════════════════════════════');
       return {
         success: true,
-        source: 'local'
+        source
       };
     } catch (error) {
+      console.error(`❌ ${recordType} record deletion error:`, error);
       return {
         success: false,
         error: error.message
@@ -668,20 +717,49 @@ class FastApiService {
 
   async deleteFarm(farmId) {
     try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🗑️  DELETE FARM - HYBRID MODE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Farm ID:', farmId);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let source = 'local';
+
+      if (isOnline) {
+        // ONLINE: Delete from PostgreSQL first, then local SQLite
+        try {
+          console.log('🌐 Deleting from PostgreSQL backend...');
+          await apiService.deleteFarm(farmId);
+          console.log('✅ Farm deleted from PostgreSQL');
+          source = 'server';
+        } catch (error) {
+          console.error('❌ Failed to delete from PostgreSQL:', error.message);
+          // Continue to delete locally even if server delete fails
+          // (will be marked as needs_delete and synced later)
+        }
+      }
+
+      // Delete from local SQLite (always do this)
+      console.log('💾 Deleting from local SQLite...');
       fastDatabase.deleteFarm(farmId);
+      console.log('✅ Farm deleted from local SQLite');
 
       // CRITICAL FIX: Emit FARM_DELETED event to trigger dashboard refresh
-      console.log('✅ Farm deleted, emitting FARM_DELETED event');
+      console.log('📢 Emitting FARM_DELETED event');
       dataEventBus.emit(EventTypes.FARM_DELETED, {
         farmId,
-        source: 'fastApiService'
+        source
       });
 
+      console.log('═══════════════════════════════════════════════════');
       return {
         success: true,
-        source: 'local'
+        source
       };
     } catch (error) {
+      console.error('❌ Farm deletion error:', error);
       return {
         success: false,
         error: error.message
@@ -820,20 +898,48 @@ class FastApiService {
 
   async deleteFlock(flockId) {
     try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🗑️  DELETE FLOCK/BATCH - HYBRID MODE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Flock/Batch ID:', flockId);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let source = 'local';
+
+      if (isOnline) {
+        // ONLINE: Delete from PostgreSQL first, then local SQLite
+        try {
+          console.log('🌐 Deleting from PostgreSQL backend...');
+          await apiService.deleteFlock(flockId);
+          console.log('✅ Flock/Batch deleted from PostgreSQL');
+          source = 'server';
+        } catch (error) {
+          console.error('❌ Failed to delete from PostgreSQL:', error.message);
+          // Continue to delete locally even if server delete fails
+        }
+      }
+
+      // Delete from local SQLite (always do this)
+      console.log('💾 Deleting from local SQLite...');
       fastDatabase.deleteBatch(flockId);
+      console.log('✅ Flock/Batch deleted from local SQLite');
 
       // CRITICAL FIX: Emit BATCH_DELETED event to trigger dashboard refresh
-      console.log('✅ Batch deleted, emitting BATCH_DELETED event');
+      console.log('📢 Emitting BATCH_DELETED event');
       dataEventBus.emit(EventTypes.BATCH_DELETED, {
         batchId: flockId,
-        source: 'fastApiService'
+        source
       });
 
+      console.log('═══════════════════════════════════════════════════');
       return {
         success: true,
-        source: 'local'
+        source
       };
     } catch (error) {
+      console.error('❌ Flock/Batch deletion error:', error);
       return {
         success: false,
         error: error.message
@@ -890,21 +996,45 @@ class FastApiService {
 
   async deleteWaterRecord(recordId) {
     try {
-      fastDatabase.deleteWaterRecord(recordId);
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🗑️  DELETE WATER RECORD - HYBRID MODE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Record ID:', recordId);
 
-      // CRITICAL FIX: Emit WATER_RECORD_DELETED event to trigger real-time analytics updates
-      console.log('✅ Water record deleted, emitting WATER_RECORD_DELETED event');
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let source = 'local';
+
+      if (isOnline) {
+        try {
+          console.log('🌐 Deleting from PostgreSQL backend...');
+          await apiService.deleteWaterRecord(recordId);
+          console.log('✅ Water record deleted from PostgreSQL');
+          source = 'server';
+        } catch (error) {
+          console.error('❌ Failed to delete from PostgreSQL:', error.message);
+        }
+      }
+
+      console.log('💾 Deleting from local SQLite...');
+      fastDatabase.deleteWaterRecord(recordId);
+      console.log('✅ Water record deleted from local SQLite');
+
+      console.log('📢 Emitting WATER_RECORD_DELETED event');
       dataEventBus.emit(EventTypes.WATER_RECORD_DELETED, {
         recordType: 'water',
         recordId,
-        source: 'local'
+        source
       });
 
+      console.log('═══════════════════════════════════════════════════');
       return {
         success: true,
-        source: 'local'
+        source
       };
     } catch (error) {
+      console.error('❌ Water record deletion error:', error);
       return {
         success: false,
         error: error.message
@@ -961,21 +1091,45 @@ class FastApiService {
 
   async deleteWeightRecord(recordId) {
     try {
-      fastDatabase.deleteWeightRecord(recordId);
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🗑️  DELETE WEIGHT RECORD - HYBRID MODE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Record ID:', recordId);
 
-      // CRITICAL FIX: Emit WEIGHT_RECORD_DELETED event to trigger real-time analytics updates
-      console.log('✅ Weight record deleted, emitting WEIGHT_RECORD_DELETED event');
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      let source = 'local';
+
+      if (isOnline) {
+        try {
+          console.log('🌐 Deleting from PostgreSQL backend...');
+          await apiService.deleteWeightRecord(recordId);
+          console.log('✅ Weight record deleted from PostgreSQL');
+          source = 'server';
+        } catch (error) {
+          console.error('❌ Failed to delete from PostgreSQL:', error.message);
+        }
+      }
+
+      console.log('💾 Deleting from local SQLite...');
+      fastDatabase.deleteWeightRecord(recordId);
+      console.log('✅ Weight record deleted from local SQLite');
+
+      console.log('📢 Emitting WEIGHT_RECORD_DELETED event');
       dataEventBus.emit(EventTypes.WEIGHT_RECORD_DELETED, {
         recordType: 'weight',
         recordId,
-        source: 'local'
+        source
       });
 
+      console.log('═══════════════════════════════════════════════════');
       return {
         success: true,
-        source: 'local'
+        source
       };
     } catch (error) {
+      console.error('❌ Weight record deletion error:', error);
       return {
         success: false,
         error: error.message

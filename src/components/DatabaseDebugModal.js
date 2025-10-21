@@ -145,101 +145,134 @@ const DatabaseDebugModal = ({ visible, onClose, onResetComplete }) => {
     );
   };
 
+  const handleClearAllData = () => {
+    Alert.alert(
+      '🔥 NUCLEAR OPTION: Clear ALL Data',
+      'This will delete EVERYTHING from your local database including all farms, batches, and records. You will need to log in again and re-sync. Are you absolutely sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'DELETE EVERYTHING',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const deletedCount = fastDatabase.clearAllData();
+              Alert.alert('Success', `Deleted ${deletedCount} total records. Please close and reopen the app.`);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear all data: ' + error.message);
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles(theme).container}>
-        <View style={styles(theme).header}>
-          <Text style={styles(theme).title}>Database Debug Tools</Text>
-          <TouchableOpacity onPress={onClose} style={styles(theme).closeButton}>
-            <Text style={styles(theme).closeButtonText}>×</Text>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Database Debug Tools</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Text style={styles.closeButtonText}>×</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles(theme).content}>
-          <Text style={styles(theme).description}>
+        <ScrollView style={styles.content}>
+          <Text style={styles.description}>
             Use these tools to diagnose and fix database issues, including the "fisrt name" column error.
           </Text>
 
-          <View style={styles(theme).section}>
-            <Text style={styles(theme).sectionTitle}>Diagnostic Tools</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Diagnostic Tools</Text>
 
             <TouchableOpacity
-              style={styles(theme).button}
+              style={styles.button}
               onPress={handleDebugDatabase}
               disabled={loading}
             >
-              <Text style={styles(theme).buttonText}>Debug Database Schema</Text>
+              <Text style={styles.buttonText}>Debug Database Schema</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles(theme).button}
+              style={styles.button}
               onPress={handleCheckHealth}
               disabled={loading}
             >
-              <Text style={styles(theme).buttonText}>Check Database Health</Text>
+              <Text style={styles.buttonText}>Check Database Health</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles(theme).section}>
-            <Text style={styles(theme).sectionTitle}>Repair Tools</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Repair Tools</Text>
 
             <TouchableOpacity
-              style={[styles(theme).button, styles(theme).warningButton]}
+              style={[styles.button, styles.warningButton]}
               onPress={handleClearUnsyncedRecords}
               disabled={loading}
             >
-              <Text style={styles(theme).buttonText}>Clear Unsynced Records</Text>
+              <Text style={styles.buttonText}>Clear Unsynced Records</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles(theme).button, styles(theme).warningButton]}
+              style={[styles.button, styles.dangerButton]}
+              onPress={handleClearAllData}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>🔥 Clear ALL Data (Nuclear)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.warningButton]}
               onPress={handleRecreateUsersTable}
               disabled={loading}
             >
-              <Text style={styles(theme).buttonText}>Recreate Users Table</Text>
+              <Text style={styles.buttonText}>Recreate Users Table</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles(theme).button, styles(theme).dangerButton]}
+              style={[styles.button, styles.dangerButton]}
               onPress={handleResetDatabase}
               disabled={loading}
             >
-              <Text style={styles(theme).buttonText}>Reset Entire Database</Text>
+              <Text style={styles.buttonText}>Reset Entire Database</Text>
             </TouchableOpacity>
           </View>
 
           {loading && (
-            <View style={styles(theme).loadingContainer}>
+            <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={styles(theme).loadingText}>Processing...</Text>
+              <Text style={styles.loadingText}>Processing...</Text>
             </View>
           )}
 
           {debugResult && (
-            <View style={styles(theme).section}>
-              <Text style={styles(theme).sectionTitle}>Debug Results</Text>
-              <View style={styles(theme).resultContainer}>
-                <Text style={styles(theme).resultText}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Debug Results</Text>
+              <View style={styles.resultContainer}>
+                <Text style={styles.resultText}>
                   {JSON.stringify(debugResult, null, 2)}
                 </Text>
               </View>
             </View>
           )}
 
-          <View style={styles(theme).section}>
-            <Text style={styles(theme).sectionTitle}>Demo User Credentials</Text>
-            <View style={styles(theme).credentialsContainer}>
-              <Text style={styles(theme).credentialTitle}>Worker Account:</Text>
-              <Text style={styles(theme).credentialText}>Email: demo@poultry360.com</Text>
-              <Text style={styles(theme).credentialText}>Password: demo123</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Demo User Credentials</Text>
+            <View style={styles.credentialsContainer}>
+              <Text style={styles.credentialTitle}>Worker Account:</Text>
+              <Text style={styles.credentialText}>Email: demo@poultry360.com</Text>
+              <Text style={styles.credentialText}>Password: demo123</Text>
 
-              <Text style={styles(theme).credentialTitle}>Owner Account:</Text>
-              <Text style={styles(theme).credentialText}>Email: owner@poultry360.com</Text>
-              <Text style={styles(theme).credentialText}>Password: owner123</Text>
+              <Text style={styles.credentialTitle}>Owner Account:</Text>
+              <Text style={styles.credentialText}>Email: owner@poultry360.com</Text>
+              <Text style={styles.credentialText}>Password: owner123</Text>
 
-              <Text style={styles(theme).credentialTitle}>Admin Account:</Text>
-              <Text style={styles(theme).credentialText}>Email: admin@poultry360.com</Text>
-              <Text style={styles(theme).credentialText}>Password: admin123</Text>
+              <Text style={styles.credentialTitle}>Admin Account:</Text>
+              <Text style={styles.credentialText}>Email: admin@poultry360.com</Text>
+              <Text style={styles.credentialText}>Password: admin123</Text>
             </View>
           </View>
         </ScrollView>

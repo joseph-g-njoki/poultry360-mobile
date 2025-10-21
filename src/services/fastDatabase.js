@@ -280,6 +280,17 @@ class FastDatabaseService {
             console.log(`✅ FastDatabase: Added age_weeks column to poultry_batches`);
           }
 
+          // SCHEMA FIX: Add bird_type to poultry_batches (CRITICAL FOR AUTO-SYNC)
+          if (tableName === 'poultry_batches' && !existingColumnNames.includes('bird_type')) {
+            console.log(`🔄 FastDatabase: Adding bird_type column to poultry_batches...`);
+            this.db.execSync(`ALTER TABLE poultry_batches ADD COLUMN bird_type TEXT`);
+            console.log(`✅ FastDatabase: Added bird_type column to poultry_batches`);
+
+            // Migrate existing data: copy breed to bird_type for existing records
+            this.db.execSync(`UPDATE poultry_batches SET bird_type = breed WHERE bird_type IS NULL`);
+            console.log(`✅ FastDatabase: Migrated existing breed data to bird_type`);
+          }
+
           // SCHEMA FIX: Add missing columns to feed_records
           if (tableName === 'feed_records') {
             if (!existingColumnNames.includes('organization_id')) {
@@ -557,6 +568,7 @@ class FastDatabaseService {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             server_id TEXT UNIQUE,
             batch_name TEXT NOT NULL,
+            bird_type TEXT,
             breed TEXT,
             initial_count INTEGER DEFAULT 0,
             current_count INTEGER DEFAULT 0,
@@ -1428,6 +1440,10 @@ class FastDatabaseService {
       }
 
       console.log('🔄 FastDatabase: Getting dashboard data...');
+      console.log('🔍 CRITICAL CHECK: currentOrganizationId =', this.currentOrganizationId);
+      console.log('🔍 Type:', typeof this.currentOrganizationId);
+      console.log('🔍 Is null?', this.currentOrganizationId === null);
+      console.log('🔍 Is undefined?', this.currentOrganizationId === undefined);
 
       // Check if database is actually initialized and has required methods
       if (!this.db || typeof this.db.getFirstSync !== 'function' || typeof this.db.getAllSync !== 'function') {
@@ -1451,6 +1467,13 @@ class FastDatabaseService {
       // Get fresh counts from database with organization filtering
       console.log('🔄 FastDatabase: Querying farms count...');
       console.log(`🏢 FastDatabase: Filtering by organization_id = ${this.currentOrganizationId}`);
+
+      // DEBUG: Show ALL farms with their organization_id
+      const allFarmsDebug = this.db.getAllSync(`SELECT id, farm_name, organization_id FROM farms LIMIT 20`);
+      console.log('📊 DEBUG: ALL FARMS IN DATABASE:');
+      allFarmsDebug.forEach(farm => {
+        console.log(`   Farm ${farm.id}: "${farm.farm_name}" - organization_id: ${farm.organization_id}`);
+      });
 
       // Build WHERE clause for organization filtering
       const orgFilter = this.currentOrganizationId
@@ -1800,6 +1823,7 @@ class FastDatabaseService {
       console.log(`✅ FastDatabase: Found farm to delete: ${farm.farm_name || 'Unknown'}`);
 
       // CRASH FIX: Wrap all delete operations in a transaction to prevent SQLite concurrency issues
+      // BUGFIX: Use proper transaction methods instead of direct SQL to handle nested transactions
       this.beginTransaction();
 
       try {
@@ -1822,13 +1846,14 @@ class FastDatabaseService {
           throw new Error(`No farm was deleted - farm ID ${farmId} may not exist`);
         }
 
-        // CRASH FIX: Commit transaction only if all deletes succeeded
-        this.db.execSync('COMMIT');
+        // BUGFIX: Use commitTransaction() method instead of direct SQL
+        this.commitTransaction();
         console.log(`✅ FastDatabase: Successfully deleted farm ${farmId} and all related data`);
         return true;
       } catch (deleteError) {
-        // CRASH FIX: Rollback transaction on any error
-        this.db.execSync('ROLLBACK');
+        // BUGFIX: Use rollbackTransaction() method instead of direct SQL
+        // This properly handles cases where no transaction was started
+        this.rollbackTransaction();
         console.error(`❌ FastDatabase: Delete transaction failed, rolled back:`, deleteError.message);
         throw deleteError;
       }
@@ -1937,11 +1962,12 @@ class FastDatabaseService {
       });
 
       const result = this.db.runSync(
-        `INSERT INTO poultry_batches (batch_name, breed, initial_count, current_count, farm_id, server_farm_id, arrival_date, status, server_id, needs_sync, synced_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO poultry_batches (batch_name, bird_type, breed, initial_count, current_count, farm_id, server_farm_id, arrival_date, status, server_id, needs_sync, synced_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           batchData.batchName,
           batchData.birdType || batchData.breed,
+          batchData.breed,
           initialCountNum,
           currentCountNum,
           farmIdNum,
@@ -2063,6 +2089,33 @@ class FastDatabaseService {
       if (!this.isReady) this.init();
       return this.db.getFirstSync(`SELECT * FROM poultry_batches WHERE id = ?`, [batchId]);
     } catch (error) {
+      return null;
+    }
+  }
+
+  getRecordById(recordType, recordId) {
+    try {
+      if (!this.isReady) this.init();
+
+      // Map record types to table names
+      const tableMap = {
+        feed: 'feed_records',
+        production: 'production_records',
+        mortality: 'mortality_records',
+        health: 'health_records',
+        water: 'water_records',
+        weight: 'weight_records'
+      };
+
+      const tableName = tableMap[recordType];
+      if (!tableName) {
+        console.error(`❌ Unknown record type: ${recordType}`);
+        return null;
+      }
+
+      return this.db.getFirstSync(`SELECT * FROM ${tableName} WHERE id = ?`, [recordId]);
+    } catch (error) {
+      console.error(`❌ Error getting ${recordType} record by ID:`, error);
       return null;
     }
   }
@@ -2242,12 +2295,12 @@ class FastDatabaseService {
           [recordData.count, recordData.batchId]
         );
 
-        // CRASH FIX: Commit transaction only if both operations succeeded
-        this.db.execSync('COMMIT');
+        // BUGFIX: Use commitTransaction() method instead of direct SQL
+        this.commitTransaction();
         return { id: result.lastInsertRowId, ...recordData };
       } catch (insertError) {
-        // CRASH FIX: Rollback transaction on any error
-        this.db.execSync('ROLLBACK');
+        // BUGFIX: Use rollbackTransaction() method instead of direct SQL
+        this.rollbackTransaction();
         console.error(`❌ FastDatabase: Create mortality record transaction failed, rolled back:`, insertError.message);
         throw insertError;
       }
@@ -2314,12 +2367,12 @@ class FastDatabaseService {
 
         this.db.runSync(`DELETE FROM mortality_records WHERE id = ?`, [recordId]);
 
-        // CRASH FIX: Commit transaction only if both operations succeeded
-        this.db.execSync('COMMIT');
+        // BUGFIX: Use commitTransaction() method instead of direct SQL
+        this.commitTransaction();
         return true;
       } catch (deleteError) {
-        // CRASH FIX: Rollback transaction on any error
-        this.db.execSync('ROLLBACK');
+        // BUGFIX: Use rollbackTransaction() method instead of direct SQL
+        this.rollbackTransaction();
         console.error(`❌ FastDatabase: Delete mortality record transaction failed, rolled back:`, deleteError.message);
         throw deleteError;
       }
@@ -3072,6 +3125,7 @@ class FastDatabaseService {
           LEFT JOIN farms f ON hr.farm_id = f.id
           LEFT JOIN poultry_batches pb ON hr.batch_id = pb.id
           WHERE DATE(hr.date) >= DATE('${dateLimit}')
+          ${orgWhere}
           ORDER BY hr.date DESC
           LIMIT 5
         `);
@@ -3147,11 +3201,16 @@ class FastDatabaseService {
         return [];
       }
 
+      // CRITICAL FIX: Only return records that need sync AND don't have a server_id yet
+      // Records with server_id are already synced, even if needs_sync = 1 (old data)
       const records = this.db.getAllSync(
-        `SELECT * FROM ${tableName} WHERE needs_sync = 1 AND (is_deleted = 0 OR is_deleted IS NULL)`
+        `SELECT * FROM ${tableName}
+         WHERE needs_sync = 1
+         AND (server_id IS NULL OR server_id = '')
+         AND (is_deleted = 0 OR is_deleted IS NULL)`
       );
 
-      console.log(`📊 FastDatabase: Found ${records.length} unsynced records in ${tableName}`);
+      console.log(`📊 FastDatabase: Found ${records.length} unsynced records in ${tableName} (without server_id)`);
       return records || [];
     } catch (error) {
       console.error(`❌ FastDatabase: Failed to get unsynced records from ${tableName}:`, error.message);
@@ -4129,6 +4188,63 @@ class FastDatabaseService {
       return totalDeleted;
     } catch (error) {
       console.error('❌ FastDatabase: Failed to clear unsynced records:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * NUCLEAR OPTION: Clear ALL data from the database
+   * This will delete everything and reset to a clean state
+   */
+  clearAllData() {
+    try {
+      if (!this.isReady || !this.db) {
+        const initResult = this.init();
+        if (!initResult || !this.db) {
+          throw new Error('Database not available');
+        }
+      }
+
+      console.log('🔥 CLEARING ALL DATABASE DATA...');
+
+      const tables = [
+        'farms',
+        'poultry_batches',
+        'feed_records',
+        'production_records',
+        'mortality_records',
+        'health_records',
+        'water_records',
+        'weight_records',
+        'vaccination_records',
+        'expenses',
+        'sync_queue',
+        'sync_conflicts',
+        'id_mappings',
+        'analytics_dashboard_cache',
+        'analytics_financial_cache',
+        'analytics_performance_cache',
+        'analytics_trends_cache'
+      ];
+
+      let totalDeleted = 0;
+
+      for (const table of tables) {
+        try {
+          const result = this.db.runSync(`DELETE FROM ${table}`);
+          const count = result.changes || 0;
+          totalDeleted += count;
+          console.log(`   🗑️ Deleted ${count} records from ${table}`);
+        } catch (tableError) {
+          console.warn(`   ⚠️ Could not clear ${table}:`, tableError.message);
+        }
+      }
+
+      console.log(`🔥 FastDatabase: Cleared ${totalDeleted} total records from ALL tables`);
+      console.log('✅ Database reset complete - restart the app to re-sync fresh data');
+      return totalDeleted;
+    } catch (error) {
+      console.error('❌ FastDatabase: Failed to clear all data:', error);
       throw error;
     }
   }

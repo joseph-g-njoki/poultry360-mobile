@@ -113,7 +113,7 @@ const CustomPicker = ({
                     {
                       backgroundColor:
                         item.value === selectedValue
-                          ? theme.colors.primaryLight || theme.colors.primary + '20'
+                          ? (theme.colors.primary ? theme.colors.primary + '20' : '#2E8B5720')
                           : 'transparent',
                     },
                   ]}

@@ -31,7 +31,7 @@ const ExpensesScreen = ({ navigation, route }) => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <ActivityIndicator size="large" color="#2E8B57" />
-        <Text style={{ fontSize: 14, color: theme.colors.textSecondary, marginTop: 10 }}>Loading...</Text>
+        <Text style={{ fontSize: 14, color: '#666666', marginTop: 10 }}>Loading...</Text>
       </View>
     );
   }

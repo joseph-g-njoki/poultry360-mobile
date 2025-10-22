@@ -37,7 +37,7 @@ const LoginScreen = ({ navigation, route }) => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <Text style={{ fontSize: 18, color: '#FF3B30', marginBottom: 10 }}>Context Error</Text>
-        <Text style={{ fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#666666', textAlign: 'center' }}>
           Required app contexts are not available. Please restart the app.
         </Text>
       </View>

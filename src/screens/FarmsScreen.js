@@ -19,6 +19,7 @@ import { useLanguage } from '../context/LanguageContext';
 import fastApiService from '../services/fastApiService';
 import OfflineIndicator, { SyncStatusBadge } from '../components/OfflineIndicator';
 import CustomPicker from '../components/CustomPicker';
+import DataEventBus from '../services/dataEventBus';
 
 const FarmsScreen = () => {
   const { theme } = useTheme();
@@ -46,8 +47,23 @@ const FarmsScreen = () => {
 
     loadFarms();
 
+    // Subscribe to DataEventBus events for real-time updates
+    const handleFarmEvent = () => {
+      console.log('🔄 FarmsScreen: Farm event received, reloading farms...');
+      if (isMountedRef.current) {
+        loadFarms(false); // Reload without showing loading indicator
+      }
+    };
+
+    DataEventBus.on('FARM_CREATED', handleFarmEvent);
+    DataEventBus.on('FARM_UPDATED', handleFarmEvent);
+    DataEventBus.on('FARM_DELETED', handleFarmEvent);
+
     return () => {
       isMountedRef.current = false;
+      DataEventBus.off('FARM_CREATED', handleFarmEvent);
+      DataEventBus.off('FARM_UPDATED', handleFarmEvent);
+      DataEventBus.off('FARM_DELETED', handleFarmEvent);
     };
   }, []);
 
@@ -229,7 +245,7 @@ const FarmsScreen = () => {
 
       console.log('✅ FARM SAVE OPERATION COMPLETED SUCCESSFULLY');
       closeModal();
-      await loadFarms(); // Wait for farms to reload
+      // DataEventBus will automatically refresh farms - no need to call loadFarms()
 
       // ALWAYS trigger dashboard refresh after successful save
       console.log('🔄 Farm saved - dashboard refresh triggered');
@@ -258,7 +274,7 @@ const FarmsScreen = () => {
               if (response.success) {
                 Alert.alert(t('common.success'), t('farms.farmDeleted'));
                 console.log('✅ Farm deleted successfully');
-                await loadFarms(); // Reload farms to reflect deletion
+                // DataEventBus will automatically refresh farms - no need to call loadFarms()
 
                 // Trigger dashboard refresh after farm delete
                 triggerDashboardRefresh();
@@ -393,8 +409,8 @@ const FarmsScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary]}
+              tintColor={theme?.colors?.primary || '#10B981'}
+              colors={[theme?.colors?.primary || '#10B981']}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -539,7 +555,7 @@ const styles = (theme) => StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: {
-    color: theme.colors.buttonText,
+    color: '#ffffff',
     fontWeight: 'bold',
   },
   farmsList: {
@@ -649,7 +665,7 @@ const styles = (theme) => StyleSheet.create({
     borderRadius: 8,
   },
   emptyButtonText: {
-    color: theme.colors.buttonText,
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -723,7 +739,7 @@ const styles = (theme) => StyleSheet.create({
     marginLeft: 10,
   },
   saveButtonText: {
-    color: theme.colors.buttonText,
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',

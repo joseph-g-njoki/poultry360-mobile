@@ -17,6 +17,8 @@
 import NetInfo from '@react-native-community/netinfo';
 import offlineDataService from './offlineDataService';
 import offlineFirstService from './offlineFirstService';
+import apiService from './api';
+import fastDatabase from './fastDatabase';
 
 class AutoSyncService {
   constructor() {
@@ -135,17 +137,65 @@ class AutoSyncService {
       // Sync each record
       for (const record of unsyncedRecords) {
         try {
+          // DEBUG: Log the raw SQLite record
+          console.log(`[AutoSync] 🔍 DEBUG: Raw SQLite record for ${tableName}:`, JSON.stringify(record, null, 2));
+
+          // CRITICAL FIX: Resolve foreign key references to server IDs
+          await this.resolveForeignKeys(tableName, record);
+
           // Convert database record to API format
           const apiData = this.convertToApiFormat(tableName, record);
 
-          // Send to API using offlineFirstService methods
-          await offlineFirstService[methodName](apiData);
+          console.log(`[AutoSync] 🔍 DEBUG: Converted API data:`, JSON.stringify(apiData, null, 2));
+          console.log(`[AutoSync] 📤 Sending ${tableName} record ${record.id} to backend...`);
 
-          // Mark as synced
-          await offlineDataService.markAsSynced(tableName, record.id);
+          // FIXED: Call apiService directly to send to backend (don't use offlineFirstService)
+          // offlineFirstService tries to save to SQLite again, causing field name errors
+          let serverResponse;
+          switch (tableName) {
+            case 'farms':
+              serverResponse = await apiService.createFarm(apiData);
+              break;
+            case 'poultry_batches':
+              serverResponse = await apiService.createFlock(apiData);
+              break;
+            case 'feed_records':
+              serverResponse = await apiService.createFeedRecord(apiData);
+              break;
+            case 'production_records':
+              serverResponse = await apiService.createProductionRecord(apiData);
+              break;
+            case 'mortality_records':
+              serverResponse = await apiService.createMortalityRecord(apiData);
+              break;
+            case 'health_records':
+              serverResponse = await apiService.createHealthRecord(apiData);
+              break;
+            case 'water_records':
+              serverResponse = await apiService.createWaterRecord(apiData);
+              break;
+            case 'weight_records':
+              serverResponse = await apiService.createWeightRecord(apiData);
+              break;
+            case 'vaccination_records':
+              serverResponse = await apiService.createVaccinationRecord(apiData);
+              break;
+            default:
+              throw new Error(`Unsupported table for sync: ${tableName}`);
+          }
+
+          console.log(`[AutoSync] ✅ Backend returned server_id: ${serverResponse.id}`);
+
+          // Update local SQLite record with server_id and mark as synced
+          fastDatabase.db.runSync(
+            `UPDATE ${tableName}
+             SET server_id = ?, needs_sync = 0, is_synced = 1, synced_at = ?
+             WHERE id = ?`,
+            [String(serverResponse.id), new Date().toISOString(), record.id]
+          );
 
           result.synced++;
-          console.log(`[AutoSync] ✅ Synced ${tableName} record ${record.id}`);
+          console.log(`[AutoSync] ✅ Synced ${tableName} record ${record.id} → server_id ${serverResponse.id}`);
         } catch (error) {
           result.failed++;
           result.errors.push({
@@ -162,6 +212,45 @@ class AutoSyncService {
       console.error(`[AutoSync] Error syncing table ${tableName}:`, error);
       result.errors.push({ error: error.message });
       return result;
+    }
+  }
+
+  /**
+   * Resolve foreign key references from local IDs to server IDs
+   * Modifies the record in place to replace local IDs with server IDs
+   */
+  async resolveForeignKeys(tableName, record) {
+    try {
+      // Resolve farm_id to server_id
+      if (record.farm_id) {
+        const farm = fastDatabase.db.getFirstSync(
+          `SELECT server_id FROM farms WHERE id = ?`,
+          [record.farm_id]
+        );
+        if (farm && farm.server_id) {
+          console.log(`[AutoSync] 🔗 Resolved farm_id ${record.farm_id} → server_id ${farm.server_id}`);
+          record.farm_id = parseInt(farm.server_id, 10);
+        } else {
+          console.warn(`[AutoSync] ⚠️ Farm ${record.farm_id} has no server_id - may fail on backend`);
+        }
+      }
+
+      // Resolve batch_id to server_id
+      if (record.batch_id) {
+        const batch = fastDatabase.db.getFirstSync(
+          `SELECT server_id FROM poultry_batches WHERE id = ?`,
+          [record.batch_id]
+        );
+        if (batch && batch.server_id) {
+          console.log(`[AutoSync] 🔗 Resolved batch_id ${record.batch_id} → server_id ${batch.server_id}`);
+          record.batch_id = parseInt(batch.server_id, 10);
+        } else {
+          console.warn(`[AutoSync] ⚠️ Batch ${record.batch_id} has no server_id - may fail on backend`);
+        }
+      }
+    } catch (error) {
+      console.error(`[AutoSync] ❌ Error resolving foreign keys:`, error);
+      // Don't throw - let the sync attempt proceed
     }
   }
 
@@ -191,20 +280,22 @@ class AutoSyncService {
       case 'poultry_batches':
         return {
           ...apiData,
-          batchName: record.batch_name,
+          batchName: record.batch_name || record.name,
+          birdType: record.bird_type,  // ✅ REQUIRED by backend
           breed: record.breed,
           initialCount: record.initial_count,
           currentCount: record.current_count,
-          arrivalDate: record.arrival_date,
+          arrivalDate: record.arrival_date || record.start_date,
           status: record.status
         };
 
       case 'feed_records':
         return {
           ...apiData,
-          quantity: record.quantity,
+          quantityKg: record.quantity_kg || record.quantity,
           feedType: record.feed_type,
-          cost: record.cost
+          cost: record.cost,
+          recordDate: record.date || record.date_fed
         };
 
       case 'production_records':
@@ -215,10 +306,15 @@ class AutoSyncService {
         };
 
       case 'mortality_records':
+        // CRITICAL FIX: Backend validation requires 'deaths' to be a positive number
+        const deathCount = record.count || record.death_count || record.deaths || 0;
+        if (!deathCount || deathCount < 1) {
+          throw new Error(`Invalid death count: ${deathCount}. Mortality records must have at least 1 death.`);
+        }
         return {
           ...apiData,
-          count: record.count,
-          cause: record.cause
+          deaths: parseInt(deathCount, 10),  // Backend expects 'deaths' not 'count'
+          cause: record.cause || record.mortality_cause || 'Unknown'
         };
 
       case 'health_records':
@@ -234,17 +330,19 @@ class AutoSyncService {
           quantityLiters: record.quantity_liters,
           waterSource: record.water_source,
           quality: record.quality,
-          temperature: record.temperature,
-          dateRecorded: record.date_recorded
+          temperature: record.temperature_celsius || record.temperature,  // SYNC FIX: Map temperature_celsius
+          dateRecorded: record.date_recorded || record.date
         };
 
       case 'weight_records':
         return {
           ...apiData,
-          averageWeight: record.average_weight,
+          // SYNC FIX: Send weight in kg (api.js will convert to grams)
+          averageWeight: record.average_weight_kg || (record.average_weight_grams / 1000),
           sampleSize: record.sample_size,
-          weightUnit: record.weight_unit || 'kg',
-          dateRecorded: record.date_recorded
+          minWeight: record.min_weight_grams ? record.min_weight_grams / 1000 : undefined,
+          maxWeight: record.max_weight_grams ? record.max_weight_grams / 1000 : undefined,
+          dateRecorded: record.date_recorded || record.date
         };
 
       default:

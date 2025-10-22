@@ -1027,7 +1027,8 @@ class FastDatabaseService {
     // For demo/offline mode, we'll use a simple reversible encoding
     // This allows us to validate passwords without external dependencies
     try {
-      return Buffer.from(password).toString('base64');
+      // React Native compatible base64 encoding (Buffer doesn't exist in RN)
+      return btoa(unescape(encodeURIComponent(password)));
     } catch (error) {
       console.error('❌ FastDatabase: Password hashing failed:', error.message);
       return null;
@@ -1475,35 +1476,41 @@ class FastDatabaseService {
         console.log(`   Farm ${farm.id}: "${farm.farm_name}" - organization_id: ${farm.organization_id}`);
       });
 
-      // Build WHERE clause for organization filtering
+      // Build WHERE clause for organization filtering AND soft-delete filter
       const orgFilter = this.currentOrganizationId
-        ? `WHERE organization_id = ${this.currentOrganizationId}`
-        : '';
-      const farmsQuery = `SELECT COUNT(*) as count FROM farms ${orgFilter}`;
+        ? `organization_id = ${this.currentOrganizationId}`
+        : '1=1';
+      const farmsQuery = `SELECT COUNT(*) as count FROM farms WHERE ${orgFilter} AND (is_deleted = 0 OR is_deleted IS NULL)`;
       console.log(`📝 Query: ${farmsQuery}`);
 
       const farms = this.db.getFirstSync(farmsQuery);
       console.log('✅ FastDatabase: Farms count result:', farms);
 
       console.log('🔄 FastDatabase: Querying batches count...');
-      // For batches, join with farms to filter by organization
+      // For batches, join with farms to filter by organization AND exclude deleted farms
       const batchesQuery = this.currentOrganizationId
         ? `SELECT COUNT(*) as count FROM poultry_batches pb
            INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE f.organization_id = ${this.currentOrganizationId}`
-        : `SELECT COUNT(*) as count FROM poultry_batches`;
+           WHERE f.organization_id = ${this.currentOrganizationId}
+           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)`
+        : `SELECT COUNT(*) as count FROM poultry_batches pb
+           INNER JOIN farms f ON pb.farm_id = f.id
+           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)`;
       console.log(`📝 Query: ${batchesQuery}`);
 
       const batches = this.db.getFirstSync(batchesQuery);
       console.log('✅ FastDatabase: Batches count result:', batches);
 
-      // Calculate total birds from batches in user's organization only
+      // Calculate total birds from batches in user's organization only AND exclude deleted farms
       console.log('🔄 FastDatabase: Calculating total birds...');
       const totalBirdsQuery = this.currentOrganizationId
         ? `SELECT SUM(pb.current_count) as total FROM poultry_batches pb
            INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE f.organization_id = ${this.currentOrganizationId}`
-        : `SELECT SUM(current_count) as total FROM poultry_batches`;
+           WHERE f.organization_id = ${this.currentOrganizationId}
+           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)`
+        : `SELECT SUM(pb.current_count) as total FROM poultry_batches pb
+           INNER JOIN farms f ON pb.farm_id = f.id
+           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)`;
       console.log(`📝 Query: ${totalBirdsQuery}`);
 
       const totalBirdsResult = this.db.getFirstSync(totalBirdsQuery);
@@ -1514,7 +1521,7 @@ class FastDatabaseService {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       console.log('🔄 FastDatabase: Today\'s date for queries:', today);
 
-      // Get today's egg production (filtered by organization)
+      // Get today's egg production (filtered by organization AND exclude deleted farms)
       console.log('🔄 FastDatabase: Querying today\'s egg production...');
       const todayEggsQuery = this.currentOrganizationId
         ? `SELECT SUM(pr.eggs_collected) as total
@@ -1522,16 +1529,20 @@ class FastDatabaseService {
            INNER JOIN poultry_batches pb ON pr.batch_id = pb.id
            INNER JOIN farms f ON pb.farm_id = f.id
            WHERE f.organization_id = ${this.currentOrganizationId}
+           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)
            AND DATE(COALESCE(pr.date, pr.date_recorded, pr.created_at)) = DATE('${today}')`
-        : `SELECT SUM(eggs_collected) as total
-           FROM production_records
-           WHERE DATE(COALESCE(date, date_recorded, created_at)) = DATE('${today}')`;
+        : `SELECT SUM(pr.eggs_collected) as total
+           FROM production_records pr
+           INNER JOIN poultry_batches pb ON pr.batch_id = pb.id
+           INNER JOIN farms f ON pb.farm_id = f.id
+           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)
+           AND DATE(COALESCE(pr.date, pr.date_recorded, pr.created_at)) = DATE('${today}')`;
       console.log(`📝 Query: ${todayEggsQuery}`);
 
       const todayEggs = this.db.getFirstSync(todayEggsQuery);
       console.log('✅ FastDatabase: Today\'s eggs result:', todayEggs);
 
-      // Get today's mortality (filtered by organization)
+      // Get today's mortality (filtered by organization AND exclude deleted farms)
       console.log('🔄 FastDatabase: Querying today\'s mortality...');
       const todayDeathsQuery = this.currentOrganizationId
         ? `SELECT SUM(mr.count) as total
@@ -1539,10 +1550,14 @@ class FastDatabaseService {
            INNER JOIN poultry_batches pb ON mr.batch_id = pb.id
            INNER JOIN farms f ON pb.farm_id = f.id
            WHERE f.organization_id = ${this.currentOrganizationId}
+           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)
            AND DATE(COALESCE(mr.date, mr.date_recorded, mr.created_at)) = DATE('${today}')`
-        : `SELECT SUM(count) as total
-           FROM mortality_records
-           WHERE DATE(date) = DATE('${today}')`;
+        : `SELECT SUM(mr.count) as total
+           FROM mortality_records mr
+           INNER JOIN poultry_batches pb ON mr.batch_id = pb.id
+           INNER JOIN farms f ON pb.farm_id = f.id
+           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)
+           AND DATE(COALESCE(mr.date, mr.date_recorded, mr.created_at)) = DATE('${today}')`;
       console.log(`📝 Query: ${todayDeathsQuery}`);
 
       const todayDeaths = this.db.getFirstSync(todayDeathsQuery);
@@ -1961,6 +1976,9 @@ class FastDatabaseService {
         needsSync: needsSync
       });
 
+      // FIELD MAPPING FIX: Support both camelCase and snake_case field names
+      const arrivalDate = batchData.arrivalDate || batchData.arrival_date || batchData.startDate || now;
+
       const result = this.db.runSync(
         `INSERT INTO poultry_batches (batch_name, bird_type, breed, initial_count, current_count, farm_id, server_farm_id, arrival_date, status, server_id, needs_sync, synced_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1972,7 +1990,7 @@ class FastDatabaseService {
           currentCountNum,
           farmIdNum,
           serverFarmId,
-          batchData.arrivalDate,
+          arrivalDate,
           batchData.status || 'active',
           serverId,
           needsSync,
@@ -2029,6 +2047,9 @@ class FastDatabaseService {
         throw new Error('Database runSync method not available');
       }
 
+      // FIELD MAPPING FIX: Support both camelCase and snake_case field names
+      const arrivalDate = batchData.arrivalDate || batchData.arrival_date || batchData.startDate;
+
       this.db.runSync(
         `UPDATE poultry_batches SET batch_name = ?, breed = ?, initial_count = ?, current_count = ?, farm_id = ?, arrival_date = ?, status = ? WHERE id = ?`,
         [
@@ -2037,7 +2058,7 @@ class FastDatabaseService {
           batchData.initialCount,
           batchData.currentCount || batchData.initialCount,
           batchData.farmId,
-          batchData.arrivalDate,
+          arrivalDate,
           batchData.status || 'active',
           batchId
         ]
@@ -2207,9 +2228,12 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // FIELD MAPPING FIX: Support both camelCase and snake_case field names
+      const date = recordData.date || recordData.recordDate || recordData.record_date;
+
       const result = this.db.runSync(
         `INSERT INTO health_records (farm_id, batch_id, date, health_status, treatment, notes) VALUES (?, ?, ?, ?, ?, ?)`,
-        [recordData.farmId, recordData.batchId, recordData.date, recordData.healthStatus, recordData.treatment, recordData.notes]
+        [recordData.farmId, recordData.batchId, date, recordData.healthStatus, recordData.treatment, recordData.notes]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
@@ -2284,16 +2308,29 @@ class FastDatabaseService {
       this.beginTransaction();
 
       try {
+        // FIELD MAPPING FIX: Support both camelCase and snake_case field names
+        const date = recordData.date || recordData.recordDate || recordData.record_date || recordData.deathDate || recordData.death_date;
+
         const result = this.db.runSync(
           `INSERT INTO mortality_records (farm_id, batch_id, date, count, cause, notes) VALUES (?, ?, ?, ?, ?, ?)`,
-          [recordData.farmId, recordData.batchId, recordData.date, recordData.count, recordData.cause, recordData.notes]
+          [recordData.farmId, recordData.batchId, date, recordData.count, recordData.cause, recordData.notes]
         );
 
-        // Update batch current count
-        this.db.runSync(
-          `UPDATE poultry_batches SET current_count = current_count - ? WHERE id = ?`,
-          [recordData.count, recordData.batchId]
-        );
+        // CRITICAL FIX: Only update batch count if this is a NEW offline record
+        // If needs_sync = 0, the server already updated the count and fastApiService.js
+        // already set the correct count at line 416-417, so we should NOT subtract again
+        const isAlreadySynced = recordData.needs_sync === 0 || recordData.server_id;
+
+        if (!isAlreadySynced) {
+          // This is a new offline record - update batch current count
+          console.log(`🔄 FastDatabase: Reducing batch ${recordData.batchId} count by ${recordData.count} (offline record)`);
+          this.db.runSync(
+            `UPDATE poultry_batches SET current_count = current_count - ? WHERE id = ?`,
+            [recordData.count, recordData.batchId]
+          );
+        } else {
+          console.log(`⏭️  FastDatabase: Skipping batch count update (already handled by server)`);
+        }
 
         // BUGFIX: Use commitTransaction() method instead of direct SQL
         this.commitTransaction();
@@ -2470,9 +2507,12 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // FIELD MAPPING FIX: Support both camelCase and snake_case field names
+      const waterSource = recordData.waterSource || recordData.water_source;
+
       const result = this.db.runSync(
         `INSERT INTO water_records (batch_id, farm_id, date_recorded, quantity_liters, water_source, quality, temperature_celsius, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [recordData.batchId, recordData.farmId, recordData.dateRecorded, recordData.quantityLiters, recordData.waterSource, recordData.quality, recordData.temperature, recordData.notes]
+        [recordData.batchId, recordData.farmId, recordData.dateRecorded, recordData.quantityLiters, waterSource, recordData.quality, recordData.temperature, recordData.notes]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
@@ -2544,18 +2584,40 @@ class FastDatabaseService {
         throw new Error('Invalid weight record data provided');
       }
 
+      // FIELD MAPPING FIX: Support both camelCase and snake_case field names
+      const averageWeightGrams = recordData.averageWeightGrams || recordData.average_weight_grams;
+      const averageWeightKg = recordData.averageWeightKg || recordData.average_weight_kg;
+
+      // CRITICAL FIX: Validate required fields
+      if (!recordData.averageWeight && !averageWeightGrams) {
+        throw new Error('Weight record must have averageWeight or averageWeightGrams');
+      }
+
+      if (!recordData.sampleSize) {
+        throw new Error('Weight record must have sampleSize');
+      }
+
       // CRITICAL FIX: Ensure database is ready
       if (!this.ensureDatabaseReady()) {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
-      // Convert weight to both kg and grams based on weightUnit
-      const weightInKg = recordData.weightUnit === 'kg' ? recordData.averageWeight : recordData.averageWeight / 1000;
-      const weightInGrams = recordData.weightUnit === 'kg' ? recordData.averageWeight * 1000 : recordData.averageWeight;
+      // Convert weight to both kg and grams based on weightUnit or available data
+      let weightInKg, weightInGrams;
+
+      if (averageWeightGrams) {
+        // Server sent grams - use it directly
+        weightInGrams = averageWeightGrams;
+        weightInKg = averageWeightKg || weightInGrams / 1000;
+      } else if (recordData.averageWeight) {
+        // Local data - convert based on unit
+        weightInKg = recordData.weightUnit === 'kg' ? recordData.averageWeight : recordData.averageWeight / 1000;
+        weightInGrams = recordData.weightUnit === 'kg' ? recordData.averageWeight * 1000 : recordData.averageWeight;
+      }
 
       const result = this.db.runSync(
         `INSERT INTO weight_records (batch_id, farm_id, date_recorded, average_weight_kg, average_weight_grams, sample_size, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [recordData.batchId, recordData.farmId, recordData.dateRecorded, weightInKg, weightInGrams, recordData.sampleSize, recordData.notes]
+        [recordData.batchId, recordData.farmId, recordData.dateRecorded || recordData.date, weightInKg, weightInGrams, recordData.sampleSize, recordData.notes || '']
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {

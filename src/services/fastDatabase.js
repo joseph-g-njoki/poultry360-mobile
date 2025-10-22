@@ -577,11 +577,14 @@ class FastDatabaseService {
             arrival_date TEXT,
             age_weeks INTEGER,
             status TEXT DEFAULT 'active',
+            organization_id INTEGER,
+            notes TEXT,
             needs_sync INTEGER DEFAULT 1,
             synced_at TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
             FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
           );
         `);
@@ -640,11 +643,13 @@ class FastDatabaseService {
             recorded_by INTEGER,
             vet_id INTEGER,
             notes TEXT,
+            organization_id INTEGER,
             needs_sync INTEGER DEFAULT 1,
             synced_at TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
             FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE,
             FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE
           );
@@ -722,11 +727,13 @@ class FastDatabaseService {
             temperature_celsius REAL,
             recorded_by INTEGER,
             notes TEXT,
+            organization_id INTEGER,
             needs_sync INTEGER DEFAULT 1,
             synced_at TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
             FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE,
             FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
           );
@@ -751,11 +758,13 @@ class FastDatabaseService {
             age_weeks INTEGER,
             recorded_by INTEGER,
             notes TEXT,
+            organization_id INTEGER,
             needs_sync INTEGER DEFAULT 1,
             synced_at TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
             FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE,
             FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
           );
@@ -1480,37 +1489,31 @@ class FastDatabaseService {
       const orgFilter = this.currentOrganizationId
         ? `organization_id = ${this.currentOrganizationId}`
         : '1=1';
-      const farmsQuery = `SELECT COUNT(*) as count FROM farms WHERE ${orgFilter} AND (is_deleted = 0 OR is_deleted IS NULL)`;
+      const farmsQuery = `SELECT COUNT(*) as count FROM farms WHERE ${orgFilter}`;
       console.log(`📝 Query: ${farmsQuery}`);
 
       const farms = this.db.getFirstSync(farmsQuery);
       console.log('✅ FastDatabase: Farms count result:', farms);
 
       console.log('🔄 FastDatabase: Querying batches count...');
-      // For batches, join with farms to filter by organization AND exclude deleted farms
+      // For batches, join with farms to filter by organization
       const batchesQuery = this.currentOrganizationId
         ? `SELECT COUNT(*) as count FROM poultry_batches pb
            INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE f.organization_id = ${this.currentOrganizationId}
-           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)`
-        : `SELECT COUNT(*) as count FROM poultry_batches pb
-           INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)`;
+           WHERE f.organization_id = ${this.currentOrganizationId}`
+        : `SELECT COUNT(*) as count FROM poultry_batches pb`;
       console.log(`📝 Query: ${batchesQuery}`);
 
       const batches = this.db.getFirstSync(batchesQuery);
       console.log('✅ FastDatabase: Batches count result:', batches);
 
-      // Calculate total birds from batches in user's organization only AND exclude deleted farms
+      // Calculate total birds from batches in user's organization only
       console.log('🔄 FastDatabase: Calculating total birds...');
       const totalBirdsQuery = this.currentOrganizationId
         ? `SELECT SUM(pb.current_count) as total FROM poultry_batches pb
            INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE f.organization_id = ${this.currentOrganizationId}
-           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)`
-        : `SELECT SUM(pb.current_count) as total FROM poultry_batches pb
-           INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)`;
+           WHERE f.organization_id = ${this.currentOrganizationId}`
+        : `SELECT SUM(pb.current_count) as total FROM poultry_batches pb`;
       console.log(`📝 Query: ${totalBirdsQuery}`);
 
       const totalBirdsResult = this.db.getFirstSync(totalBirdsQuery);
@@ -1521,7 +1524,7 @@ class FastDatabaseService {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       console.log('🔄 FastDatabase: Today\'s date for queries:', today);
 
-      // Get today's egg production (filtered by organization AND exclude deleted farms)
+      // Get today's egg production (filtered by organization)
       console.log('🔄 FastDatabase: Querying today\'s egg production...');
       const todayEggsQuery = this.currentOrganizationId
         ? `SELECT SUM(pr.eggs_collected) as total
@@ -1529,20 +1532,16 @@ class FastDatabaseService {
            INNER JOIN poultry_batches pb ON pr.batch_id = pb.id
            INNER JOIN farms f ON pb.farm_id = f.id
            WHERE f.organization_id = ${this.currentOrganizationId}
-           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)
            AND DATE(COALESCE(pr.date, pr.date_recorded, pr.created_at)) = DATE('${today}')`
         : `SELECT SUM(pr.eggs_collected) as total
            FROM production_records pr
-           INNER JOIN poultry_batches pb ON pr.batch_id = pb.id
-           INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)
-           AND DATE(COALESCE(pr.date, pr.date_recorded, pr.created_at)) = DATE('${today}')`;
+           WHERE DATE(COALESCE(pr.date, pr.date_recorded, pr.created_at)) = DATE('${today}')`;
       console.log(`📝 Query: ${todayEggsQuery}`);
 
       const todayEggs = this.db.getFirstSync(todayEggsQuery);
       console.log('✅ FastDatabase: Today\'s eggs result:', todayEggs);
 
-      // Get today's mortality (filtered by organization AND exclude deleted farms)
+      // Get today's mortality (filtered by organization)
       console.log('🔄 FastDatabase: Querying today\'s mortality...');
       const todayDeathsQuery = this.currentOrganizationId
         ? `SELECT SUM(mr.count) as total
@@ -1550,14 +1549,10 @@ class FastDatabaseService {
            INNER JOIN poultry_batches pb ON mr.batch_id = pb.id
            INNER JOIN farms f ON pb.farm_id = f.id
            WHERE f.organization_id = ${this.currentOrganizationId}
-           AND (f.is_deleted = 0 OR f.is_deleted IS NULL)
            AND DATE(COALESCE(mr.date, mr.date_recorded, mr.created_at)) = DATE('${today}')`
         : `SELECT SUM(mr.count) as total
            FROM mortality_records mr
-           INNER JOIN poultry_batches pb ON mr.batch_id = pb.id
-           INNER JOIN farms f ON pb.farm_id = f.id
-           WHERE (f.is_deleted = 0 OR f.is_deleted IS NULL)
-           AND DATE(COALESCE(mr.date, mr.date_recorded, mr.created_at)) = DATE('${today}')`;
+           WHERE DATE(COALESCE(mr.date, mr.date_recorded, mr.created_at)) = DATE('${today}')`;
       console.log(`📝 Query: ${todayDeathsQuery}`);
 
       const todayDeaths = this.db.getFirstSync(todayDeathsQuery);
@@ -1655,9 +1650,9 @@ class FastDatabaseService {
 
       // Apply organization filter
       const orgFilter = this.currentOrganizationId
-        ? `AND organization_id = ${this.currentOrganizationId}`
+        ? `WHERE organization_id = ${this.currentOrganizationId}`
         : '';
-      const farmsQuery = `SELECT * FROM farms WHERE (is_deleted = 0 OR is_deleted IS NULL) ${orgFilter}`;
+      const farmsQuery = `SELECT * FROM farms ${orgFilter}`;
       console.log(`📝 Query: ${farmsQuery}`);
       console.log(`🏢 Filtering by organization_id: ${this.currentOrganizationId || 'NONE'}`);
 
@@ -1942,7 +1937,7 @@ class FastDatabaseService {
       }
 
       const farmExists = this.db.getFirstSync(
-        `SELECT id, farm_name FROM farms WHERE id = ? AND (is_deleted = 0 OR is_deleted IS NULL)`,
+        `SELECT id, farm_name FROM farms WHERE id = ?`,
         [farmIdNum]
       );
 
@@ -1950,7 +1945,7 @@ class FastDatabaseService {
 
       if (!farmExists) {
         console.error(`❌ FastDatabase: Farm with ID ${farmIdNum} does not exist in database`);
-        console.error(`   Searched for: id = ${farmIdNum} AND (is_deleted = 0 OR is_deleted IS NULL)`);
+        console.error(`   Searched for: id = ${farmIdNum}`);
         throw new Error(`Farm with ID ${farmIdNum} not found. Please select a valid farm from the list.`);
       }
       console.log(`✅ FastDatabase: Farm ${farmIdNum} ("${farmExists.farm_name}") exists, proceeding with batch creation`);
@@ -3268,8 +3263,7 @@ class FastDatabaseService {
       const records = this.db.getAllSync(
         `SELECT * FROM ${tableName}
          WHERE needs_sync = 1
-         AND (server_id IS NULL OR server_id = '')
-         AND (is_deleted = 0 OR is_deleted IS NULL)`
+         AND (server_id IS NULL OR server_id = '')`
       );
 
       console.log(`📊 FastDatabase: Found ${records.length} unsynced records in ${tableName} (without server_id)`);
@@ -3452,21 +3446,6 @@ class FastDatabaseService {
     });
   }
 
-  // SOFT DELETE operation (sets is_deleted = 1)
-  softDelete(tableName, id) {
-    return this.executeWithRetry(() => {
-      if (!this.ensureDatabaseReady()) {
-        throw new Error('Database not ready for soft delete');
-      }
-
-      const query = `UPDATE ${tableName} SET is_deleted = 1, updated_at = ? WHERE id = ?`;
-      const now = new Date().toISOString();
-
-      const result = this.db.runSync(query, [now, id]);
-      return result.changes;
-    });
-  }
-
   // EMERGENCY RECOVERY - Reinitialize database from scratch
   async emergencyRecovery() {
     try {
@@ -3527,7 +3506,7 @@ class FastDatabaseService {
       console.log('[FastDatabase] Analytics date range:', { startDateStr, endDateStr, today });
 
       // ========== OVERVIEW SECTION ==========
-      const farmsResult = this.db.getFirstSync(`SELECT COUNT(*) as count FROM farms WHERE is_deleted = 0 OR is_deleted IS NULL`);
+      const farmsResult = this.db.getFirstSync(`SELECT COUNT(*) as count FROM farms`);
       const totalFarms = farmsResult?.count || 0;
 
       const batchesResult = this.db.getFirstSync(`SELECT COUNT(*) as count FROM poultry_batches`);

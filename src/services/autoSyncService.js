@@ -307,15 +307,39 @@ class AutoSyncService {
 
       case 'mortality_records':
         // CRITICAL FIX: Backend validation requires 'deaths' to be a positive number
-        const deathCount = record.count || record.death_count || record.deaths || 0;
+        console.log(`[AutoSync] 🔍 Mortality record raw fields:`, {
+          count: record.count,
+          death_count: record.death_count,
+          deaths: record.deaths,
+          cause: record.cause
+        });
+
+        const deathCount = record.count || record.death_count || record.deaths;
+        console.log(`[AutoSync] 🔍 Extracted death count: ${deathCount} (type: ${typeof deathCount})`);
+
         if (!deathCount || deathCount < 1) {
-          throw new Error(`Invalid death count: ${deathCount}. Mortality records must have at least 1 death.`);
+          const errorMsg = `Invalid death count: ${deathCount}. Mortality record ${record.id} has no deaths - marking as synced to skip. Raw record: ${JSON.stringify(record)}`;
+          console.error(`[AutoSync] ⚠️ ${errorMsg}`);
+
+          // CRITICAL FIX: Instead of throwing an error, mark this invalid record as synced
+          // so it doesn't keep trying to sync. Invalid mortality records (0 deaths) should be
+          // removed from the database or fixed manually.
+          fastDatabase.db.runSync(
+            `UPDATE mortality_records SET needs_sync = 0, is_synced = 1, synced_at = ? WHERE id = ?`,
+            [new Date().toISOString(), record.id]
+          );
+
+          throw new Error(errorMsg); // Still throw to count as failed, but won't retry
         }
-        return {
+
+        const apiPayload = {
           ...apiData,
           deaths: parseInt(deathCount, 10),  // Backend expects 'deaths' not 'count'
           cause: record.cause || record.mortality_cause || 'Unknown'
         };
+
+        console.log(`[AutoSync] 📤 Sending mortality API payload:`, apiPayload);
+        return apiPayload;
 
       case 'health_records':
         return {

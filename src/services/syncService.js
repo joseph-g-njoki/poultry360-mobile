@@ -1088,6 +1088,8 @@ class SyncService {
         if (serverRecord.farmId) mapped.farm_id = serverRecord.farmId;
         // CRITICAL FIX: Map birdType to breed (backend sends birdType, mobile has breed column)
         if (serverRecord.birdType) mapped.breed = serverRecord.birdType;
+        // CRITICAL FIX: Map arrivalDate to arrival_date (backend sends arrivalDate, mobile uses arrival_date)
+        if (serverRecord.arrivalDate) mapped.arrival_date = serverRecord.arrivalDate;
 
         // Clean up ALL unmapped camelCase fields for poultry_batches
         delete mapped.batchName;
@@ -1099,6 +1101,7 @@ class SyncService {
         delete mapped.expectedEndDate;
         delete mapped.farmId; // Will be cleaned by universal cleanup
         delete mapped.birdType; // CRITICAL FIX: Delete after mapping to breed
+        delete mapped.arrivalDate; // CRITICAL FIX: Delete after mapping to arrival_date
         break;
 
       case 'feed_records':
@@ -1162,9 +1165,15 @@ class SyncService {
         delete mapped.recordDate; // Backend uses recordDate, mobile uses date
         // DO NOT map 'weight' field - it doesn't exist in production_records schema
         delete mapped.weight;
+        // CRITICAL FIX: Backend sends 'batch' object that doesn't exist in mobile schema
+        delete mapped.batch;
         break;
 
       case 'mortality_records':
+        // Map recordDate to date field (backend sends recordDate, mobile uses date)
+        if (serverRecord.recordDate && !mapped.date) {
+          mapped.date = serverRecord.recordDate;
+        }
         if (serverRecord.ageWeeks) mapped.age_weeks = serverRecord.ageWeeks;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
         // CRITICAL FIX: Map deaths to count (backend sends deaths, mobile has count column)
@@ -1175,9 +1184,14 @@ class SyncService {
         delete mapped.batchId;
         delete mapped.farmId; // Will be cleaned by universal cleanup
         delete mapped.deaths; // CRITICAL FIX: Delete after mapping to count
+        delete mapped.recordDate; // CRITICAL FIX: Delete after mapping to date
         break;
 
       case 'health_records':
+        // Map recordDate to date field (backend sends recordDate, mobile uses date)
+        if (serverRecord.recordDate && !mapped.date) {
+          mapped.date = serverRecord.recordDate;
+        }
         if (serverRecord.healthIssue) mapped.health_issue = serverRecord.healthIssue;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
 
@@ -1186,11 +1200,14 @@ class SyncService {
         delete mapped.batchId;
         delete mapped.farmId; // Will be cleaned by universal cleanup
         delete mapped.vetId; // CRITICAL FIX: Backend sends vetId but mobile doesn't have this column
+        delete mapped.recordDate; // CRITICAL FIX: Delete after mapping to date
         break;
 
       case 'water_records':
         if (serverRecord.quantityLiters) mapped.quantity_liters = serverRecord.quantityLiters;
         if (serverRecord.sourceType) mapped.source_type = serverRecord.sourceType;
+        // CRITICAL FIX: Map waterSource to source_type if sourceType doesn't exist
+        if (serverRecord.waterSource && !mapped.source_type) mapped.source_type = serverRecord.waterSource;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
         // CRITICAL FIX: Map dateRecorded to date (backend sends dateRecorded, mobile uses date)
         if (serverRecord.dateRecorded && !mapped.date) mapped.date = serverRecord.dateRecorded;
@@ -1198,6 +1215,7 @@ class SyncService {
         // Clean up ALL unmapped camelCase fields for water_records
         delete mapped.quantityLiters;
         delete mapped.sourceType;
+        delete mapped.waterSource; // CRITICAL FIX: Delete after mapping to source_type
         delete mapped.batchId;
         delete mapped.farmId; // Will be cleaned by universal cleanup
         delete mapped.dateRecorded; // CRITICAL FIX: Delete after mapping to date
@@ -1205,6 +1223,8 @@ class SyncService {
 
       case 'weight_records':
         if (serverRecord.averageWeight) mapped.average_weight = serverRecord.averageWeight;
+        // CRITICAL FIX: Map averageWeightGrams to average_weight if averageWeight doesn't exist
+        if (serverRecord.averageWeightGrams && !mapped.average_weight) mapped.average_weight = serverRecord.averageWeightGrams;
         if (serverRecord.sampleSize) mapped.sample_size = serverRecord.sampleSize;
         if (serverRecord.weightUnit) mapped.weight_unit = serverRecord.weightUnit;
         if (serverRecord.batchId) mapped.batch_id = serverRecord.batchId;
@@ -1213,6 +1233,7 @@ class SyncService {
 
         // Clean up ALL unmapped camelCase fields for weight_records
         delete mapped.averageWeight;
+        delete mapped.averageWeightGrams; // CRITICAL FIX: Delete after mapping to average_weight
         delete mapped.sampleSize;
         delete mapped.weightUnit;
         delete mapped.batchId;

@@ -46,6 +46,31 @@ class OfflineDataService {
     return null;
   }
 
+  // Check if a table has organization_id column
+  tableHasOrganizationId(tableName) {
+    try {
+      // Tables that should NOT have organization_id
+      if (tableName === 'organizations' || tableName === 'sync_queue') {
+        return false;
+      }
+
+      // Check if database is ready
+      if (!databaseService || !databaseService.db || !databaseService.isReady) {
+        return false;
+      }
+
+      // Get table schema
+      const columns = databaseService.db.getAllSync(`PRAGMA table_info(${tableName})`);
+      const columnNames = columns.map(col => col.name);
+
+      return columnNames.includes('organization_id');
+    } catch (error) {
+      // If table doesn't exist or any error, assume no organization_id column
+      console.warn(`Could not check organization_id column for ${tableName}:`, error.message);
+      return false;
+    }
+  }
+
   // Initialize the database with enhanced error handling
   async init() {
     let retryCount = 0;
@@ -245,8 +270,8 @@ class OfflineDataService {
       let whereClause = includeDeleted ? '' : 'is_deleted = 0';
       let whereValues = includeDeleted ? [] : [0];
 
-      // Add organization filter if we have an orgId and table has organization_id column
-      if (orgId && tableName !== 'organizations' && tableName !== 'sync_queue') {
+      // CRITICAL FIX: Only add organization filter if column exists AND we have an orgId
+      if (orgId && this.tableHasOrganizationId(tableName)) {
         if (whereClause) {
           whereClause += ' AND organization_id = ?';
           whereValues.push(orgId);
@@ -326,8 +351,8 @@ class OfflineDataService {
 
       let fullWhereValues = includeDeleted ? whereValues : [...whereValues, 0];
 
-      // Add organization filter if we have an orgId
-      if (orgId && tableName !== 'organizations' && tableName !== 'sync_queue') {
+      // CRITICAL FIX: Only add organization filter if column exists AND we have an orgId
+      if (orgId && this.tableHasOrganizationId(tableName)) {
         if (fullWhereClause) {
           fullWhereClause += ' AND organization_id = ?';
           fullWhereValues.push(orgId);
@@ -368,8 +393,8 @@ class OfflineDataService {
         : 'is_deleted = 0';
       let fullWhereValues = [...whereValues, 0];
 
-      // Add organization filter if we have an orgId
-      if (orgId && tableName !== 'organizations' && tableName !== 'sync_queue') {
+      // CRITICAL FIX: Only add organization filter if column exists AND we have an orgId
+      if (orgId && this.tableHasOrganizationId(tableName)) {
         fullWhereClause += ' AND organization_id = ?';
         fullWhereValues.push(orgId);
       }

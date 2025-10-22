@@ -1105,6 +1105,7 @@ class SyncService {
         delete mapped.birdType; // CRITICAL FIX: Delete after mapping to breed
         delete mapped.arrivalDate; // CRITICAL FIX: Delete after mapping to arrival_date
         delete mapped.ageWeeks; // CRITICAL FIX: Delete after mapping to age_weeks
+        delete mapped.notes; // CRITICAL FIX: Backend sends notes but mobile doesn't have this column
         break;
 
       case 'feed_records':
@@ -1192,6 +1193,8 @@ class SyncService {
         delete mapped.recordDate; // CRITICAL FIX: Delete after mapping to date
         // CRITICAL FIX: Backend sends 'batch' object that doesn't exist in mobile schema
         delete mapped.batch;
+        // CRITICAL FIX: Backend sends 'user' object that doesn't exist in mobile schema
+        delete mapped.user;
         break;
 
       case 'health_records':
@@ -1210,6 +1213,8 @@ class SyncService {
         delete mapped.recordDate; // CRITICAL FIX: Delete after mapping to date
         // CRITICAL FIX: Backend sends 'healthStatus' that doesn't exist in mobile schema
         delete mapped.healthStatus;
+        // CRITICAL FIX: Backend sends 'treatmentDate' that doesn't exist in mobile schema
+        delete mapped.treatmentDate;
         break;
 
       case 'water_records':
@@ -1230,6 +1235,8 @@ class SyncService {
         delete mapped.dateRecorded; // CRITICAL FIX: Delete after mapping to date
         // CRITICAL FIX: Backend sends 'temperature' that doesn't exist in mobile schema
         delete mapped.temperature;
+        // CRITICAL FIX: Backend sends 'batch' object that doesn't exist in mobile schema
+        delete mapped.batch;
         break;
 
       case 'weight_records':
@@ -1253,6 +1260,7 @@ class SyncService {
         // CRITICAL FIX: Backend sends fields that don't exist in mobile schema
         delete mapped.minWeightGrams;
         delete mapped.maxWeightGrams;
+        delete mapped.ageWeeks; // CRITICAL FIX: Backend sends ageWeeks but mobile doesn't have this column
         break;
     }
 

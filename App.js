@@ -400,6 +400,13 @@ export default function App() {
             // No need to call separate migration service - fastDatabase already migrated the schema
             console.log('✅ Background: Database migrations complete (handled by fastDatabase)');
 
+            // CLEANUP: Remove any invalid mortality records (0 deaths) that may cause sync failures
+            try {
+              fastDatabase.cleanupInvalidMortalityRecords();
+            } catch (cleanupError) {
+              console.warn('⚠️ Background: Failed to cleanup invalid mortality records:', cleanupError);
+            }
+
             // Initialize auto-sync service
             autoSyncService.init();
             console.log('✅ Background: Auto-sync service initialized');

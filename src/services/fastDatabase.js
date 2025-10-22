@@ -4289,6 +4289,51 @@ class FastDatabaseService {
       throw error;
     }
   }
+
+  /**
+   * Clean up invalid mortality records (0 or null death counts)
+   * These can be created by data corruption or failed operations
+   */
+  cleanupInvalidMortalityRecords() {
+    try {
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database not ready');
+      }
+
+      console.log('[FastDatabase] 🔍 Checking for invalid mortality records...');
+
+      // Find records with invalid death counts
+      const invalidRecords = this.db.getAllSync(
+        `SELECT id, count, death_count, deaths FROM mortality_records
+         WHERE (count IS NULL OR count = 0)
+         AND (death_count IS NULL OR death_count = 0)
+         AND (deaths IS NULL OR deaths = 0)`
+      );
+
+      console.log(`[FastDatabase] Found ${invalidRecords.length} invalid mortality records`);
+
+      if (invalidRecords.length > 0) {
+        console.log('[FastDatabase] Invalid records:', invalidRecords);
+
+        // Delete invalid records
+        const result = this.db.runSync(
+          `DELETE FROM mortality_records
+           WHERE (count IS NULL OR count = 0)
+           AND (death_count IS NULL OR death_count = 0)
+           AND (deaths IS NULL OR deaths = 0)`
+        );
+
+        console.log(`[FastDatabase] ✅ Deleted ${result.changes} invalid mortality records`);
+        return result.changes;
+      }
+
+      console.log('[FastDatabase] ✅ No invalid mortality records found');
+      return 0;
+    } catch (error) {
+      console.error('❌ FastDatabase: Failed to cleanup invalid mortality records:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

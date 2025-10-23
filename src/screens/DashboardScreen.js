@@ -16,6 +16,7 @@ import { useOffline } from '../context/OfflineContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
 import fastApiService from '../services/fastApiService';
 import notificationService from '../services/notificationService';
+import mortalityMonitor from '../services/mortalityMonitor';
 import dataEventBus, { EventTypes } from '../services/dataEventBus';
 import OfflineIndicator from '../components/OfflineIndicator';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -51,6 +52,7 @@ const DashboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dataSource, setDataSource] = useState(null);
+  const [mortalityAlerts, setMortalityAlerts] = useState([]);
 
   // CRASH FIX: Track component mount status with ref to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -230,6 +232,13 @@ const DashboardScreen = ({ navigation }) => {
         setDashboardData(processedData);
         setDataSource(result.source || 'database');
         console.log('✅ INSTANT DISPLAY: Dashboard data loaded from local storage');
+
+        // Load mortality alerts
+        const alerts = await mortalityMonitor.getActiveMortalityAlerts();
+        if (isMountedRef.current) {
+          setMortalityAlerts(alerts || []);
+          console.log(`📊 Loaded ${alerts?.length || 0} active mortality alerts`);
+        }
       } else {
         // No data found - show zero state
         const emptyData = {
@@ -497,6 +506,100 @@ const DashboardScreen = ({ navigation }) => {
           )}
         </View>
       </View>
+
+      {/* Mortality Alerts */}
+      {mortalityAlerts.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Mortality Alerts ⚠️</Text>
+
+          <View style={[styles.alertsContainer, { backgroundColor: theme.colors.cardBackground }]}>
+            {mortalityAlerts.map((alert, index) => {
+              const alertColors = {
+                warning: { bg: '#FFF3CD', border: '#FFC107', text: '#856404' },
+                critical: { bg: '#FFE5E5', border: '#FF9800', text: '#CC0000' },
+                emergency: { bg: '#FFD6D6', border: '#F44336', text: '#B71C1C' }
+              };
+
+              const colors = alertColors[alert.alertLevel] || alertColors.warning;
+              const icons = {
+                warning: '⚡',
+                critical: '⚠️',
+                emergency: '🚨'
+              };
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.alertCard,
+                    {
+                      backgroundColor: colors.bg,
+                      borderLeftColor: colors.border,
+                      borderLeftWidth: 4
+                    }
+                  ]}
+                  onPress={() => {
+                    // Navigate to batch details or records
+                    navigation.navigate('Batches');
+                  }}
+                >
+                  <View style={styles.alertHeader}>
+                    <Text style={[styles.alertIcon, { fontSize: 24 }]}>
+                      {icons[alert.alertLevel]}
+                    </Text>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={[styles.alertTitle, { color: colors.text }]}>
+                        {alert.batchName}
+                      </Text>
+                      <Text style={[styles.alertSubtitle, { color: colors.text, opacity: 0.8 }]}>
+                        Age: {alert.ageInWeeks} weeks
+                      </Text>
+                    </View>
+                    <View style={[styles.alertBadge, { backgroundColor: colors.border }]}>
+                      <Text style={[styles.alertBadgeText, { color: '#FFF' }]}>
+                        {alert.alertLevel.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.alertDetails}>
+                    <View style={styles.alertStat}>
+                      <Text style={[styles.alertStatLabel, { color: colors.text, opacity: 0.7 }]}>
+                        Today's Rate:
+                      </Text>
+                      <Text style={[styles.alertStatValue, { color: colors.text }]}>
+                        {alert.todayRate.toFixed(2)}%
+                      </Text>
+                    </View>
+
+                    <View style={styles.alertStat}>
+                      <Text style={[styles.alertStatLabel, { color: colors.text, opacity: 0.7 }]}>
+                        Total Rate:
+                      </Text>
+                      <Text style={[styles.alertStatValue, { color: colors.text }]}>
+                        {alert.cumulativeRate.toFixed(2)}%
+                      </Text>
+                    </View>
+
+                    <View style={styles.alertStat}>
+                      <Text style={[styles.alertStatLabel, { color: colors.text, opacity: 0.7 }]}>
+                        Trend:
+                      </Text>
+                      <Text style={[styles.alertStatValue, { color: colors.text }]}>
+                        {alert.trend === 'increasing' ? '📈' : alert.trend === 'decreasing' ? '📉' : '➡️'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={[styles.alertAction, { color: colors.border }]}>
+                    Tap for details →
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* Recent Activities */}
       <View style={styles.section}>
@@ -865,6 +968,68 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+  },
+  // Mortality Alerts Styles
+  alertsContainer: {
+    borderRadius: 10,
+    padding: 10,
+  },
+  alertCard: {
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  alertIcon: {
+    fontSize: 24,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  alertSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  alertBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  alertBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  alertDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  alertStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  alertStatLabel: {
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  alertStatValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  alertAction: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'right',
   },
 });
 

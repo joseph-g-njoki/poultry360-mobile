@@ -15,6 +15,7 @@ import {
 import CustomPicker from '../components/CustomPicker';
 import fastApiService from '../services/fastApiService';
 import notificationService from '../services/notificationService';
+import mortalityMonitor from '../services/mortalityMonitor';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
@@ -291,6 +292,8 @@ const RecordsScreen = ({ route, navigation }) => {
       cause: '',
       eggsCollected: '',
       weight: '',
+      brokenEggs: '',
+      abnormalEggs: '',
       quantityLiters: '',
       waterSource: 'Borehole',
       quality: 'Clean',
@@ -357,11 +360,22 @@ const RecordsScreen = ({ route, navigation }) => {
           recordData.cause = formData.cause;
           console.log('🔄 Creating mortality record with fastApiService...');
           await fastApiService.createRecord('mortality', recordData);
+
+          // SMART FEATURE: Check for mortality alerts after creating record
+          console.log('🔍 Checking mortality alert thresholds...');
+          const alertResult = await mortalityMonitor.checkMortalityAlert(recordData.batchId, recordData.count);
+          if (alertResult?.alerted) {
+            console.log('📢 Mortality alert triggered:', alertResult.level);
+          } else if (alertResult) {
+            console.log(`✅ Mortality within acceptable range (${alertResult.rate.toFixed(2)}%)`);
+          }
           break;
 
         case 'production':
           recordData.eggsCollected = parseInt(formData.eggsCollected) || 0;
           recordData.weight = parseFloat(formData.weight) || 0;
+          recordData.brokenEggs = parseInt(formData.brokenEggs) || 0;
+          recordData.abnormalEggs = parseInt(formData.abnormalEggs) || 0;
           console.log('🔄 Creating production record with fastApiService...');
           await fastApiService.createRecord('production', recordData);
           break;
@@ -570,15 +584,19 @@ const RecordsScreen = ({ route, navigation }) => {
         case 'production':
           // Handle both camelCase and snake_case from database
           const eggsCollected = item.eggsCollected || item.eggs_collected || 0;
-          const productionWeight = item.weight || item.total_weight || item.egg_weight_avg || 0;
+          const productionWeight = item.weight || item.total_weight || item.egg_weight_avg || item.eggWeightAvg || 0;
+          const brokenEggs = item.brokenEggs || item.broken_eggs || 0;
+          const abnormalEggs = item.abnormalEggs || item.abnormal_eggs || 0;
 
           // DEBUG: Log production record to see field names
           console.log('🔍 Production record item:', JSON.stringify(item, null, 2));
 
           return (
             <View style={styles(theme).recordContent}>
-              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🥚 {eggsCollected} eggs</Text>
-              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚖️ {productionWeight} kg</Text>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>🥚 {eggsCollected} eggs collected</Text>
+              {productionWeight > 0 && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚖️ Weight: {productionWeight} kg</Text>}
+              {brokenEggs > 0 && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>💔 Broken: {brokenEggs}</Text>}
+              {abnormalEggs > 0 && <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚠️ Abnormal: {abnormalEggs}</Text>}
             </View>
           );
         case 'water':
@@ -598,12 +616,14 @@ const RecordsScreen = ({ route, navigation }) => {
           );
         case 'weight':
           // Handle both camelCase and snake_case from database
-          const avgWeight = item.averageWeight || item.average_weight || 0;
+          // CRITICAL: Backend stores weight in grams, need to convert to kg for display
+          const avgWeightGrams = item.averageWeightGrams || item.average_weight_grams || 0;
+          const avgWeightKg = item.averageWeight || item.average_weight || (avgWeightGrams / 1000);
           const sampleSize = item.sampleSize || item.sample_size || 0;
 
           return (
             <View style={styles(theme).recordContent}>
-              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚖️ Average: {avgWeight} kg</Text>
+              <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>⚖️ Average: {avgWeightKg.toFixed(2)} kg</Text>
               <Text style={[styles(theme).recordDetail, { color: theme.colors.text }]}>📊 Sample: {sampleSize} birds</Text>
             </View>
           );
@@ -868,6 +888,44 @@ const RecordsScreen = ({ route, navigation }) => {
                   value={formData.weight}
                   onChangeText={(text) =>
                     setFormData(prev => ({ ...prev, weight: text }))
+                  }
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles(theme).row}>
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Broken Eggs</Text>
+                <TextInput
+                  style={[styles(theme).formInput, {
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: theme.colors.inputBorder,
+                    color: theme.colors.inputText
+                  }]}
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={formData.brokenEggs}
+                  onChangeText={(text) =>
+                    setFormData(prev => ({ ...prev, brokenEggs: text }))
+                  }
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={[styles(theme).formGroup, styles(theme).halfWidth]}>
+                <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Abnormal Eggs</Text>
+                <TextInput
+                  style={[styles(theme).formInput, {
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: theme.colors.inputBorder,
+                    color: theme.colors.inputText
+                  }]}
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={formData.abnormalEggs}
+                  onChangeText={(text) =>
+                    setFormData(prev => ({ ...prev, abnormalEggs: text }))
                   }
                   keyboardType="numeric"
                 />

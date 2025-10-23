@@ -93,6 +93,16 @@ class FastApiService {
 
       console.log(`✅ FastApiService: Login successful for ${email} with role ${user.role}`);
 
+      // SECURITY FIX: Validate that user has an organization_id
+      // CRITICAL: Never allow login without organization association in multi-tenant system
+      if (!user.organization_id) {
+        console.error(`❌ FastApiService: Login failed - user ${email} has no organization_id`);
+        return {
+          success: false,
+          error: 'User not associated with an organization. Please contact support.'
+        };
+      }
+
       // Store user data
       await AsyncStorage.setItem('userData', JSON.stringify(user));
       await AsyncStorage.setItem('authToken', 'offline_token');
@@ -106,9 +116,9 @@ class FastApiService {
             firstName: user.first_name,
             lastName: user.last_name,
             role: user.role,
-            organizationId: user.organization_id || 1,
-            organizationName: user.organization_name || 'Demo Organization',
-            organizationSlug: user.organization_slug || 'demo-org'
+            organizationId: user.organization_id,
+            organizationName: user.organization_name,
+            organizationSlug: user.organization_slug
           },
           token: 'offline_token'
         },

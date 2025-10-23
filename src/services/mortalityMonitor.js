@@ -305,7 +305,14 @@ class MortalityMonitor {
    */
   async sendAlert(alertMessage) {
     try {
-      console.log('📢 Sending mortality alert:', alertMessage.title);
+      console.log('📢 ========================================');
+      console.log('📢 MORTALITY ALERT NOTIFICATION');
+      console.log('📢 ========================================');
+      console.log('📢 Title:', alertMessage.title);
+      console.log('📢 Level:', alertMessage.level || 'warning');
+      console.log('📢 Batch:', alertMessage.batchName);
+      console.log('📢 Farm:', alertMessage.farmName);
+      console.log('📢 Rate:', alertMessage.rate);
 
       // Format notification body with recommendations
       const body = [
@@ -317,7 +324,10 @@ class MortalityMonitor {
         ...alertMessage.recommendations.map((r, i) => `${i + 1}. ${r}`)
       ].filter(Boolean).join('\n');
 
+      console.log('📢 Body preview:', body.substring(0, 100) + '...');
+
       // Use scheduleLocalNotification with data and 1 second delay (immediate)
+      console.log('📢 Calling notificationService.scheduleLocalNotification...');
       await notificationService.scheduleLocalNotification(
         alertMessage.title,
         body,
@@ -331,10 +341,17 @@ class MortalityMonitor {
         1 // Send after 1 second
       );
 
-      console.log('✅ Mortality alert notification scheduled');
+      console.log('✅ Mortality alert notification scheduled successfully!');
+      console.log('📢 ========================================');
       return true;
     } catch (error) {
-      console.error('❌ Error sending mortality alert:', error);
+      console.error('❌ ========================================');
+      console.error('❌ ERROR SENDING MORTALITY ALERT');
+      console.error('❌ ========================================');
+      console.error('❌ Error:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      console.error('❌ ========================================');
       return false;
     }
   }
@@ -504,6 +521,43 @@ class MortalityMonitor {
     } catch (error) {
       console.error('❌ Error getting active mortality alerts:', error);
       return [];
+    }
+  }
+
+  /**
+   * Test notification - sends a sample mortality alert
+   * Use this to verify notifications are working
+   */
+  async sendTestNotification() {
+    try {
+      console.log('🧪 Sending TEST mortality notification...');
+
+      const testAlert = {
+        title: '🧪 TEST: Mortality Alert',
+        body: 'This is a test notification to verify alerts are working correctly.',
+        level: 'warning',
+        batchName: 'Test Batch',
+        farmName: 'Test Farm',
+        rate: '5.00',
+        trend: '📊 This is a test',
+        recommendations: [
+          '✅ If you see this, notifications are working!',
+          '📱 Check your notification settings if you don\'t see this'
+        ]
+      };
+
+      const result = await this.sendAlert(testAlert);
+
+      if (result) {
+        console.log('✅ Test notification sent successfully!');
+        return { success: true, message: 'Test notification sent! Check your notifications.' };
+      } else {
+        console.log('❌ Test notification failed');
+        return { success: false, message: 'Test notification failed. Check console for errors.' };
+      }
+    } catch (error) {
+      console.error('❌ Test notification error:', error);
+      return { success: false, message: `Error: ${error.message}` };
     }
   }
 }

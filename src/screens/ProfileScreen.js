@@ -20,6 +20,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import DataBackupModal from '../components/DataBackupModal';
 import DatabaseDebugModal from '../components/DatabaseDebugModal';
+import mortalityMonitor from '../services/mortalityMonitor';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout, updateUser } = useAuth();
@@ -193,15 +194,32 @@ const ProfileScreen = ({ navigation }) => {
     );
   };
 
+  const handleTestNotification = async () => {
+    try {
+      setLoading(true);
+      const result = await mortalityMonitor.sendTestNotification();
+      setLoading(false);
+
+      if (result.success) {
+        Alert.alert('✅ Success', result.message);
+      } else {
+        Alert.alert('❌ Failed', result.message);
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('❌ Error', `Failed to send test notification: ${error.message}`);
+    }
+  };
+
   const handleLogout = useCallback(() => {
     try {
       Alert.alert(
-        String(t('auth.logout') || 'Logout'),
+        t('auth.logout') || 'Logout',
         'Are you sure you want to logout?',
         [
-          { text: String(t('common.cancel') || 'Cancel'), style: 'cancel' },
+          { text: t('common.cancel') || 'Cancel', style: 'cancel' },
           {
-            text: String(t('auth.logout') || 'Logout'),
+            text: t('auth.logout') || 'Logout',
             style: 'destructive',
             onPress: async () => {
               try {
@@ -260,7 +278,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleUpdateProfile = async () => {
     if (!editData.firstName.trim() || !editData.lastName.trim()) {
-      Alert.alert(String(t('common.error') || 'Error'), 'Please fill in first and last name');
+      Alert.alert(t('common.error') || 'Error', 'Please fill in first and last name');
       return;
     }
 
@@ -276,11 +294,11 @@ const ProfileScreen = ({ navigation }) => {
       };
 
       await updateUser(updatedUser);
-      Alert.alert(String(t('common.success') || 'Success'), 'Profile updated successfully');
+      Alert.alert(t('common.success') || 'Success', 'Profile updated successfully');
       closeEditModal();
     } catch (error) {
       console.error('Profile update error:', error);
-      Alert.alert(String(t('common.error') || 'Error'), 'Failed to update profile');
+      Alert.alert(t('common.error') || 'Error', 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -291,19 +309,18 @@ const ProfileScreen = ({ navigation }) => {
     // CRASH FIX: Added 't' to dependencies - it was missing and causing infinite loops
     const safeValue = React.useMemo(() => {
       if (value === null || value === undefined) {
-        return String(t('profile.notProvided') || 'Not Provided');
+        return t('profile.notProvided') || 'Not Provided';
       }
       // If value is an object, convert to JSON string for debugging
       if (typeof value === 'object') {
         console.warn('ProfileItem received object value for label:', label, value);
         return JSON.stringify(value);
       }
-      // Convert to string and ensure it's never an object
-      const stringValue = String(value);
-      return stringValue;
+      // Ensure value is a string
+      return String(value);
     }, [value, label, t]);
 
-    // SAFETY: Ensure label is also a string
+    // Ensure label is a string
     const safeLabel = String(label);
 
     return (
@@ -328,7 +345,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const MenuSection = ({ title, children }) => (
     <View style={styles(theme).menuSection}>
-      <Text style={[styles(theme).menuSectionTitle, { color: theme.colors.textSecondary }]}>{String(title)}</Text>
+      <Text style={[styles(theme).menuSectionTitle, { color: theme.colors.textSecondary }]}>{title}</Text>
       <View style={[styles(theme).menuSectionContent, { backgroundColor: theme.colors.cardBackground }]}>
         {children}
       </View>
@@ -338,8 +355,8 @@ const ProfileScreen = ({ navigation }) => {
   const MenuItem = ({ icon, title, onPress, color, showArrow = true, rightComponent }) => (
     <TouchableOpacity style={[styles(theme).menuItem, { borderBottomColor: theme.colors.border }]} onPress={onPress}>
       <View style={styles(theme).menuItemLeft}>
-        <Text style={styles(theme).menuItemIcon}>{String(icon)}</Text>
-        <Text style={[styles(theme).menuItemTitle, { color: color || theme.colors.text }]}>{String(title)}</Text>
+        <Text style={styles(theme).menuItemIcon}>{icon}</Text>
+        <Text style={[styles(theme).menuItemTitle, { color: color || theme.colors.text }]}>{title}</Text>
       </View>
       {rightComponent || (showArrow && <Text style={[styles(theme).menuItemArrow, { color: theme.colors.textLight }]}>›</Text>)}
     </TouchableOpacity>
@@ -353,13 +370,13 @@ const ProfileScreen = ({ navigation }) => {
     }
 
     const roleMap = {
-      manager: `👨‍💼 ${String(t('profile.manager') || 'Manager')}`,
-      admin: `⭐ ${String(t('profile.admin') || 'Admin')}`,
-      owner: `👑 ${String(t('profile.owner') || 'Owner')}`,
-      worker: `👷 ${String(t('profile.worker') || 'Worker')}`,
-      super_admin: `🔐 ${String(t('profile.superAdmin') || 'Super Admin')}`,
+      manager: `👨‍💼 ${t('profile.manager') || 'Manager'}`,
+      admin: `⭐ ${t('profile.admin') || 'Admin'}`,
+      owner: `👑 ${t('profile.owner') || 'Owner'}`,
+      worker: `👷 ${t('profile.worker') || 'Worker'}`,
+      super_admin: `🔐 ${t('profile.superAdmin') || 'Super Admin'}`,
     };
-    return roleMap[role] || `👷 ${String(t('profile.worker') || 'Worker')}`;
+    return roleMap[role] || `👷 ${t('profile.worker') || 'Worker'}`;
   };
 
   const getRoleBadgeColor = (role) => {
@@ -393,7 +410,7 @@ const ProfileScreen = ({ navigation }) => {
           ) : (
             <View style={styles(theme).avatar}>
               <Text style={[styles(theme).avatarText, { color: theme.colors.primary }]}>
-                {String(user?.firstName || 'U').charAt(0)}{String(user?.lastName || 'U').charAt(0)}
+                {(user?.firstName || 'U').charAt(0)}{(user?.lastName || 'U').charAt(0)}
               </Text>
             </View>
           )}
@@ -409,9 +426,9 @@ const ProfileScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         <Text style={[styles(theme).userName, { color: theme.colors.headerText }]}>
-          {String(user?.firstName || 'User')} {String(user?.lastName || '')}
+          {user?.firstName || ''} {user?.lastName || ''}
         </Text>
-        <Text style={[styles(theme).userEmail, { color: theme.colors.headerText }]}>{String(user?.email || '')}</Text>
+        <Text style={[styles(theme).userEmail, { color: theme.colors.headerText }]}>{user?.email || ''}</Text>
         <View style={[styles(theme).roleBadge, { backgroundColor: getRoleBadgeColor(user?.role) }]}>
           <Text style={styles(theme).roleBadgeText}>
             {getRoleDisplay(user?.role)}
@@ -421,49 +438,49 @@ const ProfileScreen = ({ navigation }) => {
           style={[styles(theme).editProfileButton, { backgroundColor: theme.colors.surface }]}
           onPress={openEditModal}
         >
-          <Text style={[styles(theme).editProfileButtonText, { color: theme.colors.primary }]}>{String(t('profile.editProfile') || 'Edit Profile')}</Text>
+          <Text style={[styles(theme).editProfileButtonText, { color: theme.colors.primary }]}>{t('profile.editProfile') || 'Edit Profile'}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Profile Details */}
-      <MenuSection title={String(t('profile.profileInformation') || 'Profile Information')}>
+      <MenuSection title={t('profile.profileInformation') || 'Profile Information'}>
         <ProfileItem
           icon="👤"
-          label={String(t('profile.fullName') || 'Full Name')}
-          value={`${String(user?.firstName || '')} ${String(user?.lastName || '')}`}
+          label={t('profile.fullName') || 'Full Name'}
+          value={`${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Not Provided'}
         />
         <ProfileItem
           icon="📧"
-          label={String(t('profile.email') || 'Email')}
-          value={String(user?.email || t('profile.notProvided') || 'Not Provided')}
+          label={t('profile.email') || 'Email'}
+          value={user?.email || 'Not Provided'}
         />
         <ProfileItem
           icon="📱"
-          label={String(t('profile.phone') || 'Phone')}
-          value={String(user?.phone || t('profile.notProvided') || 'Not Provided')}
+          label={t('profile.phone') || 'Phone'}
+          value={user?.phone || 'Not Provided'}
         />
         <ProfileItem
           icon="👥"
-          label={String(t('profile.role') || 'Role')}
-          value={typeof user?.role === 'object' ? 'User' : String(user?.role || 'User')}
+          label={t('profile.role') || 'Role'}
+          value={user?.role || 'User'}
         />
         <ProfileItem
           icon="📅"
-          label={String(t('profile.memberSince') || 'Member Since')}
-          value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+          label={t('profile.memberSince') || 'Member Since'}
+          value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : (user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not Available')}
         />
       </MenuSection>
 
       {/* App Settings */}
-      <MenuSection title={String(t('profile.appSettings') || 'App Settings')}>
+      <MenuSection title={t('profile.appSettings') || 'App Settings'}>
         <MenuItem
           icon="🔔"
-          title={String(t('settings.notifications') || 'Notifications')}
+          title={t('settings.notifications') || 'Notifications'}
           onPress={() => navigation.navigate('NotificationSettings')}
         />
         <MenuItem
           icon="🌙"
-          title={String(t('profile.darkMode') || 'Dark Mode')}
+          title={t('profile.darkMode') || 'Dark Mode'}
           onPress={() => {
             try {
               if (toggleTheme && typeof toggleTheme === 'function') {
@@ -492,7 +509,7 @@ const ProfileScreen = ({ navigation }) => {
         />
         <MenuItem
           icon="💾"
-          title={String(t('profile.dataBackup') || 'Data Backup')}
+          title={t('profile.dataBackup') || 'Data Backup'}
           onPress={() => setBackupModalVisible(true)}
         />
         <MenuItem
@@ -500,23 +517,29 @@ const ProfileScreen = ({ navigation }) => {
           title="Database Debug"
           onPress={() => setDbDebugModalVisible(true)}
         />
+        <MenuItem
+          icon="🔔"
+          title="Test Notifications"
+          subtitle="Send test mortality alert"
+          onPress={handleTestNotification}
+        />
       </MenuSection>
 
       {/* Support */}
-      <MenuSection title={String(t('profile.supportInfo') || 'Support & Info')}>
+      <MenuSection title={t('profile.supportInfo') || 'Support & Info'}>
         <MenuItem
           icon="❓"
-          title={String(t('profile.helpSupport') || 'Help & Support')}
+          title={t('profile.helpSupport') || 'Help & Support'}
           onPress={() => Alert.alert('Help', 'Contact support: support@poultry360.com')}
         />
         <MenuItem
           icon="📄"
-          title={String(t('profile.termsOfService') || 'Terms of Service')}
+          title={t('profile.termsOfService') || 'Terms of Service'}
           onPress={() => Alert.alert('Terms', 'Terms of service coming soon!')}
         />
         <MenuItem
           icon="🔒"
-          title={String(t('profile.privacyPolicy') || 'Privacy Policy')}
+          title={t('profile.privacyPolicy') || 'Privacy Policy'}
           onPress={() => {
             const { Linking } = require('react-native');
             Linking.openURL('https://raw.githubusercontent.com/joseph-g-njoki/poultry360/master/mobile/poultry360-mobile/privacy-policy.html')
@@ -525,8 +548,8 @@ const ProfileScreen = ({ navigation }) => {
         />
         <MenuItem
           icon="ℹ️"
-          title={String(t('settings.about') || 'About')}
-          onPress={() => Alert.alert(String(t('settings.about') || 'About'), 'Poultry360 v1.0.0\nPoultry Farm Management System')}
+          title={t('settings.about') || 'About'}
+          onPress={() => Alert.alert(t('settings.about') || 'About', 'Poultry360 v1.0.0\nPoultry Farm Management System')}
         />
       </MenuSection>
 
@@ -544,7 +567,7 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles(theme).logoutButtonText}>Logging out...</Text>
             </View>
           ) : (
-            <Text style={styles(theme).logoutButtonText}>🚪 {String(t('auth.logout') || 'Logout')}</Text>
+            <Text style={styles(theme).logoutButtonText}>🚪 {t('auth.logout') || 'Logout'}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -574,7 +597,7 @@ const ProfileScreen = ({ navigation }) => {
       >
         <View style={[styles(theme).modalOverlay, { backgroundColor: theme.colors.overlay }]}>
           <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles(theme).modalTitle, { color: theme.colors.text }]}>{String(t('profile.editProfile') || 'Edit Profile')}</Text>
+            <Text style={[styles(theme).modalTitle, { color: theme.colors.text }]}>{t('profile.editProfile') || 'Edit Profile'}</Text>
 
             <View style={styles(theme).formGroup}>
               <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>First Name *</Text>
@@ -637,7 +660,7 @@ const ProfileScreen = ({ navigation }) => {
                 onPress={closeEditModal}
                 disabled={loading}
               >
-                <Text style={[styles(theme).cancelButtonText, { color: theme.colors.text }]}>{String(t('common.cancel') || 'Cancel')}</Text>
+                <Text style={[styles(theme).cancelButtonText, { color: theme.colors.text }]}>{t('common.cancel') || 'Cancel'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles(theme).saveButton, { backgroundColor: theme.colors.primary }, loading && styles(theme).disabledButton]}
@@ -647,7 +670,7 @@ const ProfileScreen = ({ navigation }) => {
                 {loading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles(theme).saveButtonText}>{String(t('profile.saveChanges') || 'Save Changes')}</Text>
+                  <Text style={styles(theme).saveButtonText}>{t('profile.saveChanges') || 'Save Changes'}</Text>
                 )}
               </TouchableOpacity>
             </View>

@@ -825,18 +825,22 @@ const BatchesScreen = ({ route, navigation }) => {
 
               <View style={styles(theme).formGroup}>
                 <Text style={[styles(theme).formLabel, { color: theme.colors.text }]}>Bird Type *</Text>
-                <TextInput
-                  style={[styles(theme).formInput, {
-                    backgroundColor: theme.colors.inputBackground,
-                    borderColor: theme.colors.inputBorder,
-                    color: theme.colors.inputText
-                  }]}
-                  placeholder="Enter bird type (e.g., Broiler, Layer)"
-                  placeholderTextColor={theme.colors.placeholder}
-                  value={formData.birdType}
-                  onChangeText={(text) =>
-                    setFormData(prev => ({ ...prev, birdType: text }))
+                <CustomPicker
+                  selectedValue={formData.birdType}
+                  onValueChange={(value) =>
+                    setFormData(prev => ({ ...prev, birdType: value }))
                   }
+                  items={[
+                    { label: "-- Select bird type --", value: "" },
+                    { label: "Broiler", value: "Broiler" },
+                    { label: "Layer", value: "Layer" },
+                    { label: "Dual Purpose", value: "Dual Purpose" },
+                    { label: "Turkey", value: "Turkey" },
+                    { label: "Duck", value: "Duck" },
+                    { label: "Goose", value: "Goose" },
+                    { label: "Other", value: "Other" }
+                  ]}
+                  placeholder="Select bird type"
                 />
               </View>
 

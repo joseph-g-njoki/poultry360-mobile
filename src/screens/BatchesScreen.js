@@ -160,7 +160,18 @@ const BatchesScreen = ({ route, navigation }) => {
 
       // Update batches with real data
       if (batchesResponse?.success && Array.isArray(batchesResponse.data)) {
-        const batchesData = batchesResponse.data.map(batch => ({
+        // DEBUG: Log first batch to see what fields are available
+        if (batchesResponse.data.length > 0) {
+          console.log('🔍 DEBUG: First batch raw data:', JSON.stringify(batchesResponse.data[0], null, 2));
+        }
+
+        const batchesData = batchesResponse.data.map(batch => {
+          console.log(`🔍 Batch ${batch.id} fields:`, {
+            birdType: batch.birdType,
+            bird_type: batch.bird_type,
+            breed: batch.breed
+          });
+          return {
           id: batch.id,
           batchName: batch.batchName || batch.batch_name || batch.name || 'Unnamed Batch',
           farmId: batch.farmId || batch.farm_id,
@@ -169,7 +180,8 @@ const BatchesScreen = ({ route, navigation }) => {
           currentCount: batch.currentCount || batch.current_count || 0,
           arrivalDate: batch.arrivalDate || batch.arrival_date || batch.startDate || new Date().toISOString(),
           status: batch.status || 'active'
-        }));
+          };
+        });
 
         setBatches(batchesData);
         setDataSource('database');

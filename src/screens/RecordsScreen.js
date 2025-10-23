@@ -1264,13 +1264,22 @@ const RecordsScreen = ({ route, navigation }) => {
         {renderTabButton('vaccination', 'Vaccination', '💉')}
       </ScrollView>
 
-      {/* Filter Indicator */}
-      {filterBatchId && filterBatchName && (
+      {/* Filter Indicator - Only show on mortality tab when filter is active */}
+      {filterBatchId && filterBatchName && activeTab === 'mortality' && (
         <View style={[styles(theme).filterBanner, { backgroundColor: theme.colors.info + '20', borderBottomColor: theme.colors.info }]}>
           <Text style={[styles(theme).filterText, { color: theme.colors.info }]}>
             🔍 Showing {activeTab} records for: <Text style={{ fontWeight: 'bold' }}>{filterBatchName}</Text>
           </Text>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => {
+            console.log('🔄 Clearing batch filter - showing all mortality records');
+            // Clear the filter params to show all records
+            navigation.setParams({
+              batchId: undefined,
+              batchName: undefined
+            });
+            // Reload data to refresh the list
+            loadData();
+          }}>
             <Text style={[styles(theme).filterClearText, { color: theme.colors.info }]}>Clear Filter ✕</Text>
           </TouchableOpacity>
         </View>

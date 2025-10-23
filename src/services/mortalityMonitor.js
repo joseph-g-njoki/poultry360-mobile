@@ -307,12 +307,21 @@ class MortalityMonitor {
         ...alertMessage.recommendations.map((r, i) => `${i + 1}. ${r}`)
       ].filter(Boolean).join('\n');
 
-      await notificationService.scheduleNotification(
+      // Use scheduleLocalNotification with data and 1 second delay (immediate)
+      await notificationService.scheduleLocalNotification(
         alertMessage.title,
         body,
-        new Date(Date.now() + 1000) // Send immediately
+        {
+          type: 'mortality_alert',
+          level: alertMessage.level || 'warning',
+          batchName: alertMessage.batchName,
+          farmName: alertMessage.farmName,
+          rate: alertMessage.rate
+        },
+        1 // Send after 1 second
       );
 
+      console.log('✅ Mortality alert notification scheduled');
       return true;
     } catch (error) {
       console.error('❌ Error sending mortality alert:', error);

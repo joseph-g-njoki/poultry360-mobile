@@ -38,6 +38,10 @@ const RecordsScreen = ({ route, navigation }) => {
   const initialTab = route?.params?.initialTab || 'feed';
   const [activeTab, setActiveTab] = useState(initialTab); // feed, health, mortality, production, water, weight, vaccination
 
+  // Filter by batch if provided in route params
+  const filterBatchId = route?.params?.batchId;
+  const filterBatchName = route?.params?.batchName;
+
   // CRASH FIX: Track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
 
@@ -169,7 +173,17 @@ const RecordsScreen = ({ route, navigation }) => {
       // Load records for current tab
       if (recordsResponse?.success && Array.isArray(recordsResponse.data)) {
         // FIX #4: Implement pagination - only load first page initially
-        const allRecords = recordsResponse.data;
+        let allRecords = recordsResponse.data;
+
+        // Filter by batch if batchId is provided in route params
+        if (filterBatchId) {
+          allRecords = allRecords.filter(record => {
+            const recordBatchId = record.batchId || record.batch_id;
+            return recordBatchId == filterBatchId;
+          });
+          console.log(`🔍 Filtered ${activeTab} records for batch ${filterBatchName}: ${allRecords.length} records`);
+        }
+
         const paginatedRecords = allRecords.slice(0, RECORDS_PER_PAGE);
         setRecords(paginatedRecords);
         setHasMore(allRecords.length > RECORDS_PER_PAGE);
@@ -1250,6 +1264,18 @@ const RecordsScreen = ({ route, navigation }) => {
         {renderTabButton('vaccination', 'Vaccination', '💉')}
       </ScrollView>
 
+      {/* Filter Indicator */}
+      {filterBatchId && filterBatchName && (
+        <View style={[styles(theme).filterBanner, { backgroundColor: theme.colors.info + '20', borderBottomColor: theme.colors.info }]}>
+          <Text style={[styles(theme).filterText, { color: theme.colors.info }]}>
+            🔍 Showing {activeTab} records for: <Text style={{ fontWeight: 'bold' }}>{filterBatchName}</Text>
+          </Text>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={[styles(theme).filterClearText, { color: theme.colors.info }]}>Clear Filter ✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Records List */}
       {safeRecords.length === 0 ? (
         <View style={styles(theme).emptyContainer}>
@@ -1727,6 +1753,23 @@ const styles = (theme) => StyleSheet.create({
   periodText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Filter Banner Styles
+  filterBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 2,
+  },
+  filterText: {
+    fontSize: 14,
+    flex: 1,
+  },
+  filterClearText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 10,
   },
 });
 

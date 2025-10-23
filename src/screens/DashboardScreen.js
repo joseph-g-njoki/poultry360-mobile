@@ -539,8 +539,12 @@ const DashboardScreen = ({ navigation }) => {
                     }
                   ]}
                   onPress={() => {
-                    // Navigate to batch details or records
-                    navigation.navigate('Batches');
+                    // Navigate to mortality records for this batch
+                    navigation.navigate('Records', {
+                      initialTab: 'mortality',
+                      batchId: alert.batchId,
+                      batchName: alert.batchName
+                    });
                   }}
                 >
                   <View style={styles.alertHeader}>

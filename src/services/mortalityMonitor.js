@@ -126,9 +126,19 @@ class MortalityMonitor {
       const batch = fastDatabase.getBatchById(batchId);
       const currentCount = batch?.current_count || batch?.currentCount || 0;
 
-      // Calculate rate (deaths / current population * 100)
-      if (currentCount === 0) return 0;
-      return (todayDeaths / currentCount) * 100;
+      // CRITICAL FIX: Calculate rate based on population BEFORE today's deaths
+      // Current count has already been reduced by today's deaths, so add them back
+      const populationBeforeDeaths = currentCount + todayDeaths;
+
+      console.log(`📊 Today's mortality calculation for batch ${batchId}:`);
+      console.log(`  - Deaths today: ${todayDeaths}`);
+      console.log(`  - Current count (after deaths): ${currentCount}`);
+      console.log(`  - Population before deaths: ${populationBeforeDeaths}`);
+      console.log(`  - Rate: ${todayDeaths} / ${populationBeforeDeaths} = ${((todayDeaths / populationBeforeDeaths) * 100).toFixed(2)}%`);
+
+      // Calculate rate (deaths / population before deaths * 100)
+      if (populationBeforeDeaths === 0) return 0;
+      return (todayDeaths / populationBeforeDeaths) * 100;
 
     } catch (error) {
       console.error('❌ Error calculating today mortality rate:', error);

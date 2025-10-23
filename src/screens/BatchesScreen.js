@@ -21,6 +21,7 @@ import { useOffline } from '../context/OfflineContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
 import { useOptimizedFlatList } from '../hooks/useOptimizedFlatList';
 import { useFarms } from '../context/DataStoreContext';
+import dataEventBus from '../services/dataEventBus';
 
 const BatchesScreen = ({ route, navigation }) => {
   const { user } = useAuth();
@@ -94,8 +95,23 @@ const BatchesScreen = ({ route, navigation }) => {
 
     initializeAndLoadData();
 
+    // Subscribe to batch events for real-time updates
+    const handleBatchEvent = () => {
+      console.log('🔄 BatchesScreen: Batch event received, reloading batches...');
+      if (isMountedRef.current) {
+        loadData(false); // Reload without showing loading indicator
+      }
+    };
+
+    dataEventBus.subscribe('BATCH_CREATED', handleBatchEvent);
+    dataEventBus.subscribe('BATCH_UPDATED', handleBatchEvent);
+    dataEventBus.subscribe('BATCH_DELETED', handleBatchEvent);
+
     return () => {
       isMountedRef.current = false;
+      dataEventBus.unsubscribe('BATCH_CREATED', handleBatchEvent);
+      dataEventBus.unsubscribe('BATCH_UPDATED', handleBatchEvent);
+      dataEventBus.unsubscribe('BATCH_DELETED', handleBatchEvent);
     };
   }, []);
 
@@ -112,13 +128,9 @@ const BatchesScreen = ({ route, navigation }) => {
     }
   }, [route?.params?.openAddModal, loading, user?.role]);
 
-  // Listen for dashboard refresh triggers (e.g., when farms are created/updated in other screens)
-  useEffect(() => {
-    if (refreshTrigger > 0) {
-      console.log('🔄 BatchesScreen: Dashboard refresh triggered, reloading data...');
-      loadData(false); // Don't show loading indicator during refresh trigger
-    }
-  }, [refreshTrigger]);
+  // DataEventBus already handles all batch refreshes automatically
+  // No need to listen to dashboard refresh triggers for batches
+  // This useEffect was causing duplicate loads - removed to improve performance
 
   const loadData = async (showLoadingIndicator = true) => {
     // CRASH FIX: Check mount status before any state updates
@@ -150,12 +162,12 @@ const BatchesScreen = ({ route, navigation }) => {
       if (batchesResponse?.success && Array.isArray(batchesResponse.data)) {
         const batchesData = batchesResponse.data.map(batch => ({
           id: batch.id,
-          batchName: batch.batchName || batch.name || 'Unnamed Batch',
-          farmId: batch.farmId,
-          birdType: batch.birdType || batch.breed || 'Unknown',
-          initialCount: batch.initialCount || 0,
-          currentCount: batch.currentCount || 0,
-          arrivalDate: batch.arrivalDate || batch.startDate || new Date().toISOString(),
+          batchName: batch.batchName || batch.batch_name || batch.name || 'Unnamed Batch',
+          farmId: batch.farmId || batch.farm_id,
+          birdType: batch.birdType || batch.bird_type || batch.breed || 'Not specified',
+          initialCount: batch.initialCount || batch.initial_count || 0,
+          currentCount: batch.currentCount || batch.current_count || 0,
+          arrivalDate: batch.arrivalDate || batch.arrival_date || batch.startDate || new Date().toISOString(),
           status: batch.status || 'active'
         }));
 
@@ -280,12 +292,12 @@ const BatchesScreen = ({ route, navigation }) => {
     // Set form data with current state
     setEditingBatch(batch);
     setFormData({
-      batchName: batch?.batchName || batch?.name || '',
-      farmId: batch?.farmId || (currentFarms.length > 0 ? String(currentFarms[0].id) : ''),
-      birdType: batch?.batchType || batch?.breed || '',
-      initialCount: batch?.initialCount?.toString() || '',
-      currentCount: batch?.currentCount?.toString() || '',
-      arrivalDate: batch?.arrivalDate || batch?.startDate || new Date().toISOString().split('T')[0],
+      batchName: batch?.batchName || batch?.batch_name || batch?.name || '',
+      farmId: batch?.farmId || batch?.farm_id || (currentFarms.length > 0 ? String(currentFarms[0].id) : ''),
+      birdType: batch?.birdType || batch?.bird_type || batch?.breed || '',
+      initialCount: batch?.initialCount?.toString() || batch?.initial_count?.toString() || '',
+      currentCount: batch?.currentCount?.toString() || batch?.current_count?.toString() || '',
+      arrivalDate: batch?.arrivalDate || batch?.arrival_date || batch?.startDate || new Date().toISOString().split('T')[0],
       status: batch?.status || 'active',
     });
 
@@ -488,15 +500,9 @@ const BatchesScreen = ({ route, navigation }) => {
       console.log('✅ BATCH SAVE OPERATION COMPLETED SUCCESSFULLY');
       closeModal();
 
-      // CRASH FIX: Wrap data reload in try-catch to prevent crash if reload fails
-      try {
-        await loadData(); // Wait for data to reload
-      } catch (reloadError) {
-        console.warn('⚠️ Data reload failed after save:', reloadError);
-        // Don't throw - batch was saved successfully, reload is secondary
-      }
+      // DataEventBus will automatically refresh batches - no need to call loadData()
+      // Dashboard refresh will also trigger via DataEventBus
 
-      // ALWAYS trigger dashboard refresh after successful save
       console.log('🔄 Batch saved - dashboard refresh triggered');
       triggerDashboardRefresh();
 
@@ -535,7 +541,7 @@ const BatchesScreen = ({ route, navigation }) => {
               if (response.success) {
                 Alert.alert('Success', 'Deleted successfully!');
                 console.log('✅ Batch deleted successfully');
-                await loadData(); // Reload data to reflect deletion
+                // DataEventBus will automatically refresh batches - no need to call loadData()
 
                 // Trigger dashboard refresh after batch delete
                 triggerDashboardRefresh();
@@ -635,7 +641,7 @@ const BatchesScreen = ({ route, navigation }) => {
 
         <View style={styles(theme).batchDetailRow}>
           <Text style={[styles(theme).batchDetailLabel, { color: theme.colors.textSecondary }]}>🐔 Bird Type:</Text>
-          <Text style={[styles(theme).batchDetailValue, { color: theme.colors.text }]}>{item.birdType || item.breed || 'Unknown Type'}</Text>
+          <Text style={[styles(theme).batchDetailValue, { color: theme.colors.text }]}>{item.birdType || item.bird_type || item.breed || 'Not specified'}</Text>
         </View>
 
         <View style={styles(theme).batchDetailRow}>

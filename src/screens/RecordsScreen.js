@@ -98,6 +98,35 @@ const RecordsScreen = ({ route, navigation }) => {
     }
   }, [route?.params?.initialTab]);
 
+  // CRITICAL FIX: Filter batches to only show those belonging to selected farm
+  // This enforces data integrity - users can only select batches for the selected farm
+  const filteredBatches = useMemo(() => {
+    if (!formData.farmId || !Array.isArray(batches)) {
+      return [];
+    }
+    const filtered = batches.filter(batch => {
+      if (!batch) return false;
+      const batchFarmId = batch.farmId || batch.farm_id;
+      return batchFarmId === formData.farmId;
+    });
+    console.log(`[RecordsScreen] 🔍 Filtering batches for farmId ${formData.farmId}: ${filtered.length} batches found`);
+    return filtered;
+  }, [formData.farmId, batches]);
+
+  // CRITICAL FIX: Clear batchId when farmId changes to prevent mismatched selections
+  useEffect(() => {
+    if (formData.farmId && formData.batchId) {
+      const batch = batches.find(b => b && (b.id === formData.batchId || b._id === formData.batchId));
+      if (batch) {
+        const batchFarmId = batch.farmId || batch.farm_id;
+        if (batchFarmId !== formData.farmId) {
+          console.log(`[RecordsScreen] ⚠️ Clearing batchId ${formData.batchId} - it belongs to farm ${batchFarmId}, not ${formData.farmId}`);
+          setFormData(prev => ({ ...prev, batchId: '' }));
+        }
+      }
+    }
+  }, [formData.farmId, formData.batchId, batches]);
+
   // Add a safety effect to ensure records is always an array
   useEffect(() => {
     if (!Array.isArray(records) && isMountedRef.current) {
@@ -290,8 +319,8 @@ const RecordsScreen = ({ route, navigation }) => {
     }
 
     const recordData = {
-      farmId: formData.farmId,
-      batchId: formData.batchId,
+      farmId: parseInt(formData.farmId),
+      batchId: parseInt(formData.batchId),
       date: formData.date,
       notes: formData.notes,
     };
@@ -1268,15 +1297,35 @@ const RecordsScreen = ({ route, navigation }) => {
                   }
                   items={[
                     {
-                      label: Array.isArray(batches) && batches.length === 0 ? "No batches - Create a batch first" : "-- Select a batch --",
+                      label: !formData.farmId
+                        ? "Select a farm first"
+                        : (filteredBatches.length === 0
+                          ? "No batches for this farm - Create a batch first"
+                          : "-- Select a batch --"),
                       value: ""
                     },
-                    ...((Array.isArray(batches) ? batches : [])
+                    ...(filteredBatches
                       .filter(batch => batch && (batch.id || batch._id))
-                      .map(batch => ({
-                        label: batch.breed && batch.currentCount ? `${batch.batchName || batch.name || 'Unnamed Batch'} - ${batch.breed} (${batch.currentCount} birds)` : (batch.batchName || batch.name || 'Unnamed Batch'),
-                        value: String(batch.id || batch._id)
-                      })))
+                      .map(batch => {
+                        // Extract batch info with fallbacks for different field name formats
+                        const batchName = batch.batchName || batch.batch_name || batch.name || 'Unnamed Batch';
+                        const birdType = batch.birdType || batch.bird_type || batch.breed || '';
+                        const currentCount = batch.currentCount || batch.current_count || 0;
+
+                        // Build label: "Batch Name - Type (count birds)"
+                        let label = batchName;
+                        if (birdType) {
+                          label += ` - ${birdType}`;
+                        }
+                        if (currentCount > 0) {
+                          label += ` (${currentCount} birds)`;
+                        }
+
+                        return {
+                          label,
+                          value: String(batch.id || batch._id)
+                        };
+                      }))
                   ]}
                   placeholder="Select a batch"
                 />

@@ -280,17 +280,52 @@ class FastApiService {
   async getFarms() {
     try {
       const farms = fastDatabase.getFarms();
+      const batches = fastDatabase.getBatches(); // Get all batches to calculate counts
+
+      console.log('🔍 getFarms DEBUG:');
+      console.log(`  Total farms: ${farms?.length || 0}`);
+      console.log(`  Total batches: ${batches?.length || 0}`);
+      if (batches?.length > 0) {
+        console.log('  Batch details:', batches.map(b => ({
+          id: b?.id,
+          farm_id: b?.farm_id,
+          current_count: b?.current_count,
+          status: b?.status,
+          is_deleted: b?.is_deleted
+        })));
+      }
+
       return {
         success: true,
-        data: Array.isArray(farms) ? farms.map(farm => ({
-          id: farm?.id || Date.now(),
-          farmName: farm?.farm_name || 'Unknown Farm',
-          name: farm?.farm_name || 'Unknown Farm',
-          location: farm?.location || 'Unknown Location',
-          farmType: farm?.farm_type || 'broiler',
-          description: farm?.description || '',
-          createdAt: farm?.created_at || new Date().toISOString()
-        })) : [],
+        data: Array.isArray(farms) ? farms.map(farm => {
+          // Calculate batch count and total birds for this farm
+          const farmBatches = batches.filter(batch =>
+            batch?.farm_id === farm?.id &&
+            batch?.status !== 'completed' &&
+            !batch?.is_deleted
+          );
+
+          console.log(`  Farm ${farm?.id} (${farm?.farm_name}):`);
+          console.log(`    Matching batches: ${farmBatches.length}`);
+          console.log(`    Total birds: ${farmBatches.reduce((sum, b) => sum + (b?.current_count || 0), 0)}`);
+
+          const batchCount = farmBatches.length;
+          const totalBirds = farmBatches.reduce((sum, batch) =>
+            sum + (batch?.current_count || 0), 0
+          );
+
+          return {
+            id: farm?.id || Date.now(),
+            farmName: farm?.farm_name || 'Unknown Farm',
+            name: farm?.farm_name || 'Unknown Farm',
+            location: farm?.location || 'Unknown Location',
+            farmType: farm?.farm_type || 'broiler',
+            description: farm?.description || '',
+            batchCount: batchCount,
+            totalBirds: totalBirds,
+            createdAt: farm?.created_at || new Date().toISOString()
+          };
+        }) : [],
         source: 'local'
       };
     } catch (error) {
@@ -312,8 +347,8 @@ class FastApiService {
           id: batch?.id || Date.now(),
           batchName: batch?.batch_name || 'Unknown Batch',
           name: batch?.batch_name || 'Unknown Batch',
-          breed: batch?.breed || 'Unknown Breed',
-          birdType: batch?.breed || 'Unknown Breed',
+          breed: batch?.bird_type || batch?.breed || '',
+          birdType: batch?.bird_type || batch?.breed || '',
           initialCount: batch?.initial_count || 0,
           currentCount: batch?.current_count || 0,
           farmId: batch?.farm_id || 1,
@@ -406,14 +441,75 @@ class FastApiService {
 
           console.log(`✅ ${recordType} record saved to PostgreSQL:`, serverResponse);
 
-          // Cache in SQLite with server ID (keep camelCase for local database)
+          // CRITICAL FIX: Update batch current_count if mortality/production record
+          if ((recordType === 'mortality' || recordType === 'production') && serverResponse.batch) {
+            const updatedBatch = serverResponse.batch;
+            console.log(`🔄 Updating batch ${recordData.batchId} current_count to ${updatedBatch.currentCount}`);
+
+            try {
+              fastDatabase.db.runSync(
+                `UPDATE poultry_batches SET current_count = ?, updated_at = ? WHERE id = ?`,
+                [updatedBatch.currentCount, new Date().toISOString(), recordData.batchId]
+              );
+              console.log(`✅ Batch ${recordData.batchId} updated with new current_count: ${updatedBatch.currentCount}`);
+            } catch (updateError) {
+              console.error(`❌ Failed to update batch current_count:`, updateError);
+            }
+          }
+
+          // CRITICAL FIX: Cache in SQLite using server response data (includes organization_id)
+          // BUT keep the local batchId reference (not the server's batchId)
           const localData = {
-            ...recordData,
+            ...serverResponse,  // ✅ Use server data (includes organization_id)
+            batchId: recordData.batchId,  // ✅ CRITICAL: Use LOCAL batchId for SQLite FOREIGN KEY
+            farmId: recordData.farmId,    // ✅ Keep local farmId too
             server_id: serverResponse.id,
             needs_sync: 0, // Already synced
-            synced_at: new Date().toISOString()
+            synced_at: new Date().toISOString(),
+            // CRITICAL FIX: Map backend field names to SQLite schema
+            date: serverResponse.date || serverResponse.recordDate || serverResponse.deathDate || serverResponse.treatmentDate || recordData.date,
+            // Mortality fields
+            ...(recordType === 'mortality' ? {
+              count: serverResponse.deaths || serverResponse.count || recordData.count,
+              cause: serverResponse.cause || recordData.cause
+            } : {}),
+            // Production fields
+            ...(recordType === 'production' ? {
+              eggs_collected: serverResponse.eggsCollected || serverResponse.eggs_collected || recordData.eggsCollected
+            } : {}),
+            // Health fields
+            ...(recordType === 'health' ? {
+              healthStatus: serverResponse.healthStatus || recordData.healthStatus,
+              treatment: serverResponse.treatment || recordData.treatment
+            } : {}),
+            // Feed fields
+            ...(recordType === 'feed' ? {
+              quantityKg: serverResponse.quantityKg || serverResponse.quantity_kg || recordData.quantityKg || recordData.quantity,
+              feedType: serverResponse.feedType || serverResponse.feed_type || recordData.feedType,
+              cost: serverResponse.cost || recordData.cost
+            } : {}),
+            // Weight fields
+            ...(recordType === 'weight' ? {
+              averageWeight: serverResponse.averageWeightGrams || serverResponse.average_weight_grams || recordData.averageWeight,
+              averageWeightKg: serverResponse.averageWeightKg || serverResponse.average_weight_kg || recordData.averageWeightKg,
+              sampleSize: serverResponse.sampleSize || serverResponse.sample_size || recordData.sampleSize,
+              weightUnit: recordData.weightUnit || 'kg',
+              dateRecorded: serverResponse.dateRecorded || serverResponse.date_recorded || recordData.dateRecorded
+            } : {}),
+            // Water fields
+            ...(recordType === 'water' ? {
+              quantityLiters: serverResponse.quantityLiters || serverResponse.quantity_liters || recordData.quantityLiters
+            } : {}),
+            // Vaccination fields
+            ...(recordType === 'vaccination' ? {
+              vaccinationType: serverResponse.vaccinationType || serverResponse.vaccination_type || recordData.vaccinationType,
+              vaccinationDate: serverResponse.vaccinationDate || serverResponse.vaccination_date || recordData.vaccinationDate,
+              administeredBy: serverResponse.administeredBy || serverResponse.administered_by || recordData.administeredBy
+            } : {})
           };
 
+          console.log(`💾 Caching ${recordType} record in SQLite with organization_id:`, serverResponse.organizationId || serverResponse.organization_id);
+          console.log(`🔍 DEBUG: localData for caching (batchId should be LOCAL):`, JSON.stringify(localData, null, 2));
           result = fastDatabase.createRecord(recordType, localData);
           console.log(`✅ ${recordType} record cached in SQLite:`, result);
 
@@ -458,7 +554,7 @@ class FastApiService {
         health: EventTypes.HEALTH_RECORD_CREATED,
         water: EventTypes.WATER_RECORD_CREATED,
         weight: EventTypes.WEIGHT_RECORD_CREATED,
-        vaccination: EventTypes.VACCINATION_CREATED
+        vaccination: EventTypes.VACCINATION_RECORD_CREATED
       };
 
       const eventType = eventTypeMap[recordType];
@@ -520,25 +616,60 @@ class FastApiService {
         try {
           console.log('🌐 Deleting from PostgreSQL backend...');
 
-          // Map record types to API methods
-          const deleteMethodMap = {
-            feed: () => apiService.deleteFeedRecord(recordId),
-            production: () => apiService.deleteProductionRecord(recordId),
-            mortality: () => apiService.deleteMortalityRecord(recordId),
-            health: () => apiService.deleteHealthRecord(recordId),
-            water: () => apiService.deleteWaterRecord(recordId),
-            weight: () => apiService.deleteWeightRecord(recordId)
-          };
+          // CRITICAL FIX: Get server_id before deleting from backend
+          const record = fastDatabase.getRecordById(recordType, recordId);
+          console.log(`🔍 Found ${recordType} record:`, JSON.stringify(record, null, 2));
 
-          const deleteMethod = deleteMethodMap[recordType];
-          if (deleteMethod) {
-            await deleteMethod();
-            console.log(`✅ ${recordType} record deleted from PostgreSQL`);
-            source = 'server';
+          if (record && record.server_id) {
+            console.log(`🔗 Using server_id ${record.server_id} for backend delete (local ID: ${recordId})`);
+
+            // Map record types to API methods - use server_id
+            const deleteMethodMap = {
+              feed: () => apiService.deleteFeedRecord(record.server_id),
+              production: () => apiService.deleteProductionRecord(record.server_id),
+              mortality: () => apiService.deleteMortalityRecord(record.server_id),
+              health: () => apiService.deleteHealthRecord(record.server_id),
+              water: () => apiService.deleteWaterRecord(record.server_id),
+              weight: () => apiService.deleteWeightRecord(record.server_id)
+            };
+
+            const deleteMethod = deleteMethodMap[recordType];
+            if (deleteMethod) {
+              await deleteMethod();
+              console.log(`✅ ${recordType} record deleted from PostgreSQL`);
+              source = 'server';
+            }
+          } else {
+            console.warn(`⚠️ ${recordType} record has no server_id, skipping backend delete (will only delete locally)`);
           }
         } catch (error) {
           console.error('❌ Failed to delete from PostgreSQL:', error.message);
           // Continue to delete locally
+        }
+      }
+
+      // CRITICAL FIX: For mortality records, restore bird count before deleting
+      if (recordType === 'mortality') {
+        const record = fastDatabase.getRecordById(recordType, recordId);
+        if (record && record.batchId && record.count) {
+          console.log(`🔄 Restoring ${record.count} birds to batch ${record.batchId} (deleting mortality record)`);
+
+          // Get current batch data
+          const batch = fastDatabase.getBatchById(record.batchId);
+          if (batch) {
+            const newCount = (batch.current_count || 0) + record.count;
+            console.log(`📊 Batch ${record.batchId} count: ${batch.current_count} + ${record.count} = ${newCount}`);
+
+            // Update batch count
+            fastDatabase.updateBatchCount(record.batchId, newCount);
+            console.log(`✅ Batch ${record.batchId} count restored to ${newCount}`);
+
+            // Emit BATCH_UPDATED event to refresh farm counts
+            dataEventBus.emit(EventTypes.BATCH_UPDATED, {
+              batchId: record.batchId,
+              source: 'local'
+            });
+          }
         }
       }
 
@@ -554,7 +685,8 @@ class FastApiService {
         mortality: EventTypes.MORTALITY_RECORD_DELETED,
         health: EventTypes.HEALTH_RECORD_DELETED,
         water: EventTypes.WATER_RECORD_DELETED,
-        weight: EventTypes.WEIGHT_RECORD_DELETED
+        weight: EventTypes.WEIGHT_RECORD_DELETED,
+        vaccination: EventTypes.VACCINATION_RECORD_DELETED
       };
 
       const eventType = eventTypeMap[recordType];
@@ -626,14 +758,19 @@ class FastApiService {
           const serverResponse = await apiService.createFarm(backendData);
           console.log('✅ Farm saved to PostgreSQL:', serverResponse);
 
-          // Cache in SQLite with server ID
+          // CRITICAL FIX: Cache in SQLite using server response data (includes organization_id)
           const localData = {
-            ...farmData,
+            name: serverResponse.farmName || serverResponse.name,
+            location: serverResponse.location,
+            farmType: serverResponse.farmType || serverResponse.farm_type,
+            description: serverResponse.description,
+            organization_id: serverResponse.organizationId || serverResponse.organization_id,  // ✅ Include organization_id from server
             server_id: serverResponse.id,
             needs_sync: 0, // Already synced
             synced_at: new Date().toISOString()
           };
 
+          console.log('💾 Caching farm in SQLite with organization_id:', localData.organization_id);
           result = fastDatabase.createFarm(localData);
           console.log('✅ Farm cached in SQLite:', result);
 
@@ -731,9 +868,19 @@ class FastApiService {
         // ONLINE: Delete from PostgreSQL first, then local SQLite
         try {
           console.log('🌐 Deleting from PostgreSQL backend...');
-          await apiService.deleteFarm(farmId);
-          console.log('✅ Farm deleted from PostgreSQL');
-          source = 'server';
+
+          // CRITICAL FIX: Get server_id before deleting from backend
+          const farm = fastDatabase.getFarmById(farmId);
+          console.log('🔍 Found farm:', JSON.stringify(farm, null, 2));
+
+          if (farm && farm.server_id) {
+            console.log(`🔗 Using server_id ${farm.server_id} for backend delete (local ID: ${farmId})`);
+            await apiService.deleteFarm(farm.server_id);
+            console.log('✅ Farm deleted from PostgreSQL');
+            source = 'server';
+          } else {
+            console.warn('⚠️ Farm has no server_id, skipping backend delete (will only delete locally)');
+          }
         } catch (error) {
           console.error('❌ Failed to delete from PostgreSQL:', error.message);
           // Continue to delete locally even if server delete fails
@@ -811,14 +958,24 @@ class FastApiService {
           const serverResponse = await apiService.createFlock(backendData);
           console.log('✅ Batch saved to PostgreSQL:', serverResponse);
 
-          // Cache in SQLite with server ID
+          // CRITICAL FIX: Cache in SQLite using server response data (includes organization_id)
           const localData = {
-            ...flockData,
+            batchName: serverResponse.batchName || serverResponse.name,  // ✅ FIXED: Use 'batchName' not 'name'
+            farmId: flockData.farmId,  // Keep local farmId reference
+            birdType: serverResponse.birdType || serverResponse.bird_type,
+            breed: serverResponse.breed,
+            initialCount: serverResponse.initialCount || serverResponse.initial_count,
+            currentCount: serverResponse.currentCount || serverResponse.current_count,
+            arrivalDate: serverResponse.arrivalDate || serverResponse.arrival_date,
+            status: serverResponse.status,
+            organization_id: serverResponse.organizationId || serverResponse.organization_id,  // ✅ Include organization_id from server
             server_id: serverResponse.id,
             needs_sync: 0, // Already synced
             synced_at: new Date().toISOString()
           };
 
+          console.log('💾 Caching batch in SQLite with organization_id:', localData.organization_id);
+          console.log('🔍 DEBUG: localData being passed to createBatch:', JSON.stringify(localData, null, 2));
           result = fastDatabase.createBatch(localData);
           console.log('✅ Batch cached in SQLite:', result);
 
@@ -912,9 +1069,19 @@ class FastApiService {
         // ONLINE: Delete from PostgreSQL first, then local SQLite
         try {
           console.log('🌐 Deleting from PostgreSQL backend...');
-          await apiService.deleteFlock(flockId);
-          console.log('✅ Flock/Batch deleted from PostgreSQL');
-          source = 'server';
+
+          // CRITICAL FIX: Get server_id before deleting from backend
+          const batch = fastDatabase.getBatchById(flockId);
+          console.log('🔍 Found batch:', JSON.stringify(batch, null, 2));
+
+          if (batch && batch.server_id) {
+            console.log(`🔗 Using server_id ${batch.server_id} for backend delete (local ID: ${flockId})`);
+            await apiService.deleteFlock(batch.server_id);
+            console.log('✅ Flock/Batch deleted from PostgreSQL');
+            source = 'server';
+          } else {
+            console.warn('⚠️ Batch has no server_id, skipping backend delete (will only delete locally)');
+          }
         } catch (error) {
           console.error('❌ Failed to delete from PostgreSQL:', error.message);
           // Continue to delete locally even if server delete fails

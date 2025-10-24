@@ -1948,7 +1948,19 @@ class FastDatabaseService {
   getFarmById(farmId) {
     try {
       if (!this.isReady) this.init();
-      return this.db.getFirstSync(`SELECT * FROM farms WHERE id = ?`, [farmId]);
+
+      // CRITICAL ID MISMATCH FIX: Try to find farm by BOTH local ID and server_id
+      // The incoming farmId could be either local SQLite ID or server PostgreSQL ID
+
+      // First, try to find by local ID
+      let farm = this.db.getFirstSync(`SELECT * FROM farms WHERE id = ?`, [farmId]);
+
+      // If not found by local ID, try to find by server_id
+      if (!farm) {
+        farm = this.db.getFirstSync(`SELECT * FROM farms WHERE server_id = ?`, [farmId]);
+      }
+
+      return farm;
     } catch (error) {
       return null;
     }
@@ -1998,28 +2010,47 @@ class FastDatabaseService {
 
       // DEBUGGING: List all farms in database first
       try {
-        const allFarms = this.db.getAllSync(`SELECT id, farm_name, location, is_deleted FROM farms`);
+        const allFarms = this.db.getAllSync(`SELECT id, server_id, farm_name, location, is_deleted FROM farms`);
         console.log(`📊 FastDatabase: Current farms in database (${allFarms.length} total):`);
         allFarms.forEach(farm => {
-          console.log(`   - Farm ID ${farm.id}: ${farm.farm_name} (${farm.location}) - is_deleted: ${farm.is_deleted}`);
+          console.log(`   - Farm local ID ${farm.id}, server_id ${farm.server_id}: ${farm.farm_name} (${farm.location}) - is_deleted: ${farm.is_deleted}`);
         });
       } catch (listError) {
         console.warn(`⚠️ FastDatabase: Could not list farms for debugging:`, listError.message);
       }
 
-      const farmExists = this.db.getFirstSync(
-        `SELECT id, farm_name FROM farms WHERE id = ?`,
+      // CRITICAL ID MISMATCH FIX: Try to find farm by BOTH local ID and server_id
+      // The incoming farmIdNum could be either:
+      // 1. Local SQLite ID (when offline or from local data)
+      // 2. Server PostgreSQL ID (when online and from getFarms API)
+      console.log(`🔍 FastDatabase: Looking up farm by ID ${farmIdNum} (could be local ID or server_id)...`);
+
+      // First, try to find by local ID
+      let farmExists = this.db.getFirstSync(
+        `SELECT id, farm_name, server_id FROM farms WHERE id = ?`,
         [farmIdNum]
       );
+
+      // If not found by local ID, try to find by server_id
+      if (!farmExists) {
+        console.log(`⚠️  FastDatabase: Farm not found by local ID ${farmIdNum}, trying server_id lookup...`);
+        farmExists = this.db.getFirstSync(
+          `SELECT id, farm_name, server_id FROM farms WHERE server_id = ?`,
+          [farmIdNum]
+        );
+      }
 
       console.log(`🔍 FastDatabase: Farm lookup result for ID ${farmIdNum}:`, farmExists);
 
       if (!farmExists) {
         console.error(`❌ FastDatabase: Farm with ID ${farmIdNum} does not exist in database`);
-        console.error(`   Searched for: id = ${farmIdNum}`);
+        console.error(`   Searched for: local id = ${farmIdNum} OR server_id = ${farmIdNum}`);
         throw new Error(`Farm with ID ${farmIdNum} not found. Please select a valid farm from the list.`);
       }
-      console.log(`✅ FastDatabase: Farm ${farmIdNum} ("${farmExists.farm_name}") exists, proceeding with batch creation`);
+      console.log(`✅ FastDatabase: Farm found - local ID ${farmExists.id}, server_id ${farmExists.server_id}, name "${farmExists.farm_name}"`);
+
+      // CRITICAL FIX: Use the LOCAL SQLite ID for the foreign key, not the incoming farmIdNum
+      const localFarmId = farmExists.id;
 
       // SYNC FIX: Get farm's server_id for foreign key mapping
       const serverFarmId = farmExists.server_id || null;
@@ -2035,7 +2066,8 @@ class FastDatabaseService {
       console.log('🔄 FastDatabase: Creating batch with data:', {
         batchName: batchData.batchName,
         birdType: batchData.birdType || batchData.breed,
-        farmId: farmIdNum,
+        farmIdInput: farmIdNum,
+        farmIdLocal: localFarmId,
         serverFarmId: serverFarmId,
         initialCount: initialCountNum,
         currentCount: currentCountNum,
@@ -2056,7 +2088,7 @@ class FastDatabaseService {
           batchData.breed,
           initialCountNum,
           currentCountNum,
-          farmIdNum,
+          localFarmId,  // CRITICAL FIX: Use LOCAL SQLite ID, not the incoming farmIdNum
           serverFarmId,
           arrivalDate,
           batchData.status || 'active',
@@ -2069,12 +2101,13 @@ class FastDatabaseService {
         ]
       );
 
-      console.log(`✅ FastDatabase: Batch created successfully with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
+      console.log(`✅ FastDatabase: Batch created successfully with ID: ${result.lastInsertRowId}, farm_id: ${localFarmId}, server_farm_id: ${serverFarmId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
 
       return {
         id: result.lastInsertRowId,
         ...batchData,
-        farmId: farmIdNum,
+        farmId: localFarmId,  // CRITICAL FIX: Return LOCAL SQLite ID
+        farm_id: localFarmId,
         server_farm_id: serverFarmId,
         initialCount: initialCountNum,
         currentCount: currentCountNum,

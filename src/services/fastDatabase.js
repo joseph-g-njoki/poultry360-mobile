@@ -1525,15 +1525,16 @@ class FastDatabaseService {
       console.log('🔄 FastDatabase: Today\'s date for queries:', today);
 
       // Get today's egg production (filtered by organization)
+      // CRITICAL: Calculate good eggs = total - broken - abnormal
       console.log('🔄 FastDatabase: Querying today\'s egg production...');
       const todayEggsQuery = this.currentOrganizationId
-        ? `SELECT SUM(pr.eggs_collected) as total
+        ? `SELECT SUM(pr.eggs_collected - COALESCE(pr.broken_eggs, 0) - COALESCE(pr.abnormal_eggs, 0)) as total
            FROM production_records pr
            INNER JOIN poultry_batches pb ON pr.batch_id = pb.id
            INNER JOIN farms f ON pb.farm_id = f.id
            WHERE f.organization_id = ${this.currentOrganizationId}
            AND DATE(COALESCE(pr.date, pr.date_recorded, pr.created_at)) = DATE('${today}')`
-        : `SELECT SUM(pr.eggs_collected) as total
+        : `SELECT SUM(pr.eggs_collected - COALESCE(pr.broken_eggs, 0) - COALESCE(pr.abnormal_eggs, 0)) as total
            FROM production_records pr
            WHERE DATE(COALESCE(pr.date, pr.date_recorded, pr.created_at)) = DATE('${today}')`;
       console.log(`📝 Query: ${todayEggsQuery}`);
@@ -1732,14 +1733,15 @@ class FastDatabaseService {
       // SYNC FIX: Set sync flags and timestamps
       const serverId = farmData.server_id || null;
       const needsSync = farmData.needs_sync !== undefined ? farmData.needs_sync : 1;
+      const isSynced = farmData.is_synced !== undefined ? farmData.is_synced : (serverId ? 1 : 0); // CRITICAL FIX: Set is_synced based on whether we have server_id
       const syncedAt = farmData.synced_at || null;
       const now = new Date().toISOString();
       // CRITICAL FIX: Include organization_id for proper multi-tenancy
       const organizationId = farmData.organization_id || farmData.organizationId || this.currentOrganizationId;
 
       const result = this.db.runSync(
-        `INSERT INTO farms (farm_name, location, farm_type, description, organization_id, server_id, needs_sync, synced_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO farms (farm_name, location, farm_type, description, organization_id, server_id, needs_sync, is_synced, synced_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           farmData.name || 'Unnamed Farm',
           farmData.location || '',
@@ -1748,13 +1750,14 @@ class FastDatabaseService {
           organizationId,
           serverId,
           needsSync,
+          isSynced,
           syncedAt,
           now,
           now
         ]
       );
 
-      console.log(`✅ FastDatabase: Created farm with ID ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}`);
+      console.log(`✅ FastDatabase: Created farm with ID ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
 
       return {
         id: result.lastInsertRowId,
@@ -1871,6 +1874,74 @@ class FastDatabaseService {
       console.error(`❌ FastDatabase: Error deleting farm ${farmId}:`, error);
       console.error(`❌ FastDatabase: Error details:`, error.message);
       throw new Error(`Failed to delete farm: ${error.message}`);
+    }
+  }
+
+  clearFarms() {
+    try {
+      if (!this.isReady || !this.db) {
+        console.warn('⚠️ FastDatabase: Database not ready, cannot clear farms');
+        return false;
+      }
+
+      console.log('🧹 FastDatabase: Clearing all farms from SQLite...');
+      this.db.runSync(`DELETE FROM farms`);
+      console.log('✅ FastDatabase: All farms cleared from SQLite');
+      return true;
+    } catch (error) {
+      console.error('❌ FastDatabase: Error clearing farms:', error.message);
+      return false;
+    }
+  }
+
+  clearBatches() {
+    try {
+      if (!this.isReady || !this.db) {
+        console.warn('⚠️ FastDatabase: Database not ready, cannot clear batches');
+        return false;
+      }
+
+      console.log('🧹 FastDatabase: Clearing all batches from SQLite...');
+      this.db.runSync(`DELETE FROM poultry_batches`);
+      console.log('✅ FastDatabase: All batches cleared from SQLite');
+      return true;
+    } catch (error) {
+      console.error('❌ FastDatabase: Error clearing batches:', error.message);
+      return false;
+    }
+  }
+
+  clearRecords(recordType) {
+    try {
+      if (!this.isReady || !this.db) {
+        console.warn(`⚠️ FastDatabase: Database not ready, cannot clear ${recordType} records`);
+        return false;
+      }
+
+      // Map record types to table names
+      const tableMap = {
+        feed: 'feed_records',
+        production: 'production_records',
+        mortality: 'mortality_records',
+        health: 'health_records',
+        water: 'water_records',
+        weight: 'weight_records',
+        vaccination: 'vaccination_records'
+      };
+
+      const tableName = tableMap[recordType];
+      if (!tableName) {
+        console.error(`❌ FastDatabase: Unknown record type: ${recordType}`);
+        return false;
+      }
+
+      console.log(`🧹 FastDatabase: Clearing all ${recordType} records from SQLite...`);
+      this.db.runSync(`DELETE FROM ${tableName}`);
+      console.log(`✅ FastDatabase: All ${recordType} records cleared from SQLite`);
+      return true;
+    } catch (error) {
+      console.error(`❌ FastDatabase: Error clearing ${recordType} records:`, error.message);
+      return false;
     }
   }
 
@@ -2427,11 +2498,20 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
-      // SCHEMA FIX: Remove 'weight' field - production_records schema doesn't have it
+      // SCHEMA FIX: Include broken_eggs and abnormal_eggs fields
       // Schema has: eggs_collected, broken_eggs, eggs_broken, abnormal_eggs, egg_weight_avg
       const result = this.db.runSync(
-        `INSERT INTO production_records (farm_id, batch_id, date, eggs_collected, egg_weight_avg, notes) VALUES (?, ?, ?, ?, ?, ?)`,
-        [recordData.farmId, recordData.batchId, recordData.date, recordData.eggsCollected, recordData.eggWeightAvg || recordData.weight, recordData.notes]
+        `INSERT INTO production_records (farm_id, batch_id, date, eggs_collected, broken_eggs, abnormal_eggs, egg_weight_avg, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          recordData.farmId,
+          recordData.batchId,
+          recordData.date,
+          recordData.eggsCollected || 0,
+          recordData.brokenEggs || 0,
+          recordData.abnormalEggs || 0,
+          recordData.eggWeightAvg || recordData.weight || null,
+          recordData.notes || ''
+        ]
       );
       return { id: result.lastInsertRowId, ...recordData };
     } catch (error) {
@@ -3519,8 +3599,9 @@ class FastDatabaseService {
       const totalBirds = totalBirdsResult?.total || 0;
 
       // ========== PRODUCTION ANALYTICS ==========
+      // CRITICAL: Calculate good eggs = total - broken - abnormal
       const totalEggsResult = this.db.getFirstSync(`
-        SELECT SUM(eggs_collected) as total
+        SELECT SUM(eggs_collected - COALESCE(broken_eggs, 0) - COALESCE(abnormal_eggs, 0)) as total
         FROM production_records
         WHERE DATE(date) BETWEEN DATE('${startDateStr}') AND DATE('${endDateStr}')
       `);
@@ -3535,7 +3616,7 @@ class FastDatabaseService {
       const avgDailyProduction = Math.round(totalEggsCollected / productionDays);
 
       const todayEggsResult = this.db.getFirstSync(`
-        SELECT SUM(eggs_collected) as total
+        SELECT SUM(eggs_collected - COALESCE(broken_eggs, 0) - COALESCE(abnormal_eggs, 0)) as total
         FROM production_records
         WHERE DATE(date) = DATE('${today}')
       `);
@@ -3545,8 +3626,9 @@ class FastDatabaseService {
       const productionRate = totalBirds > 0 ? ((totalEggsCollected / totalBirds / productionDays) * 100).toFixed(1) : '0.0';
 
       // Daily production trend (last 7 days)
+      // CRITICAL: Calculate good eggs = total - broken - abnormal
       const dailyProductionResult = this.db.getAllSync(`
-        SELECT DATE(date) as date, SUM(eggs_collected) as totalEggs
+        SELECT DATE(date) as date, SUM(eggs_collected - COALESCE(broken_eggs, 0) - COALESCE(abnormal_eggs, 0)) as totalEggs
         FROM production_records
         WHERE DATE(date) >= DATE('${endDateStr}', '-7 days')
         GROUP BY DATE(date)
@@ -3555,14 +3637,15 @@ class FastDatabaseService {
       const dailyProduction = dailyProductionResult || [];
 
       // Production rate by batch
+      // CRITICAL: Calculate good eggs = total - broken - abnormal
       const productionRateByBatchResult = this.db.getAllSync(`
         SELECT
           pb.id,
           pb.batch_name,
           pb.current_count,
-          COALESCE(SUM(pr.eggs_collected), 0) as totalEggs,
+          COALESCE(SUM(pr.eggs_collected - COALESCE(pr.broken_eggs, 0) - COALESCE(pr.abnormal_eggs, 0)), 0) as totalEggs,
           CASE
-            WHEN pb.current_count > 0 THEN ROUND((COALESCE(SUM(pr.eggs_collected), 0) * 100.0 / pb.current_count), 2)
+            WHEN pb.current_count > 0 THEN ROUND((COALESCE(SUM(pr.eggs_collected - COALESCE(pr.broken_eggs, 0) - COALESCE(pr.abnormal_eggs, 0)), 0) * 100.0 / pb.current_count), 2)
             ELSE 0
           END as productionRate
         FROM poultry_batches pb
@@ -3574,19 +3657,20 @@ class FastDatabaseService {
       const productionRateByBatch = productionRateByBatchResult || [];
 
       // Weekly comparison
+      // CRITICAL: Calculate good eggs = total - broken - abnormal
       const currentWeekStart = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const previousWeekStart = new Date(endDate.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const previousWeekEnd = new Date(endDate.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const currentWeekResult = this.db.getFirstSync(`
-        SELECT SUM(eggs_collected) as totalEggs
+        SELECT SUM(eggs_collected - COALESCE(broken_eggs, 0) - COALESCE(abnormal_eggs, 0)) as totalEggs
         FROM production_records
         WHERE DATE(date) BETWEEN DATE('${currentWeekStart}') AND DATE('${endDateStr}')
       `);
       const currentWeekEggs = currentWeekResult?.totalEggs || 0;
 
       const previousWeekResult = this.db.getFirstSync(`
-        SELECT SUM(eggs_collected) as totalEggs
+        SELECT SUM(eggs_collected - COALESCE(broken_eggs, 0) - COALESCE(abnormal_eggs, 0)) as totalEggs
         FROM production_records
         WHERE DATE(date) BETWEEN DATE('${previousWeekStart}') AND DATE('${previousWeekEnd}')
       `);
@@ -4331,6 +4415,54 @@ class FastDatabaseService {
       return 0;
     } catch (error) {
       console.error('❌ FastDatabase: Failed to cleanup invalid mortality records:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check and report batches with invalid bird types
+   * This helps identify batches with "Unknown Breed" or empty bird types
+   */
+  checkInvalidBirdTypes() {
+    try {
+      if (!this.ensureDatabaseReady()) {
+        throw new Error('Database not ready');
+      }
+
+      console.log('[FastDatabase] 🔍 Checking for invalid bird types in batches...');
+
+      // Get all batches
+      const allBatches = this.db.getAllSync('SELECT * FROM batches');
+      console.log(`[FastDatabase] Found ${allBatches.length} total batches`);
+
+      // Find batches with invalid bird types
+      const invalidBatches = allBatches.filter(batch => {
+        const birdType = batch.bird_type || batch.birdType || batch.breed || '';
+        const isInvalid = birdType.toLowerCase().includes('unknown') ||
+                         birdType.toLowerCase().includes('breed') ||
+                         birdType === '';
+
+        if (isInvalid) {
+          console.log(`[FastDatabase] ❌ Batch ${batch.id} "${batch.batch_name}" has invalid bird type: "${birdType}"`);
+        }
+        return isInvalid;
+      });
+
+      if (invalidBatches.length > 0) {
+        console.log(`[FastDatabase] ⚠️ Found ${invalidBatches.length} batches with invalid bird types!`);
+        console.log('[FastDatabase] 💡 Please edit these batches and select a proper bird type:');
+        console.log('[FastDatabase]    Options: Broiler, Layer, Dual Purpose, Turkey, Duck, Goose, Other');
+        return invalidBatches.map(b => ({
+          id: b.id,
+          name: b.batch_name || b.batchName,
+          invalidBirdType: b.bird_type || b.birdType || b.breed || '(empty)'
+        }));
+      } else {
+        console.log('[FastDatabase] ✅ All batches have valid bird types!');
+        return [];
+      }
+    } catch (error) {
+      console.error('❌ FastDatabase: Failed to check invalid bird types:', error);
       throw error;
     }
   }

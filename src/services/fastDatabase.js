@@ -2028,6 +2028,7 @@ class FastDatabaseService {
       // SYNC FIX: Set sync flags and timestamps
       const serverId = batchData.server_id || null;
       const needsSync = batchData.needs_sync !== undefined ? batchData.needs_sync : 1;
+      const isSynced = batchData.is_synced !== undefined ? batchData.is_synced : (serverId ? 1 : 0); // CRITICAL FIX: Set is_synced based on whether we have server_id
       const syncedAt = batchData.synced_at || null;
       const now = new Date().toISOString();
 
@@ -2039,15 +2040,16 @@ class FastDatabaseService {
         initialCount: initialCountNum,
         currentCount: currentCountNum,
         serverId: serverId,
-        needsSync: needsSync
+        needsSync: needsSync,
+        isSynced: isSynced
       });
 
       // FIELD MAPPING FIX: Support both camelCase and snake_case field names
       const arrivalDate = batchData.arrivalDate || batchData.arrival_date || batchData.startDate || now;
 
       const result = this.db.runSync(
-        `INSERT INTO poultry_batches (batch_name, bird_type, breed, initial_count, current_count, farm_id, server_farm_id, arrival_date, status, server_id, needs_sync, synced_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO poultry_batches (batch_name, bird_type, breed, initial_count, current_count, farm_id, server_farm_id, arrival_date, status, server_id, needs_sync, is_synced, synced_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           batchData.batchName,
           batchData.birdType || batchData.breed,
@@ -2060,13 +2062,14 @@ class FastDatabaseService {
           batchData.status || 'active',
           serverId,
           needsSync,
+          isSynced,
           syncedAt,
           now,
           now
         ]
       );
 
-      console.log('✅ FastDatabase: Batch created successfully with ID:', result.lastInsertRowId);
+      console.log(`✅ FastDatabase: Batch created successfully with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
 
       return {
         id: result.lastInsertRowId,
@@ -2077,6 +2080,7 @@ class FastDatabaseService {
         currentCount: currentCountNum,
         server_id: serverId,
         needs_sync: needsSync,
+        is_synced: isSynced,
         synced_at: syncedAt,
         created_at: now,
         updated_at: now
@@ -2220,12 +2224,19 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // SYNC FIX: Set sync flags
+      const serverId = recordData.server_id || null;
+      const needsSync = recordData.needs_sync !== undefined ? recordData.needs_sync : 1;
+      const isSynced = recordData.is_synced !== undefined ? recordData.is_synced : (serverId ? 1 : 0);
+      const syncedAt = recordData.synced_at || null;
+
       // SCHEMA FIX: Use quantity_kg instead of quantity (matches schema column name)
       const result = this.db.runSync(
-        `INSERT INTO feed_records (farm_id, batch_id, date, quantity_kg, feed_type, cost, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [recordData.farmId, recordData.batchId, recordData.date, recordData.quantityKg || recordData.quantity, recordData.feedType, recordData.cost, recordData.notes]
+        `INSERT INTO feed_records (farm_id, batch_id, date, quantity_kg, feed_type, cost, notes, server_id, needs_sync, is_synced, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [recordData.farmId, recordData.batchId, recordData.date, recordData.quantityKg || recordData.quantity, recordData.feedType, recordData.cost, recordData.notes, serverId, needsSync, isSynced, syncedAt]
       );
-      return { id: result.lastInsertRowId, ...recordData };
+      console.log(`✅ FastDatabase: Feed record created with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
+      return { id: result.lastInsertRowId, ...recordData, server_id: serverId, needs_sync: needsSync, is_synced: isSynced, synced_at: syncedAt };
     } catch (error) {
       console.error('❌ FastDatabase: Failed to create feed record:', error.message);
       throw new Error(`Failed to create feed record: ${error.message}`);
@@ -2294,14 +2305,21 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // SYNC FIX: Set sync flags
+      const serverId = recordData.server_id || null;
+      const needsSync = recordData.needs_sync !== undefined ? recordData.needs_sync : 1;
+      const isSynced = recordData.is_synced !== undefined ? recordData.is_synced : (serverId ? 1 : 0);
+      const syncedAt = recordData.synced_at || null;
+
       // FIELD MAPPING FIX: Support both camelCase and snake_case field names
       const date = recordData.date || recordData.recordDate || recordData.record_date;
 
       const result = this.db.runSync(
-        `INSERT INTO health_records (farm_id, batch_id, date, health_status, treatment, notes) VALUES (?, ?, ?, ?, ?, ?)`,
-        [recordData.farmId, recordData.batchId, date, recordData.healthStatus, recordData.treatment, recordData.notes]
+        `INSERT INTO health_records (farm_id, batch_id, date, health_status, treatment, notes, server_id, needs_sync, is_synced, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [recordData.farmId, recordData.batchId, date, recordData.healthStatus, recordData.treatment, recordData.notes, serverId, needsSync, isSynced, syncedAt]
       );
-      return { id: result.lastInsertRowId, ...recordData };
+      console.log(`✅ FastDatabase: Health record created with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
+      return { id: result.lastInsertRowId, ...recordData, server_id: serverId, needs_sync: needsSync, is_synced: isSynced, synced_at: syncedAt };
     } catch (error) {
       console.error('❌ FastDatabase: Failed to create health record:', error.message);
       throw new Error(`Failed to create health record: ${error.message}`);
@@ -2370,6 +2388,12 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // SYNC FIX: Set sync flags
+      const serverId = recordData.server_id || null;
+      const needsSync = recordData.needs_sync !== undefined ? recordData.needs_sync : 1;
+      const isSynced = recordData.is_synced !== undefined ? recordData.is_synced : (serverId ? 1 : 0);
+      const syncedAt = recordData.synced_at || null;
+
       // CRASH FIX: Wrap insert + update in a transaction to prevent SQLite concurrency issues
       this.beginTransaction();
 
@@ -2378,8 +2402,8 @@ class FastDatabaseService {
         const date = recordData.date || recordData.recordDate || recordData.record_date || recordData.deathDate || recordData.death_date;
 
         const result = this.db.runSync(
-          `INSERT INTO mortality_records (farm_id, batch_id, date, count, cause, notes) VALUES (?, ?, ?, ?, ?, ?)`,
-          [recordData.farmId, recordData.batchId, date, recordData.count, recordData.cause, recordData.notes]
+          `INSERT INTO mortality_records (farm_id, batch_id, date, count, cause, notes, server_id, needs_sync, is_synced, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [recordData.farmId, recordData.batchId, date, recordData.count, recordData.cause, recordData.notes, serverId, needsSync, isSynced, syncedAt]
         );
 
         // CRITICAL FIX: Only update batch count if this is a NEW offline record
@@ -2400,7 +2424,8 @@ class FastDatabaseService {
 
         // BUGFIX: Use commitTransaction() method instead of direct SQL
         this.commitTransaction();
-        return { id: result.lastInsertRowId, ...recordData };
+        console.log(`✅ FastDatabase: Mortality record created with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
+        return { id: result.lastInsertRowId, ...recordData, server_id: serverId, needs_sync: needsSync, is_synced: isSynced, synced_at: syncedAt };
       } catch (insertError) {
         // BUGFIX: Use rollbackTransaction() method instead of direct SQL
         this.rollbackTransaction();
@@ -2498,10 +2523,16 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // SYNC FIX: Set sync flags
+      const serverId = recordData.server_id || null;
+      const needsSync = recordData.needs_sync !== undefined ? recordData.needs_sync : 1;
+      const isSynced = recordData.is_synced !== undefined ? recordData.is_synced : (serverId ? 1 : 0);
+      const syncedAt = recordData.synced_at || null;
+
       // SCHEMA FIX: Include broken_eggs and abnormal_eggs fields
       // Schema has: eggs_collected, broken_eggs, eggs_broken, abnormal_eggs, egg_weight_avg
       const result = this.db.runSync(
-        `INSERT INTO production_records (farm_id, batch_id, date, eggs_collected, broken_eggs, abnormal_eggs, egg_weight_avg, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO production_records (farm_id, batch_id, date, eggs_collected, broken_eggs, abnormal_eggs, egg_weight_avg, notes, server_id, needs_sync, is_synced, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           recordData.farmId,
           recordData.batchId,
@@ -2510,10 +2541,15 @@ class FastDatabaseService {
           recordData.brokenEggs || 0,
           recordData.abnormalEggs || 0,
           recordData.eggWeightAvg || recordData.weight || null,
-          recordData.notes || ''
+          recordData.notes || '',
+          serverId,
+          needsSync,
+          isSynced,
+          syncedAt
         ]
       );
-      return { id: result.lastInsertRowId, ...recordData };
+      console.log(`✅ FastDatabase: Production record created with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
+      return { id: result.lastInsertRowId, ...recordData, server_id: serverId, needs_sync: needsSync, is_synced: isSynced, synced_at: syncedAt };
     } catch (error) {
       console.error('❌ FastDatabase: Failed to create production record:', error.message);
       throw new Error(`Failed to create production record: ${error.message}`);
@@ -2582,14 +2618,21 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // SYNC FIX: Set sync flags
+      const serverId = recordData.server_id || null;
+      const needsSync = recordData.needs_sync !== undefined ? recordData.needs_sync : 1;
+      const isSynced = recordData.is_synced !== undefined ? recordData.is_synced : (serverId ? 1 : 0);
+      const syncedAt = recordData.synced_at || null;
+
       // FIELD MAPPING FIX: Support both camelCase and snake_case field names
       const waterSource = recordData.waterSource || recordData.water_source;
 
       const result = this.db.runSync(
-        `INSERT INTO water_records (batch_id, farm_id, date_recorded, quantity_liters, water_source, quality, temperature_celsius, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [recordData.batchId, recordData.farmId, recordData.dateRecorded, recordData.quantityLiters, waterSource, recordData.quality, recordData.temperature, recordData.notes]
+        `INSERT INTO water_records (batch_id, farm_id, date_recorded, quantity_liters, water_source, quality, temperature_celsius, notes, server_id, needs_sync, is_synced, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [recordData.batchId, recordData.farmId, recordData.dateRecorded, recordData.quantityLiters, waterSource, recordData.quality, recordData.temperature, recordData.notes, serverId, needsSync, isSynced, syncedAt]
       );
-      return { id: result.lastInsertRowId, ...recordData };
+      console.log(`✅ FastDatabase: Water record created with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
+      return { id: result.lastInsertRowId, ...recordData, server_id: serverId, needs_sync: needsSync, is_synced: isSynced, synced_at: syncedAt };
     } catch (error) {
       console.error('❌ FastDatabase: Failed to create water record:', error.message);
       throw new Error(`Failed to create water record: ${error.message}`);
@@ -2677,6 +2720,12 @@ class FastDatabaseService {
         throw new Error('Database is not available. Please check your internet connection or restart the app.');
       }
 
+      // SYNC FIX: Set sync flags
+      const serverId = recordData.server_id || null;
+      const needsSync = recordData.needs_sync !== undefined ? recordData.needs_sync : 1;
+      const isSynced = recordData.is_synced !== undefined ? recordData.is_synced : (serverId ? 1 : 0);
+      const syncedAt = recordData.synced_at || null;
+
       // Convert weight to both kg and grams based on weightUnit or available data
       let weightInKg, weightInGrams;
 
@@ -2691,10 +2740,11 @@ class FastDatabaseService {
       }
 
       const result = this.db.runSync(
-        `INSERT INTO weight_records (batch_id, farm_id, date_recorded, average_weight_kg, average_weight_grams, sample_size, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [recordData.batchId, recordData.farmId, recordData.dateRecorded || recordData.date, weightInKg, weightInGrams, recordData.sampleSize, recordData.notes || '']
+        `INSERT INTO weight_records (batch_id, farm_id, date_recorded, average_weight_kg, average_weight_grams, sample_size, notes, server_id, needs_sync, is_synced, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [recordData.batchId, recordData.farmId, recordData.dateRecorded || recordData.date, weightInKg, weightInGrams, recordData.sampleSize, recordData.notes || '', serverId, needsSync, isSynced, syncedAt]
       );
-      return { id: result.lastInsertRowId, ...recordData };
+      console.log(`✅ FastDatabase: Weight record created with ID: ${result.lastInsertRowId}, server_id: ${serverId || 'null'}, needs_sync: ${needsSync}, is_synced: ${isSynced}`);
+      return { id: result.lastInsertRowId, ...recordData, server_id: serverId, needs_sync: needsSync, is_synced: isSynced, synced_at: syncedAt };
     } catch (error) {
       console.error('❌ FastDatabase: Failed to create weight record:', error.message);
       throw new Error(`Failed to create weight record: ${error.message}`);

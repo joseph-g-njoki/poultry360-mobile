@@ -446,6 +446,7 @@ class FastApiService {
                 organization_id: serverFlock.organizationId || serverFlock.organization_id,
                 server_id: serverFlock.id,
                 needs_sync: 0,
+                is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
                 synced_at: new Date().toISOString()
               };
               fastDatabase.createBatch(localData);
@@ -595,6 +596,7 @@ class FastApiService {
             farmId: recordData.farmId,    // ✅ Keep local farmId too
             server_id: serverResponse.id,
             needs_sync: 0, // Already synced
+            is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
             synced_at: new Date().toISOString(),
             // CRITICAL FIX: Map backend field names to SQLite schema
             date: serverResponse.date || serverResponse.recordDate || serverResponse.deathDate || serverResponse.treatmentDate || recordData.date,
@@ -774,6 +776,7 @@ class FastApiService {
                 organization_id: serverRecord.organizationId || serverRecord.organization_id,
                 server_id: serverRecord.id,
                 needs_sync: 0,
+                is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
                 synced_at: new Date().toISOString()
               };
               fastDatabase.createRecord(recordType, localData);
@@ -1279,6 +1282,7 @@ class FastApiService {
             organization_id: serverResponse.organizationId || serverResponse.organization_id,  // ✅ Include organization_id from server
             server_id: serverResponse.id,
             needs_sync: 0, // Already synced
+            is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
             synced_at: new Date().toISOString()
           };
 
@@ -1503,6 +1507,7 @@ class FastApiService {
                 organization_id: serverRecord.organizationId || serverRecord.organization_id,
                 server_id: serverRecord.id,
                 needs_sync: 0,
+                is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
                 synced_at: new Date().toISOString()
               };
               fastDatabase.createWaterRecord(localData);
@@ -1691,6 +1696,7 @@ class FastApiService {
                 organization_id: serverRecord.organizationId || serverRecord.organization_id,
                 server_id: serverRecord.id,
                 needs_sync: 0,
+                is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
                 synced_at: new Date().toISOString()
               };
               fastDatabase.createWeightRecord(localData);

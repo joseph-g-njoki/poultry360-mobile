@@ -408,7 +408,7 @@ const styles = (theme) => StyleSheet.create({
   },
   filterPillText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0.5,
     textAlign: 'center',
   },

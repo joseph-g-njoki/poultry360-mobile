@@ -317,7 +317,7 @@ const styles = (theme) => StyleSheet.create({
   },
   summaryValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: theme.colors.text,
     marginTop: 8,
   },
@@ -348,7 +348,7 @@ const styles = (theme) => StyleSheet.create({
   },
   saleInvoice: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: theme.colors.text,
     marginBottom: 4,
   },
@@ -400,7 +400,7 @@ const styles = (theme) => StyleSheet.create({
   },
   amountValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: theme.colors.text,
   },
   emptyContainer: {

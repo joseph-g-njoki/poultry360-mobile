@@ -298,6 +298,7 @@ const ExpensesScreen = ({ navigation, route }) => {
                 styles(theme).filterPill,
                 {
                   backgroundColor: filter.category === (cat === 'all' ? null : cat) ? '#2E8B57' : theme.cardBackground,
+                  borderColor: filter.category === (cat === 'all' ? null : cat) ? '#2E8B57' : '#E0E0E0',
                 },
               ]}
               onPress={() => {
@@ -310,7 +311,9 @@ const ExpensesScreen = ({ navigation, route }) => {
                   { color: filter.category === (cat === 'all' ? null : cat) ? '#FFF' : theme.text },
                 ]}
               >
-                {cat.toUpperCase()}
+                {cat === 'all' ? 'All' : 
+                 cat === 'batch_purchase' ? 'Batch Purchase' :
+                 cat.charAt(0).toUpperCase() + cat.slice(1)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -383,19 +386,30 @@ const styles = (theme) => StyleSheet.create({
   },
   filterContainer: {
     paddingHorizontal: 16,
-    marginBottom: 12,
-    maxHeight: 50,
+    marginBottom: 16,
+    maxHeight: 60,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    elevation: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    marginRight: 10,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
   filterPillText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   summaryCard: {
     marginHorizontal: 16,

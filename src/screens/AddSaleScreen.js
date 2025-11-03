@@ -14,13 +14,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import CustomPicker from '../components/CustomPicker';
-import api from '../services/api';
+import fastApiService from '../services/fastApiService';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useOffline } from '../context/OfflineContext';
 import { useBatches } from '../context/DataStoreContext';
 
 const AddSaleScreen = () => {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { theme } = useTheme();
+  const { isConnected } = useOffline();
   const { batches, loading: batchesLoading, refresh: refreshBatches } = useBatches();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -73,7 +77,9 @@ const AddSaleScreen = () => {
   const fetchCustomers = async () => {
     try {
       console.log('🔄 AddSaleScreen: Fetching customers...');
-      const customersResponse = await api.get('/api/v1/customers?limit=100');
+
+      // Use fastApiService for unified data management
+      const customersResponse = await fastApiService.get('customers?limit=100');
 
       if (customersResponse.data?.data) {
         setCustomers(customersResponse.data.data);
@@ -114,12 +120,30 @@ const AddSaleScreen = () => {
       return;
     }
 
+    // Check if online
+    if (!isConnected) {
+      Alert.alert('Offline', 'You must be online to record sales. Please check your connection.');
+      return;
+    }
+
     try {
       setLoading(true);
 
+      // CRITICAL: Map local batchId to server UUID
+      let serverBatchId = undefined;
+      if (formData.batchId) {
+        const selectedBatch = batches.find(b => b.id === formData.batchId);
+        if (selectedBatch && selectedBatch.serverId) {
+          serverBatchId = selectedBatch.serverId;
+          console.log(`🔄 Mapping local batch ${formData.batchId} → server UUID ${serverBatchId}`);
+        } else {
+          console.warn('⚠️ Selected batch not found or has no serverId');
+        }
+      }
+
       const saleData = {
         customerId: formData.customerId || undefined,
-        batchId: formData.batchId || undefined,
+        batchId: serverBatchId,
         saleDate: formData.saleDate.toISOString(),
         productType: formData.productType,
         quantity: parseFloat(formData.quantity),
@@ -139,16 +163,22 @@ const AddSaleScreen = () => {
         deliveryAddress: formData.deliveryAddress || undefined,
       };
 
-      await api.post('/api/v1/sales', saleData);
+      // CRITICAL: Use fastApiService which handles financial record creation automatically
+      // NO need to manually create financial record - backend does this
+      const response = await fastApiService.createSale(saleData);
 
-      Alert.alert('Success', 'Sale recorded successfully', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      if (response.success) {
+        Alert.alert('Success', 'Sale recorded successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        throw new Error(response.error || 'Failed to create sale');
+      }
     } catch (error) {
       console.error('Error creating sale:', error);
       Alert.alert(
         'Error',
-        error.response?.data?.message || 'Failed to create sale. Please try again.'
+        error.response?.data?.message || error.message || 'Failed to create sale. Please try again.'
       );
     } finally {
       setLoading(false);
@@ -156,10 +186,10 @@ const AddSaleScreen = () => {
   };
 
   const renderInput = (label, field, placeholder, keyboardType = 'default', multiline = false) => (
-    <View style={styles(theme).inputGroup}>
-      <Text style={styles(theme).label}>{label}</Text>
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
       <TextInput
-        style={[styles(theme).input, multiline && styles(theme).textArea]}
+        style={[styles.input, multiline && styles.textArea]}
         value={formData[field]}
         onChangeText={(value) => setFormData({ ...formData, [field]: value })}
         placeholder={placeholder}
@@ -171,8 +201,8 @@ const AddSaleScreen = () => {
   );
 
   const renderPicker = (label, field, options) => (
-    <View style={styles(theme).inputGroup}>
-      <Text style={styles(theme).label}>{label}</Text>
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
       <CustomPicker
         selectedValue={formData[field]}
         onValueChange={(value) => setFormData({ ...formData, [field]: value })}
@@ -185,16 +215,16 @@ const AddSaleScreen = () => {
   const styles = getStyles(theme);
 
   return (
-    <View style={styles(theme).container}>
+    <View style={styles.container}>
       <ScrollView
-        style={styles(theme).scrollView}
-        contentContainerStyle={styles(theme).scrollContent}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles(theme).section}>
-          <Text style={styles(theme).sectionTitle}>Customer & Product</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Customer & Product</Text>
 
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).label}>Customer (Optional)</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Customer (Optional)</Text>
             <CustomPicker
               selectedValue={String(formData.customerId)}
               onValueChange={(value) =>
@@ -211,8 +241,8 @@ const AddSaleScreen = () => {
             />
           </View>
 
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).label}>Batch (Optional)</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Batch (Optional)</Text>
             <CustomPicker
               selectedValue={String(formData.batchId)}
               onValueChange={(value) =>
@@ -238,14 +268,14 @@ const AddSaleScreen = () => {
             { label: 'Other', value: 'other' },
           ])}
 
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).label}>Sale Date</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Sale Date</Text>
             <TouchableOpacity
-              style={styles(theme).dateButton}
+              style={styles.dateButton}
               onPress={() => setShowDatePicker(true)}
             >
               <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-              <Text style={styles(theme).dateText}>
+              <Text style={styles.dateText}>
                 {formData.saleDate.toLocaleDateString('en-GB')}
               </Text>
             </TouchableOpacity>
@@ -265,25 +295,25 @@ const AddSaleScreen = () => {
           </View>
         </View>
 
-        <View style={styles(theme).section}>
-          <Text style={styles(theme).sectionTitle}>Quantity & Pricing</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quantity & Pricing</Text>
 
           {renderInput('Quantity', 'quantity', 'Enter quantity', 'numeric')}
           {renderInput('Unit', 'unit', 'e.g., birds, kg, trays', 'default')}
           {renderInput('Unit Price', 'unitPrice', 'Enter price per unit', 'numeric')}
 
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).label}>Total Amount</Text>
-            <View style={styles(theme).totalAmountContainer}>
-              <Text style={styles(theme).totalAmountText}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Total Amount</Text>
+            <View style={styles.totalAmountContainer}>
+              <Text style={styles.totalAmountText}>
                 UGX {parseFloat(formData.totalAmount || 0).toLocaleString()}
               </Text>
             </View>
           </View>
         </View>
 
-        <View style={styles(theme).section}>
-          <Text style={styles(theme).sectionTitle}>Payment Information</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Payment Information</Text>
 
           {renderPicker('Payment Status', 'paymentStatus', [
             { label: 'Paid', value: 'paid' },
@@ -301,24 +331,24 @@ const AddSaleScreen = () => {
 
           {renderInput('Amount Paid', 'amountPaid', 'Enter amount paid', 'numeric')}
 
-          <View style={styles(theme).inputGroup}>
-            <Text style={styles(theme).label}>Amount Due</Text>
-            <View style={styles(theme).amountDueContainer}>
-              <Text style={styles(theme).amountDueText}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Amount Due</Text>
+            <View style={styles.amountDueContainer}>
+              <Text style={styles.amountDueText}>
                 UGX {parseFloat(formData.amountDue || 0).toLocaleString()}
               </Text>
             </View>
           </View>
 
           {formData.paymentStatus === 'paid' && (
-            <View style={styles(theme).inputGroup}>
-              <Text style={styles(theme).label}>Payment Date</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Payment Date</Text>
               <TouchableOpacity
-                style={styles(theme).dateButton}
+                style={styles.dateButton}
                 onPress={() => setShowPaymentDatePicker(true)}
               >
                 <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={styles(theme).dateText}>
+                <Text style={styles.dateText}>
                   {formData.paymentDate.toLocaleDateString('en-GB')}
                 </Text>
               </TouchableOpacity>
@@ -339,25 +369,25 @@ const AddSaleScreen = () => {
           )}
         </View>
 
-        <View style={styles(theme).section}>
-          <Text style={styles(theme).sectionTitle}>Additional Details</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Additional Details</Text>
           {renderInput('Invoice Number', 'invoiceNumber', 'Enter invoice number (optional)')}
           {renderInput('Delivery Address', 'deliveryAddress', 'Enter delivery address (optional)')}
           {renderInput('Notes', 'notes', 'Enter any additional notes', 'default', true)}
         </View>
       </ScrollView>
 
-      <View style={styles(theme).footer}>
+      <View style={styles.footer}>
         <TouchableOpacity
-          style={styles(theme).cancelButton}
+          style={styles.cancelButton}
           onPress={() => navigation.goBack()}
           disabled={loading}
         >
-          <Text style={styles(theme).cancelButtonText}>Cancel</Text>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles(theme).submitButton, loading && styles(theme).submitButtonDisabled]}
+          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={loading}
         >
@@ -366,7 +396,7 @@ const AddSaleScreen = () => {
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-              <Text style={styles(theme).submitButtonText}>Record Sale</Text>
+              <Text style={styles.submitButtonText}>Record Sale</Text>
             </>
           )}
         </TouchableOpacity>

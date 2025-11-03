@@ -41,7 +41,7 @@ const ExpensesScreen = ({ navigation, route }) => {
   const { isConnected } = offlineContext;
 
   const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState(null);
   const [filter, setFilter] = useState({

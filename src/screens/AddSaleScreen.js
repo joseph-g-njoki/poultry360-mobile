@@ -133,11 +133,11 @@ const AddSaleScreen = () => {
       let serverBatchId = undefined;
       if (formData.batchId) {
         const selectedBatch = batches.find(b => b.id === formData.batchId);
-        if (selectedBatch && selectedBatch.serverId) {
-          serverBatchId = selectedBatch.serverId;
+        if (selectedBatch && selectedBatch.server_id) {
+          serverBatchId = selectedBatch.server_id;
           console.log(`🔄 Mapping local batch ${formData.batchId} → server UUID ${serverBatchId}`);
         } else {
-          console.warn('⚠️ Selected batch not found or has no serverId');
+          console.warn(`⚠️ Selected batch not found or has no server_id. Batch: ${JSON.stringify(selectedBatch)}`);
         }
       }
 

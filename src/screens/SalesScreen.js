@@ -22,13 +22,11 @@ const SalesScreen = () => {
   const navigation = useNavigation();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState(null);
 
   const fetchSales = async () => {
     try {
-      if (initialLoad) setLoading(true);
 
       // Use fastApiService for unified data management
       const [salesResponse, summaryResponse] = await Promise.all([
@@ -53,7 +51,6 @@ const SalesScreen = () => {
       }
     } finally {
       setLoading(false);
-      setInitialLoad(false);
     }
   };
 

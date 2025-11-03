@@ -596,6 +596,9 @@ class SyncService {
               // Normal update - server newer, local not modified
               console.log(`  🔄 Updating local ${tableName} (server newer)`);
               const mappedRecord = this.mapServerToLocalRecord(tableName, serverRecord);
+
+          // CRITICAL FIX: Resolve foreign key server IDs to local IDs BEFORE update
+          await this._resolveForeignKeys(tableName, mappedRecord, serverRecord);
               await offlineDataService.update(tableName, localRecord.id, mappedRecord, true); // skipSync = true
             } else {
               // Local is newer - keep local
@@ -1009,11 +1012,15 @@ class SyncService {
             const localTime = new Date(localRecord.updated_at || 0);
 
             if (serverTime > localTime) {
+            // CRITICAL FIX: Resolve foreign key server IDs to local IDs BEFORE update
+            await this._resolveForeignKeys(tableName, mappedRecord, serverRecord);
               await offlineDataService.update(tableName, localRecord.id, mappedRecord, true);
               await offlineDataService.markAsSynced(tableName, localRecord.id, serverRecord.id?.toString());
             }
           } else {
             // Create new record
+          // CRITICAL FIX: Resolve foreign key server IDs to local IDs BEFORE create
+          await this._resolveForeignKeys(tableName, mappedRecord, serverRecord);
             const newRecord = await offlineDataService.create(tableName, mappedRecord, true);
             if (newRecord && newRecord.id) {
               await offlineDataService.markAsSynced(tableName, newRecord.id, serverRecord.id?.toString());

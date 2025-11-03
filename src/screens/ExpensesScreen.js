@@ -83,17 +83,15 @@ const ExpensesScreen = ({ navigation, route }) => {
       if (filter.endDate) params.endDate = filter.endDate;
       if (searchQuery) params.supplier = searchQuery;
 
-      const queryString = new URLSearchParams(params).toString();
-      const url = `/expenses${queryString ? `?${queryString}` : ''}`;
-
-      const response = await fastApiService.get(url);
+      // Use fastApiService unified endpoints
+      const response = await fastApiService.getExpenses(params);
 
       if (response.success && isMountedRef.current) {
         setExpenses(response.data || []);
       }
 
       // Load summary
-      const summaryResponse = await fastApiService.get('/expenses/summary');
+      const summaryResponse = await fastApiService.getExpensesSummary();
       if (summaryResponse.success && isMountedRef.current) {
         setSummary(summaryResponse.data || []);
       }
@@ -126,14 +124,17 @@ const ExpensesScreen = ({ navigation, route }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await fastApiService.delete(`/expenses/${expenseId}`);
+              // Use fastApiService unified delete method
+              const response = await fastApiService.deleteExpense(expenseId);
               if (response.success) {
                 Alert.alert('Success', 'Expense deleted successfully');
                 loadExpenses(false);
+              } else {
+                throw new Error(response.error || 'Delete failed');
               }
             } catch (error) {
               console.error('Error deleting expense:', error);
-              Alert.alert('Error', 'Failed to delete expense');
+              Alert.alert('Error', error.message || 'Failed to delete expense');
             }
           },
         },
@@ -219,7 +220,7 @@ const ExpensesScreen = ({ navigation, route }) => {
   );
 
   const renderSummaryCard = () => {
-    if (!summary || summary.length === 0) return null;
+    if (!summary || !Array.isArray(summary) || summary.length === 0) return null;
 
     const totalExpenses = summary.reduce((sum, cat) => sum + parseFloat(cat.totalAmount || 0), 0);
 

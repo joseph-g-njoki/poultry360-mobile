@@ -12,43 +12,60 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
-import api from '../services/api';
+import { useOffline } from '../context/OfflineContext';
+import fastApiService from '../services/fastApiService';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 const SalesScreen = () => {
   const { theme } = useTheme();
+  const { isConnected } = useOffline();
   const navigation = useNavigation();
   const [sales, setSales] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState(null);
 
   const fetchSales = async () => {
     try {
-      setLoading(true);
+      if (initialLoad) setLoading(true);
+
+      // Use fastApiService for unified data management
       const [salesResponse, summaryResponse] = await Promise.all([
-        api.get('/api/v1/sales?page=1&limit=50'),
-        api.get('/api/v1/sales/summary'),
+        fastApiService.getSales({ page: 1, limit: 50 }),
+        fastApiService.getSalesSummary(),
       ]);
 
-      if (salesResponse.data && salesResponse.data.data) {
-        setSales(salesResponse.data.data);
+      console.log('📊 SalesScreen: Sales response:', salesResponse);
+      console.log('📊 SalesScreen: Summary response:', summaryResponse);
+
+      if (salesResponse.success && salesResponse.data) {
+        setSales(salesResponse.data);
       }
 
-      if (summaryResponse.data) {
+      if (summaryResponse.success && summaryResponse.data) {
         setSummary(summaryResponse.data);
       }
     } catch (error) {
       console.error('Error fetching sales:', error);
-      Alert.alert('Error', 'Failed to load sales. Please try again.');
+      if (isConnected) {
+        Alert.alert('Error', 'Failed to load sales. Please try again.');
+      }
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   };
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchSales();
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      await fetchSales();
+    } catch (error) {
+      console.error('Error during refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useFocusEffect(
@@ -220,6 +237,7 @@ const SalesScreen = () => {
 
   return (
     <View style={styles(theme).container}>
+      <OfflineIndicator />
       <FlatList
         data={sales}
         renderItem={renderSaleItem}

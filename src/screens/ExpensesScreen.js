@@ -53,20 +53,14 @@ const ExpensesScreen = ({ navigation, route }) => {
 
   const isMountedRef = useRef(true);
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    loadExpenses();
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // Refresh when screen comes into focus
+  // Load expenses when screen comes into focus (handles both initial load and navigation)
   useFocusEffect(
     useCallback(() => {
+      isMountedRef.current = true;
       loadExpenses(false);
-      return () => {};
+      return () => {
+        isMountedRef.current = false;
+      };
     }, [])
   );
 

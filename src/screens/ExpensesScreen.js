@@ -297,8 +297,8 @@ const ExpensesScreen = ({ navigation, route }) => {
               style={[
                 styles(theme).filterPill,
                 {
-                  backgroundColor: filter.category === (cat === 'all' ? null : cat) ? '#2E8B57' : theme.cardBackground,
-                  borderColor: filter.category === (cat === 'all' ? null : cat) ? '#2E8B57' : '#E0E0E0',
+                  backgroundColor: filter.category === (cat === 'all' ? null : cat) ? '#2E8B57' : '#FFFFFF',
+                  borderColor: filter.category === (cat === 'all' ? null : cat) ? '#2E8B57' : '#D0D0D0',
                 },
               ]}
               onPress={() => {
@@ -308,7 +308,7 @@ const ExpensesScreen = ({ navigation, route }) => {
               <Text
                 style={[
                   styles(theme).filterPillText,
-                  { color: filter.category === (cat === 'all' ? null : cat) ? '#FFF' : theme.text },
+                  { color: filter.category === (cat === 'all' ? null : cat) ? '#FFFFFF' : '#333333' },
                 ]}
               >
                 {cat === 'all' ? 'All' : 

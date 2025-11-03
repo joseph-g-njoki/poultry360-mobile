@@ -579,6 +579,9 @@ class SyncService {
               // AUTO-RESOLVE: Server wins (can be changed to local_wins or user_resolve)
               console.log(`  🔄 Auto-resolving conflict: SERVER WINS (updating local with server data)`);
               const mappedRecord = this.mapServerToLocalRecord(tableName, serverRecord);
+
+            // CRITICAL FIX: Resolve foreign key server IDs to local IDs BEFORE update
+            await this._resolveForeignKeys(tableName, mappedRecord, serverRecord);
               await offlineDataService.update(tableName, localRecord.id, mappedRecord, true); // skipSync = true
 
               // Emit conflict event for UI notification
@@ -603,6 +606,9 @@ class SyncService {
             console.log(`  ➕ Inserting new ${tableName} from server`);
             const mappedRecord = this.mapServerToLocalRecord(tableName, serverRecord);
             mappedRecord.server_id = serverRecord.id?.toString();
+
+            // CRITICAL FIX: Resolve foreign key server IDs to local IDs BEFORE insert
+            await this._resolveForeignKeys(tableName, mappedRecord, serverRecord);
             await offlineDataService.create(tableName, mappedRecord, true); // skipSync = true
           }
         } catch (error) {
@@ -1324,6 +1330,51 @@ class SyncService {
     });
 
     return mapped;
+  }
+
+  // CRITICAL FIX: Resolve foreign key server IDs to local IDs
+  // This prevents FOREIGN KEY constraint failures when inserting records
+  async _resolveForeignKeys(tableName, mappedRecord, serverRecord) {
+    try {
+      switch (tableName) {
+        case 'poultry_batches':
+          // Resolve farm_id: server ID → local ID
+          if (mappedRecord.farm_id && serverRecord.farmId) {
+            const localFarm = await offlineDataService.getByServerId('farms', serverRecord.farmId.toString());
+            if (localFarm && localFarm.id) {
+              mappedRecord.farm_id = localFarm.id;
+              console.log(`✅ Resolved batch farm_id: server ${serverRecord.farmId} → local ${localFarm.id}`);
+            } else {
+              console.warn(`⚠️  Farm with server_id ${serverRecord.farmId} not found locally - setting farm_id to null`);
+              mappedRecord.farm_id = null; // Prevent FK constraint failure
+            }
+          }
+          break;
+
+        case 'feed_records':
+        case 'production_records':
+        case 'mortality_records':
+        case 'health_records':
+        case 'vaccination_records':
+        case 'financial_records':
+        case 'water_records':
+        case 'weight_records':
+          // All these tables have batch_id foreign key
+          if (mappedRecord.batch_id && serverRecord.batchId) {
+            const localBatch = await offlineDataService.getByServerId('poultry_batches', serverRecord.batchId.toString());
+            if (localBatch && localBatch.id) {
+              mappedRecord.batch_id = localBatch.id;
+              console.log(`✅ Resolved ${tableName} batch_id: server ${serverRecord.batchId} → local ${localBatch.id}`);
+            } else {
+              console.warn(`⚠️  Batch with server_id ${serverRecord.batchId} not found locally - setting batch_id to null`);
+              mappedRecord.batch_id = null;
+            }
+          }
+          break;
+      }
+    } catch (error) {
+      console.error(`Error resolving foreign keys for ${tableName}:`, error);
+    }
   }
 
   // Enhanced upload with better error handling and progress tracking

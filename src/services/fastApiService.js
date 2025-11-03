@@ -2598,24 +2598,44 @@ case 'finance':          serverRecords = await apiService.getFinancialRecords();
     }
   }
 
-  // Helper method for background API sync
+  // Helper method for background API sync - FETCHES FROM FINANCIAL RECORDS
   async _updateExpensesFromBackend(filters = {}) {
     try {
-      // Build query parameters
-      const queryParams = new URLSearchParams(filters).toString();
-      const url = `expenses${queryParams ? `?${queryParams}` : ''}`;
+      // Build query parameters - filter for expenses only
+      const financialFilters = {
+        ...filters,
+        transactionType: 'expense' // CRITICAL: Only get expense transactions
+      };
+      const queryParams = new URLSearchParams(financialFilters).toString();
+      const url = `financial-records${queryParams ? `?${queryParams}` : ''}`;
 
       const response = await apiService.get(url);
-      console.log(`✅ Background fetch: Fetched expenses from backend:`, response.data);
+      console.log(`✅ Background fetch: Fetched ${response.data?.length || 0} expenses from financial-records:`, response.data);
 
-      // Handle both array and object response formats
-      const expenses = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      // Handle response format
+      const financialRecords = Array.isArray(response.data) ? response.data : (response.data?.data || []);
 
-      // TODO: Update local database with API response
-      // For now, expenses are only stored when created through the app
-      // A full implementation would sync server expenses to local DB
+      // Transform financial records to expense format for compatibility
+      const expenses = financialRecords.map(record => ({
+        id: record.id,
+        category: record.category || 'other',
+        subcategory: record.subcategory,
+        description: record.description,
+        amount: Math.abs(record.amount), // Expenses are stored as negative, display as positive
+        expenseDate: record.transactionDate,
+        supplier: record.supplier,
+        paymentMethod: record.paymentMethod || 'cash',
+        notes: record.notes,
+        batchId: record.batchId,
+        farmId: record.farmId,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt
+      }));
 
-      console.log(`🔄 Background sync: ${expenses.length} expenses fetched (not saved to local DB yet)`);
+      console.log(`🔄 Background sync: ${expenses.length} expenses transformed and ready`);
+
+      // TODO: Cache these in local database
+      return expenses;
     } catch (error) {
       console.error('❌ Background expense sync error:', error);
       throw error;

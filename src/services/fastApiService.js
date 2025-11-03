@@ -2607,7 +2607,7 @@ case 'finance':          serverRecords = await apiService.getFinancialRecords();
         transactionType: 'expense' // CRITICAL: Only get expense transactions
       };
       const queryParams = new URLSearchParams(financialFilters).toString();
-      const url = `financial-records${queryParams ? `?${queryParams}` : ''}`;
+      const url = `v1/financial-records${queryParams ? `?${queryParams}` : ''}`;
 
       const response = await apiService.get(url);
       console.log(`✅ Background fetch: Fetched ${response.data?.length || 0} expenses from financial-records:`, response.data);

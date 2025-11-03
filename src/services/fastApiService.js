@@ -2576,6 +2576,22 @@ case 'finance':          serverRecords = await apiService.getFinancialRecords();
         });
       }
 
+      // AWAIT the API call to get expenses from financial records
+      if (isOnline) {
+        const expenses = await this._updateExpensesFromBackend(filters);
+        return {
+          success: true,
+          data: expenses,
+          source: 'server',
+          pagination: {
+            page: filters.page || 1,
+            limit: filters.limit || 50,
+            total: expenses.length,
+            totalPages: Math.ceil(expenses.length / (filters.limit || 50))
+          }
+        };
+      }
+
       // Return local data immediately
       return {
         success: true,

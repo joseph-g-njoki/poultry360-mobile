@@ -2631,8 +2631,15 @@ case 'finance':          serverRecords = await apiService.getFinancialRecords();
       // Handle response format
       const financialRecords = Array.isArray(response.data) ? response.data : (response.data?.data || []);
 
+      // FILTER: Only show MANUAL expenses (exclude auto-generated from feed, medication, batch purchases, etc.)
+      const manualExpenses = financialRecords.filter(record =>
+        !record.recordSource || record.recordSource === 'manual'
+      );
+
+      console.log(`🔍 Filtered: ${financialRecords.length} total → ${manualExpenses.length} manual expenses (excluded auto-generated)`);
+
       // Transform financial records to expense format for compatibility
-      const expenses = financialRecords.map(record => ({
+      const expenses = manualExpenses.map(record => ({
         id: record.id,
         category: record.category || 'other',
         subcategory: record.subcategory,

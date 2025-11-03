@@ -432,17 +432,20 @@ class ApiService {
     try {
       // Transform mobile field names to backend DTO format
       const transformedData = {
-        batchId: recordData.batchId,
-        feedType: recordData.feedType,
-        quantityKg: recordData.quantity, // mobile: quantity → backend: quantityKg
-        cost: recordData.cost || 0,
-        recordDate: recordData.date, // mobile: date → backend: recordDate
-        notes: recordData.notes || '',
+        batchId: parseInt(recordData.batchId),
+        feedType: String(recordData.feedType),
+        quantityKg: parseFloat(recordData.quantity), // mobile: quantity → backend: quantityKg
+        cost: recordData.cost ? parseFloat(recordData.cost) : 0,
+        recordDate: String(recordData.date), // mobile: date → backend: recordDate
+        notes: recordData.notes ? String(recordData.notes) : '',
       };
 
+      console.log('🔍 API: Sending feed record to backend:', JSON.stringify(transformedData));
       const response = await this.api.post('/feed-records', transformedData);
+      console.log('✅ API: Feed record created successfully:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ API: Feed record creation failed:', error.response?.data || error.message);
       throw this.handleError(error);
     }
   }
@@ -560,8 +563,9 @@ class ApiService {
       const transformedData = {
         batchId: recordData.batchId,
         eggsCollected: recordData.eggsCollected || 0,
-        brokenEggs: recordData.brokenEggs || 0,
-        abnormalEggs: recordData.abnormalEggs || 0,
+        brokenEggs: recordData.brokenEggs || 0, // Mobile provides this value
+        abnormalEggs: recordData.abnormalEggs || 0, // Mobile provides this value
+        eggWeightAvg: recordData.weight || recordData.eggWeightAvg || null,
         recordDate: recordData.date, // mobile: date → backend: recordDate
         notes: recordData.notes || '',
       };
@@ -774,6 +778,46 @@ class ApiService {
   async deleteWeightRecord(recordId) {
     try {
       const response = await this.api.delete(`/weight-records/${recordId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== VACCINATION RECORDS ====================
+
+  async createVaccinationRecord(recordData) {
+    try {
+      // Transform mobile field names to backend DTO format
+      const transformedData = {
+        batchId: recordData.batchId,
+        vaccinationType: recordData.vaccinationType,
+        vaccinationDate: recordData.vaccinationDate || recordData.date, // Support both formats
+        vaccinationTime: recordData.vaccinationTime || null, // HH:MM format
+        medication: recordData.medication || '',
+        notes: recordData.notes || '',
+      };
+
+      const response = await this.api.post('/vaccination-records', transformedData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getVaccinationRecords(batchId) {
+    try {
+      const url = batchId ? `/vaccination-records?batchId=${batchId}` : '/vaccination-records';
+      const response = await this.api.get(url);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async deleteVaccinationRecord(recordId) {
+    try {
+      const response = await this.api.delete(`/vaccination-records/${recordId}`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);

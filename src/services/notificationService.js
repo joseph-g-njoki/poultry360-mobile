@@ -250,118 +250,127 @@ class NotificationService {
    * @returns {Promise<Array>} Array of notification IDs
    */
   async scheduleVaccinationReminder(vaccination) {
-    try {
-      const { vaccinationType, vaccinationDate, vaccinationTime = '08:00' } = vaccination;
-      const notificationIds = [];
+    // IMPORTANT: Vaccination reminders are now handled by the BACKEND server
+    // The backend sends reminders at EXACT scheduled times:
+    // - Day before at SAME TIME as vaccination
+    // - On the day at EXACT vaccination time
+    console.log('[Notifications] ℹ️ Vaccination reminders are handled by backend server');
+    console.log('[Notifications] ℹ️ Backend sends hourly checks for scheduled vaccinations');
+    return [];
 
-      // Validate input
-      if (!vaccinationDate || !vaccinationType) {
-        console.log('[Notifications] ❌ Missing vaccination date or type');
-        return [];
-      }
-
-      // Parse vaccination date and time
-      const [year, month, day] = vaccinationDate.split('-').map(Number);
-      const [hours, minutes] = vaccinationTime.split(':').map(Number);
-
-      // Validate parsed values
-      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
-        console.log('[Notifications] ❌ Invalid date/time format:', { vaccinationDate, vaccinationTime });
-        return [];
-      }
-
-      // Create vaccination datetime
-      const vaccinationDateTime = new Date(year, month - 1, day, hours, minutes);
-      const now = new Date();
-
-      console.log('[Notifications] 📅 Vaccination Details:');
-      console.log('  - Type:', vaccinationType);
-      console.log('  - Date:', vaccinationDate);
-      console.log('  - Time:', vaccinationTime);
-      console.log('  - Parsed DateTime:', vaccinationDateTime.toLocaleString());
-      console.log('  - Current DateTime:', now.toLocaleString());
-      console.log('  - Is Future?', vaccinationDateTime > now);
-
-      // Check if vaccination is in the future
-      if (vaccinationDateTime <= now) {
-        console.log('[Notifications] ❌ Vaccination time is in the past or present. No reminders scheduled.');
-        return [];
-      }
-
-      // REMINDER 1: Day before at 8 AM
-      const dayBeforeReminder = new Date(vaccinationDateTime);
-      dayBeforeReminder.setDate(dayBeforeReminder.getDate() - 1);
-      dayBeforeReminder.setHours(8, 0, 0, 0);
-
-      const secondsUntilDayBefore = Math.floor((dayBeforeReminder - now) / 1000);
-
-      console.log('[Notifications] 📆 Day-Before Reminder:');
-      console.log('  - Target Time:', dayBeforeReminder.toLocaleString());
-      console.log('  - Seconds Until:', secondsUntilDayBefore);
-      console.log('  - Hours Until:', (secondsUntilDayBefore / 3600).toFixed(2));
-      console.log('  - Will Schedule?', dayBeforeReminder > now && secondsUntilDayBefore >= 300);
-
-      // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
-      if (dayBeforeReminder > now && secondsUntilDayBefore >= 300) {
-        console.log('[Notifications] 🔔 SCHEDULING day-before reminder NOW...');
-        console.log('[Notifications] ⏰ This notification will NOT appear until:', dayBeforeReminder.toLocaleString());
-        console.log('[Notifications] ⏰ Which is in', (secondsUntilDayBefore / 3600).toFixed(2), 'hours from now');
-
-        const id1 = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '💉 Vaccination Reminder - Tomorrow',
-            body: `Prepare for ${vaccinationType} vaccination tomorrow at ${vaccinationTime}`,
-            data: { type: 'vaccination_reminder_day_before', vaccination },
-            sound: true,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
-          },
-          trigger: { seconds: secondsUntilDayBefore },
-        });
-        notificationIds.push(id1);
-        console.log('[Notifications] ✅ Day-before reminder SCHEDULED (not shown yet!) with ID:', id1);
-        console.log('[Notifications] 📅 It will appear at:', dayBeforeReminder.toLocaleString());
-      } else {
-        console.log('[Notifications] ⏭️  Day-before reminder skipped (time already passed or less than 5 minutes away)');
-      }
-
-      // REMINDER 2: On vaccination day at exact time
-      const secondsUntilVaccination = Math.floor((vaccinationDateTime - now) / 1000);
-
-      console.log('[Notifications] 📆 Exact-Time Reminder:');
-      console.log('  - Target Time:', vaccinationDateTime.toLocaleString());
-      console.log('  - Seconds Until:', secondsUntilVaccination);
-      console.log('  - Hours Until:', (secondsUntilVaccination / 3600).toFixed(2));
-      console.log('  - Will Schedule?', vaccinationDateTime > now && secondsUntilVaccination >= 300);
-
-      // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
-      if (vaccinationDateTime > now && secondsUntilVaccination >= 300) {
-        console.log('[Notifications] 🔔 SCHEDULING exact-time reminder NOW...');
-        console.log('[Notifications] ⏰ This notification will NOT appear until:', vaccinationDateTime.toLocaleString());
-        console.log('[Notifications] ⏰ Which is in', (secondsUntilVaccination / 3600).toFixed(2), 'hours from now');
-
-        const id2 = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '💉 Vaccination Time NOW!',
-            body: `It's time to administer ${vaccinationType} vaccination`,
-            data: { type: 'vaccination_now', vaccination },
-            sound: true,
-            priority: Notifications.AndroidNotificationPriority.MAX,
-          },
-          trigger: { seconds: secondsUntilVaccination },
-        });
-        notificationIds.push(id2);
-        console.log('[Notifications] ✅ Exact-time reminder SCHEDULED (not shown yet!) with ID:', id2);
-        console.log('[Notifications] 📅 It will appear at:', vaccinationDateTime.toLocaleString());
-      } else {
-        console.log('[Notifications] ⏭️  Exact-time reminder skipped (time already passed or less than 5 minutes away)');
-      }
-
-      console.log(`[Notifications] ✅ TOTAL: Scheduled ${notificationIds.length} vaccination reminder(s)`);
-      return notificationIds;
-    } catch (error) {
-      console.error('[Notifications] ❌ ERROR scheduling vaccination reminders:', error);
-      return [];
-    }
+    // OLD CODE (DISABLED - Backend handles this now):
+    // try {
+    //   const { vaccinationType, vaccinationDate, vaccinationTime = '08:00' } = vaccination;
+    //   const notificationIds = [];
+    //
+    //   // Validate input
+    //   if (!vaccinationDate || !vaccinationType) {
+    //     console.log('[Notifications] ❌ Missing vaccination date or type');
+    //     return [];
+    //   }
+    //
+    //   // Parse vaccination date and time
+    //   const [year, month, day] = vaccinationDate.split('-').map(Number);
+    //   const [hours, minutes] = vaccinationTime.split(':').map(Number);
+    //
+    //   // Validate parsed values
+    //   if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+    //     console.log('[Notifications] ❌ Invalid date/time format:', { vaccinationDate, vaccinationTime });
+    //     return [];
+    //   }
+    //
+    //   // Create vaccination datetime
+    //   const vaccinationDateTime = new Date(year, month - 1, day, hours, minutes);
+    //   const now = new Date();
+    //
+    //   console.log('[Notifications] 📅 Vaccination Details:');
+    //   console.log('  - Type:', vaccinationType);
+    //   console.log('  - Date:', vaccinationDate);
+    //   console.log('  - Time:', vaccinationTime);
+    //   console.log('  - Parsed DateTime:', vaccinationDateTime.toLocaleString());
+    //   console.log('  - Current DateTime:', now.toLocaleString());
+    //   console.log('  - Is Future?', vaccinationDateTime > now);
+    //
+    //   // Check if vaccination is in the future
+    //   if (vaccinationDateTime <= now) {
+    //     console.log('[Notifications] ❌ Vaccination time is in the past or present. No reminders scheduled.');
+    //     return [];
+    //   }
+    //
+    //   // REMINDER 1: Day before at SAME TIME as vaccination
+    //   const dayBeforeReminder = new Date(vaccinationDateTime);
+    //   dayBeforeReminder.setDate(dayBeforeReminder.getDate() - 1);
+    //   // Keep the same hours and minutes as vaccination time (don't change to 8 AM)
+    //
+    //   const secondsUntilDayBefore = Math.floor((dayBeforeReminder - now) / 1000);
+    //
+    //   console.log('[Notifications] 📆 Day-Before Reminder:');
+    //   console.log('  - Target Time:', dayBeforeReminder.toLocaleString());
+    //   console.log('  - Seconds Until:', secondsUntilDayBefore);
+    //   console.log('  - Hours Until:', (secondsUntilDayBefore / 3600).toFixed(2));
+    //   console.log('  - Will Schedule?', dayBeforeReminder > now && secondsUntilDayBefore >= 300);
+    //
+    //   // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
+    //   if (dayBeforeReminder > now && secondsUntilDayBefore >= 300) {
+    //     console.log('[Notifications] 🔔 SCHEDULING day-before reminder NOW...');
+    //     console.log('[Notifications] ⏰ This notification will NOT appear until:', dayBeforeReminder.toLocaleString());
+    //     console.log('[Notifications] ⏰ Which is in', (secondsUntilDayBefore / 3600).toFixed(2), 'hours from now');
+    //
+    //     const id1 = await Notifications.scheduleNotificationAsync({
+    //       content: {
+    //         title: '💉 Vaccination Reminder - Tomorrow',
+    //         body: `Prepare for ${vaccinationType} vaccination tomorrow at ${vaccinationTime}`,
+    //         data: { type: 'vaccination_reminder_day_before', vaccination },
+    //         sound: true,
+    //         priority: Notifications.AndroidNotificationPriority.HIGH,
+    //       },
+    //       trigger: { seconds: secondsUntilDayBefore },
+    //     });
+    //     notificationIds.push(id1);
+    //     console.log('[Notifications] ✅ Day-before reminder SCHEDULED (not shown yet!) with ID:', id1);
+    //     console.log('[Notifications] 📅 It will appear at:', dayBeforeReminder.toLocaleString());
+    //   } else {
+    //     console.log('[Notifications] ⏭️  Day-before reminder skipped (time already passed or less than 5 minutes away)');
+    //   }
+    //
+    //   // REMINDER 2: On vaccination day at exact time
+    //   const secondsUntilVaccination = Math.floor((vaccinationDateTime - now) / 1000);
+    //
+    //   console.log('[Notifications] 📆 Exact-Time Reminder:');
+    //   console.log('  - Target Time:', vaccinationDateTime.toLocaleString());
+    //   console.log('  - Seconds Until:', secondsUntilVaccination);
+    //   console.log('  - Hours Until:', (secondsUntilVaccination / 3600).toFixed(2));
+    //   console.log('  - Will Schedule?', vaccinationDateTime > now && secondsUntilVaccination >= 300);
+    //
+    //   // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
+    //   if (vaccinationDateTime > now && secondsUntilVaccination >= 300) {
+    //     console.log('[Notifications] 🔔 SCHEDULING exact-time reminder NOW...');
+    //     console.log('[Notifications] ⏰ This notification will NOT appear until:', vaccinationDateTime.toLocaleString());
+    //     console.log('[Notifications] ⏰ Which is in', (secondsUntilVaccination / 3600).toFixed(2), 'hours from now');
+    //
+    //     const id2 = await Notifications.scheduleNotificationAsync({
+    //       content: {
+    //         title: '💉 Vaccination Time NOW!',
+    //         body: `It's time to administer ${vaccinationType} vaccination`,
+    //         data: { type: 'vaccination_now', vaccination },
+    //         sound: true,
+    //         priority: Notifications.AndroidNotificationPriority.MAX,
+    //       },
+    //       trigger: { seconds: secondsUntilVaccination },
+    //     });
+    //     notificationIds.push(id2);
+    //     console.log('[Notifications] ✅ Exact-time reminder SCHEDULED (not shown yet!) with ID:', id2);
+    //     console.log('[Notifications] 📅 It will appear at:', vaccinationDateTime.toLocaleString());
+    //   } else {
+    //     console.log('[Notifications] ⏭️  Exact-time reminder skipped (time already passed or less than 5 minutes away)');
+    //   }
+    //
+    //   console.log(`[Notifications] ✅ TOTAL: Scheduled ${notificationIds.length} vaccination reminder(s)`);
+    //   return notificationIds;
+    // } catch (error) {
+    //   console.error('[Notifications] ❌ ERROR scheduling vaccination reminders:', error);
+    //   return [];
+    // }
   }
 
   /**
@@ -369,53 +378,61 @@ class NotificationService {
    * @returns {Promise<string|null>} Notification ID or null
    */
   async scheduleDailyReminders() {
-    try {
-      const now = new Date();
-      const reminderTime = new Date();
-      reminderTime.setHours(18, 0, 0, 0); // 6 PM
+    // IMPORTANT: Daily reminders are now handled by the BACKEND server
+    // The backend checks if records have been created before sending reminders at 6 PM
+    // This prevents duplicate reminders and ensures proper logic
+    console.log('[Notifications] ℹ️ Daily reminders are handled by backend server');
+    console.log('[Notifications] ℹ️ Backend sends reminders at 6:00 PM ONLY if no records were created today');
+    return null;
 
-      // If 6 PM has passed today, schedule for tomorrow
-      if (now >= reminderTime) {
-        reminderTime.setDate(reminderTime.getDate() + 1);
-      }
-
-      const secondsUntilReminder = Math.floor((reminderTime - now) / 1000);
-
-      console.log('[Notifications] 📅 Daily Reminder Details:');
-      console.log('  - Current Time:', now.toLocaleString());
-      console.log('  - Target Time:', reminderTime.toLocaleString());
-      console.log('  - Seconds Until:', secondsUntilReminder);
-      console.log('  - Hours Until:', (secondsUntilReminder / 3600).toFixed(2));
-      console.log('  - Will Schedule?', secondsUntilReminder >= 300);
-
-      // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
-      if (secondsUntilReminder >= 300) {
-        console.log('[Notifications] 🔔 SCHEDULING daily 6 PM reminder NOW...');
-        console.log('[Notifications] ⏰ This notification will NOT appear until:', reminderTime.toLocaleString());
-        console.log('[Notifications] ⏰ Which is in', (secondsUntilReminder / 3600).toFixed(2), 'hours from now');
-
-        const id = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '📝 Daily Farm Records Reminder',
-            body: 'Time to record today\'s farm activities (feeding, production, health checks)',
-            data: { type: 'daily_reminder', hour: 18 },
-            sound: true,
-            priority: Notifications.AndroidNotificationPriority.DEFAULT,
-          },
-          trigger: { seconds: secondsUntilReminder },
-        });
-
-        console.log('[Notifications] ✅ Daily reminder SCHEDULED (not shown yet!) with ID:', id);
-        console.log('[Notifications] 📅 It will appear at:', reminderTime.toLocaleString());
-        return id;
-      } else {
-        console.log('[Notifications] ⏭️ Daily reminder skipped (less than 5 minutes away)');
-        return null;
-      }
-    } catch (error) {
-      console.error('[Notifications] ❌ ERROR scheduling daily reminder:', error);
-      return null;
-    }
+    // OLD CODE (DISABLED - Backend handles this now):
+    // try {
+    //   const now = new Date();
+    //   const reminderTime = new Date();
+    //   reminderTime.setHours(18, 0, 0, 0); // 6 PM
+    //
+    //   // If 6 PM has passed today, schedule for tomorrow
+    //   if (now >= reminderTime) {
+    //     reminderTime.setDate(reminderTime.getDate() + 1);
+    //   }
+    //
+    //   const secondsUntilReminder = Math.floor((reminderTime - now) / 1000);
+    //
+    //   console.log('[Notifications] 📅 Daily Reminder Details:');
+    //   console.log('  - Current Time:', now.toLocaleString());
+    //   console.log('  - Target Time:', reminderTime.toLocaleString());
+    //   console.log('  - Seconds Until:', secondsUntilReminder);
+    //   console.log('  - Hours Until:', (secondsUntilReminder / 3600).toFixed(2));
+    //   console.log('  - Will Schedule?', secondsUntilReminder >= 300);
+    //
+    //   // Minimum 5 minutes (300 seconds) in the future to prevent immediate firing
+    //   if (secondsUntilReminder >= 300) {
+    //     console.log('[Notifications] 🔔 SCHEDULING daily 6 PM reminder NOW...');
+    //     console.log('[Notifications] ⏰ This notification will NOT appear until:', reminderTime.toLocaleString());
+    //     console.log('[Notifications] ⏰ Which is in', (secondsUntilReminder / 3600).toFixed(2), 'hours from now');
+    //
+    //     const id = await Notifications.scheduleNotificationAsync({
+    //       content: {
+    //         title: '📝 Daily Farm Records Reminder',
+    //         body: 'Time to record today\'s farm activities (feeding, production, health checks)',
+    //         data: { type: 'daily_reminder', hour: 18 },
+    //         sound: true,
+    //         priority: Notifications.AndroidNotificationPriority.DEFAULT,
+    //       },
+    //       trigger: { seconds: secondsUntilReminder },
+    //     });
+    //
+    //     console.log('[Notifications] ✅ Daily reminder SCHEDULED (not shown yet!) with ID:', id);
+    //     console.log('[Notifications] 📅 It will appear at:', reminderTime.toLocaleString());
+    //     return id;
+    //   } else {
+    //     console.log('[Notifications] ⏭️ Daily reminder skipped (less than 5 minutes away)');
+    //     return null;
+    //   }
+    // } catch (error) {
+    //   console.error('[Notifications] ❌ ERROR scheduling daily reminder:', error);
+    //   return null;
+    // }
   }
 
   /**

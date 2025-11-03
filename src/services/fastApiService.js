@@ -359,22 +359,38 @@ class FastApiService {
       return {
         success: true,
         data: Array.isArray(farms) ? farms.map(farm => {
-          // Calculate batch count and total birds for this farm
-          const farmId = farm?.id || farm?.server_id;
-          const farmBatches = batches.filter(batch =>
-            batch?.farm_id === farmId &&
-            batch?.status !== 'completed' &&
-            !batch?.is_deleted
-          );
+          // CRITICAL FIX: Match batches by BOTH local farm_id and server_farm_id
+          // When online, farm.id is server ID, need to match with batch.server_farm_id
+          // When offline, farm.id is local ID, need to match with batch.farm_id
+          const isFromServer = source === 'server';
+          const farmServerId = isFromServer ? farm?.id : farm?.server_id;
+          const farmLocalId = isFromServer ? null : farm?.id;
+
+          console.log(`🔍 Matching batches for farm "${farm?.name || farm?.farm_name}": server_id=${farmServerId}, local_id=${farmLocalId}`);
+
+          const farmBatches = batches.filter(batch => {
+            // Match by server_farm_id when we have a server ID
+            const matchesServerId = farmServerId && String(batch?.server_farm_id) === String(farmServerId);
+            // Match by local farm_id when we have a local ID
+            const matchesLocalId = farmLocalId && batch?.farm_id === farmLocalId;
+
+            const matches = (matchesServerId || matchesLocalId) &&
+              batch?.status !== 'completed' &&
+              !batch?.is_deleted;
+
+            if (matches) {
+              console.log(`  ✅ Matched batch: ${batch?.batch_name}, farm_id=${batch?.farm_id}, server_farm_id=${batch?.server_farm_id}, birds=${batch?.current_count}`);
+            }
+
+            return matches;
+          });
 
           const batchCount = farmBatches.length;
           const totalBirds = farmBatches.reduce((sum, batch) =>
             sum + (batch?.current_count || 0), 0
           );
 
-          // CRITICAL FIX: When online, farms come from server with server IDs
-          // We need to map them correctly to include BOTH local SQLite ID and server ID
-          const isFromServer = source === 'server';
+          console.log(`📊 Farm "${farm?.name || farm?.farm_name}": ${batchCount} batches, ${totalBirds} birds`);
 
           return {
             id: isFromServer ? farm?.id : farm?.id,  // PostgreSQL ID when online, SQLite ID when offline

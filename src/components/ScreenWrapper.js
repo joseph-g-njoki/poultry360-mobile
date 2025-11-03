@@ -1,5 +1,6 @@
 import React, { Component, useEffect, useRef } from 'react';
-import { View, StyleSheet, SafeAreaView, StatusBar, BackHandler, AppState } from 'react-native';
+import { View, StyleSheet, StatusBar, BackHandler, AppState } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ErrorBoundary from './ErrorBoundary';
 import OfflineIndicator from './OfflineIndicator';
 import { useTheme } from '../context/ThemeContext';

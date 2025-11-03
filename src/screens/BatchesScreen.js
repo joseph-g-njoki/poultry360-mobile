@@ -103,15 +103,36 @@ const BatchesScreen = ({ route, navigation }) => {
       }
     };
 
+    // Subscribe to record events that affect batch counts
+    const handleRecordEvent = () => {
+      console.log('🔄 BatchesScreen: Record event received (affects batch counts), reloading batches...');
+      if (isMountedRef.current) {
+        loadData(false); // Reload without showing loading indicator
+      }
+    };
+
+    // Batch events
     dataEventBus.subscribe('BATCH_CREATED', handleBatchEvent);
     dataEventBus.subscribe('BATCH_UPDATED', handleBatchEvent);
     dataEventBus.subscribe('BATCH_DELETED', handleBatchEvent);
 
+    // Record events that affect batch current_count
+    dataEventBus.subscribe('MORTALITY_RECORD_CREATED', handleRecordEvent);
+    dataEventBus.subscribe('MORTALITY_RECORD_UPDATED', handleRecordEvent);
+    dataEventBus.subscribe('MORTALITY_RECORD_DELETED', handleRecordEvent);
+
     return () => {
       isMountedRef.current = false;
+
+      // Unsubscribe batch events
       dataEventBus.unsubscribe('BATCH_CREATED', handleBatchEvent);
       dataEventBus.unsubscribe('BATCH_UPDATED', handleBatchEvent);
       dataEventBus.unsubscribe('BATCH_DELETED', handleBatchEvent);
+
+      // Unsubscribe record events
+      dataEventBus.unsubscribe('MORTALITY_RECORD_CREATED', handleRecordEvent);
+      dataEventBus.unsubscribe('MORTALITY_RECORD_UPDATED', handleRecordEvent);
+      dataEventBus.unsubscribe('MORTALITY_RECORD_DELETED', handleRecordEvent);
     };
   }, []);
 
@@ -160,18 +181,7 @@ const BatchesScreen = ({ route, navigation }) => {
 
       // Update batches with real data
       if (batchesResponse?.success && Array.isArray(batchesResponse.data)) {
-        // DEBUG: Log first batch to see what fields are available
-        if (batchesResponse.data.length > 0) {
-          console.log('🔍 DEBUG: First batch raw data:', JSON.stringify(batchesResponse.data[0], null, 2));
-        }
-
-        const batchesData = batchesResponse.data.map(batch => {
-          console.log(`🔍 Batch ${batch.id} fields:`, {
-            birdType: batch.birdType,
-            bird_type: batch.bird_type,
-            breed: batch.breed
-          });
-          return {
+        const batchesData = batchesResponse.data.map(batch => ({
           id: batch.id,
           batchName: batch.batchName || batch.batch_name || batch.name || 'Unnamed Batch',
           farmId: batch.farmId || batch.farm_id,
@@ -180,8 +190,7 @@ const BatchesScreen = ({ route, navigation }) => {
           currentCount: batch.currentCount || batch.current_count || 0,
           arrivalDate: batch.arrivalDate || batch.arrival_date || batch.startDate || new Date().toISOString(),
           status: batch.status || 'active'
-          };
-        });
+        }));
 
         setBatches(batchesData);
         setDataSource('database');

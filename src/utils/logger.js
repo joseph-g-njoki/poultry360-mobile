@@ -9,6 +9,7 @@
  * - Always shows warnings and errors for debugging
  * - Ready for integration with error tracking services (Sentry, Crashlytics, etc.)
  * - Maintains console.log compatibility
+ * - Feature-based filtering for easier testing and debugging
  *
  * Usage:
  * ```javascript
@@ -22,13 +23,57 @@
  * // Always shows (even in production)
  * logger.warn('Slow network detected');
  * logger.error('Failed to load data', error);
+ *
+ * // Feature-based logging (NEW)
+ * logger.farm.info('Creating farm', farmData);
+ * logger.batch.success('Batch created successfully');
+ * logger.sync.warn('Sync taking longer than expected');
+ *
+ * // Configure what you want to see
+ * logger.only(['FARM', 'BATCH']); // Only show farm and batch logs
+ * logger.showConfig(); // See what's enabled
  * ```
  *
  * Future Enhancement:
  * Integrate with error tracking services by uncommenting the relevant sections.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const isDevelopment = __DEV__;
+
+/**
+ * Feature-based logging categories
+ * Toggle these to control which logs appear during testing
+ */
+const LOG_CATEGORIES = {
+  FARM: true,          // Farm operations (create, update, delete)
+  BATCH: true,         // Batch/flock operations
+  FEED: true,          // Feed records
+  WATER: true,         // Water records
+  MORTALITY: true,     // Mortality records
+  WEIGHT: true,        // Weight records
+  PRODUCTION: true,    // Egg production records
+  HEALTH: true,        // Health/vaccination records
+  SYNC: true,          // Data synchronization
+  DATABASE: true,      // SQLite database operations
+  API: true,           // Backend API calls
+  AUTH: true,          // Authentication/login
+  NETWORK: true,       // Network status
+  EVENTS: true,        // DataEventBus events
+  UI: true,            // UI/screen operations
+  OFFLINE: true,       // Offline mode operations
+};
+
+// Load saved configuration from AsyncStorage
+let loadedCategories = { ...LOG_CATEGORIES };
+AsyncStorage.getItem('LOG_CATEGORIES').then(saved => {
+  if (saved) {
+    loadedCategories = { ...LOG_CATEGORIES, ...JSON.parse(saved) };
+  }
+}).catch(() => {
+  // Ignore errors, use defaults
+});
 
 /**
  * Logger object with different log levels
@@ -209,5 +254,131 @@ export const measurePerformance = (label, fn) => {
   }
   return fn();
 };
+
+/**
+ * Feature-based category loggers
+ * Usage: logger.farm.info('Creating farm', data)
+ */
+const createCategoryLogger = (category) => {
+  const isEnabled = () => {
+    return isDevelopment && loadedCategories[category];
+  };
+
+  return {
+    debug: (...args) => {
+      if (isEnabled()) {
+        console.log(`🔍 [${category}]`, ...args);
+      }
+    },
+    info: (...args) => {
+      if (isEnabled()) {
+        console.log(`ℹ️ [${category}]`, ...args);
+      }
+    },
+    warn: (...args) => {
+      if (isEnabled()) {
+        console.warn(`⚠️ [${category}]`, ...args);
+      }
+    },
+    error: (...args) => {
+      // Always show errors, even if category is disabled
+      console.error(`❌ [${category}]`, ...args);
+    },
+    success: (...args) => {
+      if (isEnabled()) {
+        console.log(`✅ [${category}]`, ...args);
+      }
+    },
+  };
+};
+
+// Add category-specific loggers to the main logger object
+logger.farm = createCategoryLogger('FARM');
+logger.batch = createCategoryLogger('BATCH');
+logger.feed = createCategoryLogger('FEED');
+logger.water = createCategoryLogger('WATER');
+logger.mortality = createCategoryLogger('MORTALITY');
+logger.weight = createCategoryLogger('WEIGHT');
+logger.production = createCategoryLogger('PRODUCTION');
+logger.health = createCategoryLogger('HEALTH');
+logger.sync = createCategoryLogger('SYNC');
+logger.database = createCategoryLogger('DATABASE');
+logger.api = createCategoryLogger('API');
+logger.auth = createCategoryLogger('AUTH');
+logger.network = createCategoryLogger('NETWORK');
+logger.events = createCategoryLogger('EVENTS');
+logger.ui = createCategoryLogger('UI');
+logger.offline = createCategoryLogger('OFFLINE');
+
+/**
+ * Configure which categories to show
+ * @param {Object} categories - Object with category names and boolean values
+ * Example: logger.configure({ FARM: true, BATCH: false })
+ */
+logger.configure = async (categories) => {
+  loadedCategories = { ...loadedCategories, ...categories };
+  try {
+    await AsyncStorage.setItem('LOG_CATEGORIES', JSON.stringify(loadedCategories));
+    console.log('✅ Logger configuration updated');
+  } catch (error) {
+    console.error('Failed to save logger config:', error);
+  }
+};
+
+/**
+ * Show only specific categories
+ * @param {string[]} categoryNames - Array of category names to enable
+ * Example: logger.only(['FARM', 'BATCH'])
+ */
+logger.only = async (categoryNames) => {
+  const newConfig = {};
+  Object.keys(LOG_CATEGORIES).forEach(key => {
+    newConfig[key] = categoryNames.includes(key);
+  });
+  await logger.configure(newConfig);
+  console.log(`✅ Only showing logs for: ${categoryNames.join(', ')}`);
+};
+
+/**
+ * Enable all categories
+ */
+logger.enableAll = async () => {
+  const newConfig = {};
+  Object.keys(LOG_CATEGORIES).forEach(key => {
+    newConfig[key] = true;
+  });
+  await logger.configure(newConfig);
+  console.log('✅ All log categories enabled');
+};
+
+/**
+ * Disable all categories except errors
+ */
+logger.disableAll = async () => {
+  const newConfig = {};
+  Object.keys(LOG_CATEGORIES).forEach(key => {
+    newConfig[key] = false;
+  });
+  await logger.configure(newConfig);
+  console.log('⚠️ All log categories disabled (errors still shown)');
+};
+
+/**
+ * Show current configuration
+ */
+logger.showConfig = () => {
+  console.log('════════════════════════════════════════════════');
+  console.log('📊 LOGGER CONFIGURATION');
+  console.log('════════════════════════════════════════════════');
+  Object.entries(loadedCategories).forEach(([key, enabled]) => {
+    console.log(`   ${enabled ? '✅' : '❌'} ${key}`);
+  });
+  console.log('════════════════════════════════════════════════');
+};
+
+// Make logger globally accessible for debugging in Metro
+if (typeof global !== 'undefined') {
+  global.logger = logger;
+}
 
 export default logger;

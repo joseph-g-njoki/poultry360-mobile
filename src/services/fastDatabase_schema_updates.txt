@@ -1,0 +1,308 @@
+================================================================================
+FASTDATABASE.JS SCHEMA UPDATES - MANUAL PATCH INSTRUCTIONS
+================================================================================
+
+This file contains the exact changes you need to make to fastDatabase.js
+to add missing columns to the CREATE TABLE statements.
+
+⚠️  IMPORTANT: These changes ensure that NEW database installations have
+   the correct schema from the start. For EXISTING databases, you must
+   run executeSchemaMigration.js first!
+
+================================================================================
+CHANGE 1: POULTRY_BATCHES TABLE (around line 567-586)
+================================================================================
+
+FIND THIS:
+----------
+        this.db.execSync(`
+          CREATE TABLE poultry_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            batch_name TEXT NOT NULL,
+            bird_type TEXT,
+            breed TEXT,
+            initial_count INTEGER DEFAULT 0,
+            current_count INTEGER DEFAULT 0,
+            farm_id INTEGER,
+            server_farm_id TEXT,
+            arrival_date TEXT,
+            age_weeks INTEGER,
+            status TEXT DEFAULT 'active',
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
+          );
+        `);
+
+REPLACE WITH:
+-------------
+        this.db.execSync(`
+          CREATE TABLE poultry_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            organization_id INTEGER,
+            batch_name TEXT NOT NULL,
+            bird_type TEXT,
+            breed TEXT,
+            initial_count INTEGER DEFAULT 0,
+            current_count INTEGER DEFAULT 0,
+            farm_id INTEGER,
+            server_farm_id TEXT,
+            arrival_date TEXT,
+            age_weeks INTEGER,
+            notes TEXT,
+            status TEXT DEFAULT 'active',
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
+          );
+        `);
+
+CHANGES MADE:
+  ✅ Added: organization_id INTEGER (after server_id)
+  ✅ Added: notes TEXT (after age_weeks)
+  ✅ Added: deleted_at TEXT (after is_deleted)
+
+================================================================================
+CHANGE 2: HEALTH_RECORDS TABLE (around line 622-651)
+================================================================================
+
+FIND THIS:
+----------
+        this.db.execSync(`
+          CREATE TABLE health_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            farm_id INTEGER,
+            batch_id INTEGER,
+            individual_bird_id TEXT,
+            health_status TEXT DEFAULT 'healthy',
+            symptoms TEXT,
+            treatment TEXT,
+            medication TEXT,
+            treatment_date TEXT,
+            recovery_date TEXT,
+            mortality_count INTEGER DEFAULT 0,
+            mortality_cause TEXT,
+            vaccination_type TEXT,
+            disease TEXT,
+            record_date TEXT,
+            date TEXT,
+            recorded_by INTEGER,
+            vet_id INTEGER,
+            notes TEXT,
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE,
+            FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE
+          );
+        `);
+
+REPLACE WITH:
+-------------
+        this.db.execSync(`
+          CREATE TABLE health_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            organization_id INTEGER,
+            farm_id INTEGER,
+            batch_id INTEGER,
+            individual_bird_id TEXT,
+            health_status TEXT DEFAULT 'healthy',
+            symptoms TEXT,
+            treatment TEXT,
+            medication TEXT,
+            treatment_date TEXT,
+            recovery_date TEXT,
+            mortality_count INTEGER DEFAULT 0,
+            mortality_cause TEXT,
+            vaccination_type TEXT,
+            disease TEXT,
+            record_date TEXT,
+            date TEXT,
+            recorded_by INTEGER,
+            vet_id INTEGER,
+            notes TEXT,
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE,
+            FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE
+          );
+        `);
+
+CHANGES MADE:
+  ✅ Added: organization_id INTEGER (after server_id)
+  ✅ Added: deleted_at TEXT (after is_deleted)
+  ℹ️  Note: recovery_date already exists (no change needed)
+
+================================================================================
+CHANGE 3: WATER_RECORDS TABLE (around line 712-733)
+================================================================================
+
+FIND THIS:
+----------
+        this.db.execSync(`
+          CREATE TABLE water_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            batch_id INTEGER NOT NULL,
+            farm_id INTEGER,
+            date_recorded TEXT NOT NULL,
+            date TEXT,
+            quantity_liters REAL NOT NULL,
+            water_source TEXT,
+            quality TEXT,
+            temperature_celsius REAL,
+            recorded_by INTEGER,
+            notes TEXT,
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
+          );
+        `);
+
+REPLACE WITH:
+-------------
+        this.db.execSync(`
+          CREATE TABLE water_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            organization_id INTEGER,
+            batch_id INTEGER NOT NULL,
+            farm_id INTEGER,
+            date_recorded TEXT NOT NULL,
+            date TEXT,
+            quantity_liters REAL NOT NULL,
+            water_source TEXT,
+            quality TEXT,
+            temperature_celsius REAL,
+            recorded_by INTEGER,
+            notes TEXT,
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
+            FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
+          );
+        `);
+
+CHANGES MADE:
+  ✅ Added: organization_id INTEGER (after server_id)
+  ✅ Added: deleted_at TEXT (after is_deleted)
+  ℹ️  Note: water_source already exists (no change needed)
+
+================================================================================
+CHANGE 4: WEIGHT_RECORDS TABLE (around line 739-762)
+================================================================================
+
+FIND THIS:
+----------
+        this.db.execSync(`
+          CREATE TABLE weight_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            batch_id INTEGER NOT NULL,
+            farm_id INTEGER,
+            date_recorded TEXT NOT NULL,
+            date TEXT,
+            average_weight_grams REAL NOT NULL,
+            average_weight_kg REAL,
+            sample_size INTEGER NOT NULL,
+            min_weight_grams REAL,
+            max_weight_grams REAL,
+            age_weeks INTEGER,
+            recorded_by INTEGER,
+            notes TEXT,
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
+          );
+        `);
+
+REPLACE WITH:
+-------------
+        this.db.execSync(`
+          CREATE TABLE weight_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT UNIQUE,
+            organization_id INTEGER,
+            batch_id INTEGER NOT NULL,
+            farm_id INTEGER,
+            date_recorded TEXT NOT NULL,
+            date TEXT,
+            average_weight_grams REAL NOT NULL,
+            average_weight_kg REAL,
+            sample_size INTEGER NOT NULL,
+            min_weight_grams REAL,
+            max_weight_grams REAL,
+            age_weeks INTEGER,
+            recorded_by INTEGER,
+            notes TEXT,
+            needs_sync INTEGER DEFAULT 1,
+            synced_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_deleted INTEGER DEFAULT 0,
+            deleted_at TEXT,
+            FOREIGN KEY (batch_id) REFERENCES poultry_batches (id) ON DELETE CASCADE,
+            FOREIGN KEY (farm_id) REFERENCES farms (id) ON DELETE CASCADE
+          );
+        `);
+
+CHANGES MADE:
+  ✅ Added: organization_id INTEGER (after server_id)
+  ✅ Added: deleted_at TEXT (after is_deleted)
+  ℹ️  Note: recorded_by already exists (no change needed)
+
+================================================================================
+SUMMARY OF ALL CHANGES
+================================================================================
+
+All 4 tables need these additions:
+  1. organization_id INTEGER - Critical for multi-tenant support
+  2. deleted_at TEXT - Soft delete timestamp (complements is_deleted)
+
+Additionally:
+  - poultry_batches needs: notes TEXT
+
+Fields that were reported as missing but ALREADY EXIST:
+  ✅ health_records.recovery_date - EXISTS at line 633
+  ✅ water_records.water_source - EXISTS at line 720
+  ✅ weight_records.recorded_by - EXISTS at line 752
+
+================================================================================
+AFTER MAKING THESE CHANGES
+================================================================================
+
+1. Save fastDatabase.js
+2. For EXISTING databases: Run executeSchemaMigration.js
+3. For NEW installations: The schema will be correct from the start
+4. Run schemaVerification.js to confirm 100% alignment
+
+================================================================================

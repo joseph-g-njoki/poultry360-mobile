@@ -1073,13 +1073,15 @@ class SyncService {
         delete mapped.owner_id; // Mobile doesn't have owner_id column
         delete mapped.user; // Backend sends 'user' field that doesn't exist in mobile schema
         delete mapped.organization; // Backend sends 'organization' object that doesn't exist in mobile schema
+        delete mapped.poultryBatches; // Backend sends 'poultryBatches' array
+        delete mapped.batchCount; // Backend sends computed 'batchCount' field
+        delete mapped.totalBirds; // Backend sends computed 'totalBirds' field
         break;
 
       case 'poultry_batches':
-        // Backend uses 'batchName' which maps to 'batch_number' in DB
+        // Backend uses 'batchName' which maps to 'batch_name' in DB
         if (serverRecord.batchName) mapped.batch_name = serverRecord.batchName;
-        if (serverRecord.batchName) mapped.batch_number = serverRecord.batchName;
-        if (serverRecord.batchNumber) mapped.batch_number = serverRecord.batchNumber; // Fallback
+        
         if (serverRecord.initialCount) mapped.initial_count = serverRecord.initialCount;
         if (serverRecord.currentCount) mapped.current_count = serverRecord.currentCount;
         if (serverRecord.hatchDate) mapped.hatch_date = serverRecord.hatchDate;
@@ -1096,6 +1098,7 @@ class SyncService {
         // Clean up ALL unmapped camelCase fields for poultry_batches
         delete mapped.batchName;
         delete mapped.batchNumber;
+        delete mapped.name; // CRITICAL FIX: Backend sends 'name' field that doesn't exist in mobile schema
         delete mapped.initialCount;
         delete mapped.currentCount;
         delete mapped.hatchDate;
@@ -1105,8 +1108,19 @@ class SyncService {
         delete mapped.birdType; // CRITICAL FIX: Delete after mapping to breed
         delete mapped.arrivalDate; // CRITICAL FIX: Delete after mapping to arrival_date
         delete mapped.ageWeeks; // CRITICAL FIX: Delete after mapping to age_weeks
-        delete mapped.notes; // CRITICAL FIX: Backend sends notes but mobile doesn't have this column
-        delete mapped.farm; // CRITICAL FIX: Backend sends farm object but mobile only has farm_id
+        // NOTE: Keep mapped.notes - mobile schema HAS this column
+                delete mapped.farm; // CRITICAL FIX: Backend sends farm object but mobile only has farm_id
+        delete mapped.organization; // Backend sends organization object
+        delete mapped.numberOfBirds; // Backend sends numberOfBirds field
+        delete mapped.number_of_birds; // In case it's snake_case
+        delete mapped.feedRecords; // Backend sends feedRecords array
+        delete mapped.productionRecords; // Backend sends productionRecords array
+        delete mapped.mortalityRecords; // Backend sends mortalityRecords array
+        delete mapped.healthRecords; // Backend sends healthRecords array
+        delete mapped.vaccinationRecords; // Backend sends vaccinationRecords array
+        delete mapped.financialRecords; // Backend sends financialRecords array
+        delete mapped.waterRecords; // Backend sends waterRecords array
+        delete mapped.weightRecords; // Backend sends weightRecords array
         break;
 
       case 'feed_records':

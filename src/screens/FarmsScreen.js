@@ -19,7 +19,7 @@ import { useLanguage } from '../context/LanguageContext';
 import fastApiService from '../services/fastApiService';
 import OfflineIndicator, { SyncStatusBadge } from '../components/OfflineIndicator';
 import CustomPicker from '../components/CustomPicker';
-import DataEventBus from '../services/dataEventBus';
+import dataEventBus from '../services/dataEventBus';
 
 const FarmsScreen = () => {
   const { theme } = useTheme();
@@ -49,21 +49,37 @@ const FarmsScreen = () => {
 
     // Subscribe to DataEventBus events for real-time updates
     const handleFarmEvent = () => {
-      console.log('🔄 FarmsScreen: Farm event received, reloading farms...');
+      console.log('🔄 FarmsScreen: Farm/Batch event received, reloading farms...');
       if (isMountedRef.current) {
         loadFarms(false); // Reload without showing loading indicator
       }
     };
 
-    DataEventBus.on('FARM_CREATED', handleFarmEvent);
-    DataEventBus.on('FARM_UPDATED', handleFarmEvent);
-    DataEventBus.on('FARM_DELETED', handleFarmEvent);
+    // CRASH FIX: Use correct method names - subscribe() instead of on()
+    dataEventBus.subscribe('FARM_CREATED', handleFarmEvent);
+    dataEventBus.subscribe('FARM_UPDATED', handleFarmEvent);
+    dataEventBus.subscribe('FARM_DELETED', handleFarmEvent);
+    // Listen to batch events to update farm counts
+    dataEventBus.subscribe('BATCH_CREATED', handleFarmEvent);
+    dataEventBus.subscribe('BATCH_UPDATED', handleFarmEvent);
+    dataEventBus.subscribe('BATCH_DELETED', handleFarmEvent);
+    // Listen to record events that affect batch counts (mortality reduces bird count)
+    dataEventBus.subscribe('MORTALITY_RECORD_CREATED', handleFarmEvent);
+    dataEventBus.subscribe('MORTALITY_RECORD_UPDATED', handleFarmEvent);
+    dataEventBus.subscribe('MORTALITY_RECORD_DELETED', handleFarmEvent);
 
     return () => {
       isMountedRef.current = false;
-      DataEventBus.off('FARM_CREATED', handleFarmEvent);
-      DataEventBus.off('FARM_UPDATED', handleFarmEvent);
-      DataEventBus.off('FARM_DELETED', handleFarmEvent);
+      // CRASH FIX: Use correct method names - unsubscribe() instead of off()
+      dataEventBus.unsubscribe('FARM_CREATED', handleFarmEvent);
+      dataEventBus.unsubscribe('FARM_UPDATED', handleFarmEvent);
+      dataEventBus.unsubscribe('FARM_DELETED', handleFarmEvent);
+      dataEventBus.unsubscribe('BATCH_CREATED', handleFarmEvent);
+      dataEventBus.unsubscribe('BATCH_UPDATED', handleFarmEvent);
+      dataEventBus.unsubscribe('BATCH_DELETED', handleFarmEvent);
+      dataEventBus.unsubscribe('MORTALITY_RECORD_CREATED', handleFarmEvent);
+      dataEventBus.unsubscribe('MORTALITY_RECORD_UPDATED', handleFarmEvent);
+      dataEventBus.unsubscribe('MORTALITY_RECORD_DELETED', handleFarmEvent);
     };
   }, []);
 
@@ -555,7 +571,7 @@ const styles = (theme) => StyleSheet.create({
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#ffffff',
+    color: theme.colors.buttonText,
     fontWeight: 'bold',
   },
   farmsList: {
@@ -665,7 +681,7 @@ const styles = (theme) => StyleSheet.create({
     borderRadius: 8,
   },
   emptyButtonText: {
-    color: '#ffffff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -739,7 +755,7 @@ const styles = (theme) => StyleSheet.create({
     marginLeft: 10,
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',

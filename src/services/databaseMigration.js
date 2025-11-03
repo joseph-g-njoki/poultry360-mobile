@@ -41,6 +41,9 @@ class DatabaseMigrationService {
       // Migration 1: Add is_synced columns
       await this.addIsSyncedColumns();
 
+      // Migration 2: Add organization_id and deleted_at columns for backend sync
+      await this.addBackendSyncColumns();
+
       console.log('[Migration] ✅ All migrations completed successfully');
       return { success: true };
     } catch (error) {
@@ -82,6 +85,61 @@ class DatabaseMigrationService {
         throw error;
       }
     }
+  }
+
+  /**
+   * Add organization_id and deleted_at columns for backend sync alignment
+   */
+  async addBackendSyncColumns() {
+    console.log('[Migration] Adding backend sync columns (organization_id, deleted_at, notes)...');
+
+    // Tables that need organization_id and deleted_at
+    const syncTables = [
+      { name: 'poultry_batches', extraColumns: ['notes'] },
+      { name: 'health_records', extraColumns: [] },
+      { name: 'water_records', extraColumns: [] },
+      { name: 'weight_records', extraColumns: [] }
+    ];
+
+    for (const tableConfig of syncTables) {
+      const { name: table, extraColumns } = tableConfig;
+
+      try {
+        // Add organization_id column
+        const hasOrgId = await this.columnExists(table, 'organization_id');
+        if (!hasOrgId) {
+          await this.addColumn(table, 'organization_id', 'INTEGER');
+          console.log(`[Migration] ✅ Added organization_id to ${table}`);
+        } else {
+          console.log(`[Migration] ⏭️  organization_id already exists in ${table}`);
+        }
+
+        // Add deleted_at column
+        const hasDeletedAt = await this.columnExists(table, 'deleted_at');
+        if (!hasDeletedAt) {
+          await this.addColumn(table, 'deleted_at', 'TEXT');
+          console.log(`[Migration] ✅ Added deleted_at to ${table}`);
+        } else {
+          console.log(`[Migration] ⏭️  deleted_at already exists in ${table}`);
+        }
+
+        // Add extra columns if specified (e.g., notes for poultry_batches)
+        for (const columnName of extraColumns) {
+          const hasColumn = await this.columnExists(table, columnName);
+          if (!hasColumn) {
+            await this.addColumn(table, columnName, 'TEXT');
+            console.log(`[Migration] ✅ Added ${columnName} to ${table}`);
+          } else {
+            console.log(`[Migration] ⏭️  ${columnName} already exists in ${table}`);
+          }
+        }
+      } catch (error) {
+        console.error(`[Migration] ❌ Failed to add backend sync columns to ${table}:`, error);
+        throw error;
+      }
+    }
+
+    console.log('[Migration] ✅ Backend sync columns migration completed');
   }
 
   /**

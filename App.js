@@ -407,6 +407,16 @@ export default function App() {
               console.warn('⚠️ Background: Failed to cleanup invalid mortality records:', cleanupError);
             }
 
+            // CHECK: Report any batches with invalid bird types
+            try {
+              const invalidBatches = fastDatabase.checkInvalidBirdTypes();
+              if (invalidBatches.length > 0) {
+                console.log('⚠️ Background: Found batches with invalid bird types:', invalidBatches);
+              }
+            } catch (checkError) {
+              console.warn('⚠️ Background: Failed to check invalid bird types:', checkError);
+            }
+
             // Initialize auto-sync service
             autoSyncService.init();
             console.log('✅ Background: Auto-sync service initialized');

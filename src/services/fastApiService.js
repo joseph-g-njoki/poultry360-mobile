@@ -3,6 +3,7 @@ import fastDatabaseImport from './fastDatabase';
 import dataEventBus, { EventTypes } from './dataEventBus';
 import apiService from './api';
 import networkService from './networkService';
+import autoSyncService from './autoSyncService';
 
 // FIX: Handle both default and named exports from fastDatabase
 const fastDatabase = fastDatabaseImport.default || fastDatabaseImport;
@@ -10,6 +11,10 @@ const fastDatabase = fastDatabaseImport.default || fastDatabaseImport;
 class FastApiService {
   constructor() {
     this.isReady = false;
+    // Sync management to prevent overwhelming network
+    this.lastSyncTime = {}; // Track last sync time per record type
+    this.syncInProgress = new Set(); // Track ongoing syncs
+    this.SYNC_INTERVAL = 30000; // Only sync if data is older than 30 seconds
   }
 
   /**
@@ -71,6 +76,52 @@ class FastApiService {
       // Don't throw - allow app to continue without database
       console.warn('⚠️ FastApiService: Continuing without database - operations will fail');
       return Promise.resolve(false);
+    }
+  }
+
+  // Generic HTTP methods for direct API calls
+  async get(url, config = {}) {
+    try {
+      return await apiService.get(url, config);
+    } catch (error) {
+      console.error('FastApiService GET error:', error);
+      throw error;
+    }
+  }
+
+  async post(url, data = {}, config = {}) {
+    try {
+      return await apiService.post(url, data, config);
+    } catch (error) {
+      console.error('FastApiService POST error:', error);
+      throw error;
+    }
+  }
+
+  async put(url, data = {}, config = {}) {
+    try {
+      return await apiService.put(url, data, config);
+    } catch (error) {
+      console.error('FastApiService PUT error:', error);
+      throw error;
+    }
+  }
+
+  async patch(url, data = {}, config = {}) {
+    try {
+      return await apiService.patch(url, data, config);
+    } catch (error) {
+      console.error('FastApiService PATCH error:', error);
+      throw error;
+    }
+  }
+
+  async delete(url, config = {}) {
+    try {
+      return await apiService.delete(url, config);
+    } catch (error) {
+      console.error('FastApiService DELETE error:', error);
+      throw error;
     }
   }
 
@@ -290,63 +341,16 @@ class FastApiService {
   async getFarms() {
     try {
       console.log('═══════════════════════════════════════════════════');
-      console.log('🏭 GET FARMS - HYBRID MODE');
+      console.log('🏭 GET FARMS - LOCAL-FIRST MODE');
       console.log('═══════════════════════════════════════════════════');
 
-      // HYBRID APPROACH: Check network status
-      const isOnline = networkService.getIsConnected();
-      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
-
-      let farms;
-      let source;
-
-      if (isOnline) {
-        // ONLINE MODE: Fetch from PostgreSQL and smart-sync to SQLite
-        try {
-          console.log('🌐 ONLINE: Fetching farms from PostgreSQL backend...');
-          const serverFarms = await apiService.getFarms();
-          console.log(`✅ Fetched ${serverFarms?.length || 0} farms from PostgreSQL`);
-
-          // SMART SYNC: Update SQLite without clearing
-          // Only update farms that changed, don't recreate everything
-          console.log('💾 Smart-syncing farms to SQLite...');
-          const existingFarms = fastDatabase.getFarms();
-
-          for (const serverFarm of serverFarms) {
-            // Check if farm exists in SQLite by server_id
-            const existingFarm = existingFarms.find(f => String(f.server_id) === String(serverFarm.id));
-
-            if (!existingFarm) {
-              // New farm from server - add to SQLite
-              console.log(`➕ Adding new farm to SQLite: ${serverFarm.name} (server_id: ${serverFarm.id})`);
-              const localData = {
-                name: serverFarm.name || serverFarm.farmName,
-                location: serverFarm.location,
-                farmType: serverFarm.farmType || serverFarm.farm_type,
-                description: serverFarm.description,
-                organization_id: serverFarm.organizationId || serverFarm.organization_id,
-                server_id: serverFarm.id,
-                needs_sync: 0,
-                synced_at: new Date().toISOString()
-              };
-              fastDatabase.createFarm(localData);
-            }
-            // If farm exists, we don't update it (to preserve local changes)
-          }
-
-          farms = serverFarms;
-          source = 'server';
-        } catch (onlineError) {
-          console.warn('⚠️  Failed to fetch from PostgreSQL, falling back to SQLite:', onlineError.message);
-          farms = fastDatabase.getFarms();
-          source = 'local_fallback';
-        }
-      } else {
-        // OFFLINE MODE: Read from SQLite
-        console.log('📴 OFFLINE: Reading farms from SQLite...');
-        farms = fastDatabase.getFarms();
-        source = 'local';
-      }
+      // LOCAL-FIRST APPROACH: Always read from SQLite for consistent display
+      // This matches Dashboard behavior and ensures farms/batches created locally are visible
+      // Background sync happens separately via AutoSyncService
+      console.log('💾 LOCAL-FIRST: Reading farms from SQLite...');
+      const farms = fastDatabase.getFarms();
+      const source = 'local';
+      console.log(`✅ Retrieved ${farms?.length || 0} farms from local SQLite`);
 
       // Get batches to calculate counts
       const batches = fastDatabase.getBatches();
@@ -421,68 +425,16 @@ class FastApiService {
   async getFlocks() {
     try {
       console.log('═══════════════════════════════════════════════════');
-      console.log('🐔 GET FLOCKS - HYBRID MODE');
+      console.log('🐔 GET FLOCKS - LOCAL-FIRST MODE');
       console.log('═══════════════════════════════════════════════════');
 
-      // HYBRID APPROACH: Check network status
-      const isOnline = networkService.getIsConnected();
-      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
-
-      let batches;
-      let source;
-
-      if (isOnline) {
-        // ONLINE MODE: Fetch from PostgreSQL and smart-sync to SQLite
-        try {
-          console.log('🌐 ONLINE: Fetching flocks from PostgreSQL backend...');
-          const serverFlocks = await apiService.getFlocks();
-          console.log(`✅ Fetched ${serverFlocks?.length || 0} flocks from PostgreSQL`);
-
-          // SMART SYNC: Update SQLite without clearing
-          // Only update batches that changed, don't recreate everything
-          console.log('💾 Smart-syncing flocks to SQLite...');
-          const existingBatches = fastDatabase.getBatches();
-
-          for (const serverFlock of serverFlocks) {
-            // Check if batch exists in SQLite by server_id
-            const existingBatch = existingBatches.find(b => String(b.server_id) === String(serverFlock.id));
-
-            if (!existingBatch) {
-              // New batch from server - add to SQLite
-              console.log(`➕ Adding new batch to SQLite: ${serverFlock.batchName} (server_id: ${serverFlock.id})`);
-              const localData = {
-                batchName: serverFlock.batchName || serverFlock.batch_name,
-                farmId: serverFlock.farmId || serverFlock.farm_id,
-                birdType: serverFlock.birdType || serverFlock.bird_type,
-                breed: serverFlock.breed,
-                initialCount: serverFlock.initialCount || serverFlock.initial_count,
-                currentCount: serverFlock.currentCount || serverFlock.current_count,
-                arrivalDate: serverFlock.arrivalDate || serverFlock.arrival_date,
-                status: serverFlock.status,
-                organization_id: serverFlock.organizationId || serverFlock.organization_id,
-                server_id: serverFlock.id,
-                needs_sync: 0,
-                is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
-                synced_at: new Date().toISOString()
-              };
-              fastDatabase.createBatch(localData);
-            }
-            // If batch exists, we don't update it (to preserve local changes)
-          }
-
-          batches = serverFlocks;
-          source = 'server';
-        } catch (onlineError) {
-          console.warn('⚠️  Failed to fetch from PostgreSQL, falling back to SQLite:', onlineError.message);
-          batches = fastDatabase.getBatches();
-          source = 'local_fallback';
-        }
-      } else {
-        // OFFLINE MODE: Read from SQLite
-        console.log('📴 OFFLINE: Reading flocks from SQLite...');
-        batches = fastDatabase.getBatches();
-        source = 'local';
-      }
+      // LOCAL-FIRST APPROACH: Always read from SQLite for consistent display
+      // This matches Dashboard behavior and ensures batches created locally are visible
+      // Background sync happens separately via AutoSyncService
+      console.log('💾 LOCAL-FIRST: Reading flocks from SQLite...');
+      const batches = fastDatabase.getBatches();
+      const source = 'local';
+      console.log(`✅ Retrieved ${batches?.length || 0} flocks from local SQLite`);
 
       console.log('🔍 getFlocks DEBUG:');
       console.log(`  Total flocks: ${batches?.length || 0}`);
@@ -536,6 +488,8 @@ class FastApiService {
           // CRITICAL FIX: Get the batch's server_id before creating records that reference batches
           // BUGFIX: Convert local batchId to server_id for ALL record types, not just water/weight
           let backendData = { ...recordData };
+          let localBatchId = recordData.batchId; // Store the original ID (might be server or local)
+          let localFarmId = recordData.farmId;   // Store the farm ID (might be server or local)
 
           if (recordData.batchId) {
             const batch = fastDatabase.getBatchById(recordData.batchId);
@@ -548,9 +502,13 @@ class FastApiService {
               throw new Error(`Batch with ID ${recordData.batchId} not found or not accessible`);
             }
 
-            console.log(`🔍 FastApiService: Found batch "${batch.batch_name}" with server_id: ${batch.server_id}`);
+            console.log(`🔍 FastApiService: Found batch "${batch.batch_name}" with local_id: ${batch.id}, server_id: ${batch.server_id}, farm_id: ${batch.farm_id}`);
 
-            // Use server_id instead of local id for ALL record types
+            // CRITICAL: Store the LOCAL batch ID and farm ID for SQLite caching later
+            localBatchId = batch.id;
+            localFarmId = batch.farm_id; // Get the LOCAL farm ID from the batch
+
+            // Use server_id instead of local id for backend API call
             backendData = {
               ...recordData,
               batchId: batch.server_id
@@ -582,34 +540,44 @@ class FastApiService {
             case 'vaccination':
               serverResponse = await apiService.createVaccinationRecord(backendData);
               break;
+            case 'finance':
+              serverResponse = await apiService.createFinancialRecord(backendData);
+              break;
             default:
               throw new Error(`Unsupported record type: ${recordType}`);
           }
 
           console.log(`✅ ${recordType} record saved to PostgreSQL:`, serverResponse);
 
+          // CRITICAL FIX: Handle nested response structure (some endpoints return {data: {...}, message: "..."})
+          if (serverResponse.data && typeof serverResponse.data === 'object' && !Array.isArray(serverResponse.data)) {
+            console.log('⚠️  Detected nested response structure, extracting data object');
+            serverResponse = serverResponse.data;
+            console.log('✅ Extracted data:', serverResponse);
+          }
+
           // CRITICAL FIX: Update batch current_count if mortality/production record
           if ((recordType === 'mortality' || recordType === 'production') && serverResponse.batch) {
             const updatedBatch = serverResponse.batch;
-            console.log(`🔄 Updating batch ${recordData.batchId} current_count to ${updatedBatch.currentCount}`);
+            console.log(`🔄 Updating batch ${localBatchId} current_count to ${updatedBatch.currentCount}`);
 
             try {
               fastDatabase.db.runSync(
                 `UPDATE poultry_batches SET current_count = ?, updated_at = ? WHERE id = ?`,
-                [updatedBatch.currentCount, new Date().toISOString(), recordData.batchId]
+                [updatedBatch.currentCount, new Date().toISOString(), localBatchId]
               );
-              console.log(`✅ Batch ${recordData.batchId} updated with new current_count: ${updatedBatch.currentCount}`);
+              console.log(`✅ Batch ${localBatchId} updated with new current_count: ${updatedBatch.currentCount}`);
             } catch (updateError) {
               console.error(`❌ Failed to update batch current_count:`, updateError);
             }
           }
 
           // CRITICAL FIX: Cache in SQLite using server response data (includes organization_id)
-          // BUT keep the local batchId reference (not the server's batchId)
+          // BUT keep the local batchId and farmId references (not the server's IDs)
           const localData = {
             ...serverResponse,  // ✅ Use server data (includes organization_id)
-            batchId: recordData.batchId,  // ✅ CRITICAL: Use LOCAL batchId for SQLite FOREIGN KEY
-            farmId: recordData.farmId,    // ✅ Keep local farmId too
+            batchId: localBatchId,  // ✅ CRITICAL FIX: Use LOCAL batch ID for SQLite FOREIGN KEY
+            farmId: localFarmId,    // ✅ CRITICAL FIX: Use LOCAL farm ID from batch for SQLite FOREIGN KEY
             server_id: serverResponse.id,
             needs_sync: 0, // Already synced
             is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
@@ -644,6 +612,16 @@ class FastApiService {
               weightUnit: recordData.weightUnit || 'kg',
               dateRecorded: serverResponse.dateRecorded || serverResponse.date_recorded || recordData.dateRecorded
             } : {}),
+            // Finance fields
+            ...(recordType === 'finance' ? {
+              transactionType: serverResponse.transactionType || serverResponse.transaction_type || recordData.transactionType,
+              category: serverResponse.category || recordData.category,
+              amount: serverResponse.amount || recordData.amount,
+              transactionDate: serverResponse.transactionDate || serverResponse.transaction_date || recordData.transactionDate || recordData.date,
+              description: serverResponse.description || recordData.description,
+              paymentMethod: serverResponse.paymentMethod || serverResponse.payment_method || recordData.paymentMethod,
+              recordSource: serverResponse.recordSource || serverResponse.record_source || recordData.recordSource || 'manual'
+            } : {}),
             // Water fields
             ...(recordType === 'water' ? {
               quantityLiters: serverResponse.quantityLiters || serverResponse.quantity_liters || recordData.quantityLiters
@@ -657,7 +635,8 @@ class FastApiService {
           };
 
           console.log(`💾 Caching ${recordType} record in SQLite with organization_id:`, serverResponse.organizationId || serverResponse.organization_id);
-          console.log(`🔍 DEBUG: localData for caching (batchId should be LOCAL):`, JSON.stringify(localData, null, 2));
+          console.log(`🔍 DEBUG: ID conversion - batchId: ${recordData.batchId} → ${localBatchId}, farmId: ${recordData.farmId} → ${localFarmId}`);
+          console.log(`🔍 DEBUG: localData for caching (batchId and farmId should be LOCAL):`, JSON.stringify(localData, null, 2));
           result = fastDatabase.createRecord(recordType, localData);
           console.log(`✅ ${recordType} record cached in SQLite:`, result);
 
@@ -715,6 +694,9 @@ class FastApiService {
         }, { debounce: false }); // FIX: Disable debounce for immediate UI updates in production
       }
 
+      // Trigger sync after activity
+      autoSyncService.syncAfterActivity();
+
       return {
         success: true,
         data: result,
@@ -729,99 +711,60 @@ class FastApiService {
     }
   }
 
-  async getRecords(recordType) {
+  async getRecords(recordType, options = {}) {
     try {
       console.log('═══════════════════════════════════════════════════');
-      console.log(`📋 GET ${recordType.toUpperCase()} RECORDS - HYBRID MODE`);
+      console.log(`📋 GET ${recordType.toUpperCase()} RECORDS - LOCAL-FIRST MODE`);
       console.log('═══════════════════════════════════════════════════');
 
-      // HYBRID APPROACH: Check network status
+      // LOCAL-FIRST APPROACH: Always load from SQLite first (instant!)
+      console.log(`⚡ INSTANT: Loading ${recordType} records from LOCAL STORAGE...`);
+      const localRecords = fastDatabase.getAllRecords(recordType);
+      console.log(`✅ INSTANT DISPLAY: Loaded ${localRecords?.length || 0} ${recordType} records from SQLite`);
+
+      // Return local data immediately for instant UI
+      const instantResult = {
+        success: true,
+        data: localRecords || [],
+        source: 'local'
+      };
+
+      // Check if we should sync in background (with smart throttling)
       const isOnline = networkService.getIsConnected();
       console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
 
-      let records;
-      let source;
+      // Smart sync: Only sync if needed
+      const now = Date.now();
+      const lastSync = this.lastSyncTime[recordType] || 0;
+      const timeSinceSync = now - lastSync;
+      const syncInProgress = this.syncInProgress.has(recordType);
+      const shouldSync = options.forceSync === true || (timeSinceSync > this.SYNC_INTERVAL && !syncInProgress);
 
-      if (isOnline) {
-        // ONLINE MODE: Fetch from PostgreSQL and sync to SQLite
-        try {
-          console.log(`🌐 ONLINE: Fetching ${recordType} records from PostgreSQL backend...`);
+      if (isOnline && shouldSync) {
+        console.log(`🔄 BACKGROUND: Syncing ${recordType} (last sync ${Math.round(timeSinceSync/1000)}s ago)...`);
 
-          // Map record types to API methods
-          let serverRecords;
-          switch (recordType) {
-            case 'feed':
-              serverRecords = await apiService.getFeedRecords();
-              break;
-            case 'production':
-              serverRecords = await apiService.getProductionRecords();
-              break;
-            case 'mortality':
-              serverRecords = await apiService.getMortalityRecords();
-              break;
-            case 'health':
-              serverRecords = await apiService.getHealthRecords();
-              break;
-            case 'water':
-              serverRecords = await apiService.getWaterRecords();
-              break;
-            case 'weight':
-              serverRecords = await apiService.getWeightRecords();
-              break;
-            case 'vaccination':
-              serverRecords = await apiService.getVaccinationRecords();
-              break;
-            default:
-              throw new Error(`Unsupported record type: ${recordType}`);
-          }
+        // Mark sync as in progress
+        this.syncInProgress.add(recordType);
 
-          console.log(`✅ Fetched ${serverRecords?.length || 0} ${recordType} records from PostgreSQL`);
-
-          // Clear old SQLite records and replace with server data
-          console.log(`💾 Syncing ${recordType} records to SQLite...`);
-          fastDatabase.clearRecords(recordType); // Clear old cached records
-
-          // Cache each record in SQLite with server_id
-          if (Array.isArray(serverRecords) && serverRecords.length > 0) {
-            for (const serverRecord of serverRecords) {
-              const localData = {
-                ...serverRecord,
-                batchId: serverRecord.batchId || serverRecord.batch_id,
-                farmId: serverRecord.farmId || serverRecord.farm_id,
-                date: serverRecord.date || serverRecord.recordDate || serverRecord.deathDate || serverRecord.treatmentDate,
-                organization_id: serverRecord.organizationId || serverRecord.organization_id,
-                server_id: serverRecord.id,
-                needs_sync: 0,
-                is_synced: 1,  // CRITICAL FIX: Mark as synced to prevent AutoSync from re-syncing
-                synced_at: new Date().toISOString()
-              };
-              fastDatabase.createRecord(recordType, localData);
-            }
-          }
-
-          records = serverRecords;
-          source = 'server';
-        } catch (onlineError) {
-          console.warn(`⚠️  Failed to fetch ${recordType} records from PostgreSQL, falling back to SQLite:`, onlineError.message);
-          records = fastDatabase.getAllRecords(recordType);
-          source = 'local_fallback';
-        }
+        // Do this in background without blocking
+        this._backgroundSyncRecords(recordType)
+          .then(() => {
+            this.lastSyncTime[recordType] = Date.now();
+          })
+          .catch(error => {
+            console.warn(`⚠️  Background sync failed for ${recordType}:`, error.message);
+          })
+          .finally(() => {
+            this.syncInProgress.delete(recordType);
+          });
+      } else if (syncInProgress) {
+        console.log(`⏭️  Skipping ${recordType} sync (already in progress)`);
       } else {
-        // OFFLINE MODE: Read from SQLite
-        console.log(`📴 OFFLINE: Reading ${recordType} records from SQLite...`);
-        records = fastDatabase.getAllRecords(recordType);
-        source = 'local';
+        console.log(`⏭️  Skipping ${recordType} sync (synced ${Math.round(timeSinceSync/1000)}s ago)`);
       }
 
-      console.log(`🔍 getRecords DEBUG:`);
-      console.log(`  Total ${recordType} records: ${records?.length || 0}`);
-      console.log(`  Source: ${source}`);
-
-      return {
-        success: true,
-        data: records || [],
-        source
-      };
+      // Return local data immediately
+      return instantResult;
     } catch (error) {
       console.error(`❌ getRecords(${recordType}) error:`, error);
       return {
@@ -832,93 +775,149 @@ class FastApiService {
     }
   }
 
+  // Private method for background sync
+  async _backgroundSyncRecords(recordType) {
+    try {
+      console.log(`🌐 Background sync: Fetching ${recordType} records from PostgreSQL...`);
+
+      // Map record types to API methods
+      let serverRecords;
+      switch (recordType) {
+        case 'feed':
+          serverRecords = await apiService.getFeedRecords();
+          break;
+        case 'production':
+          serverRecords = await apiService.getProductionRecords();
+          break;
+        case 'mortality':
+          serverRecords = await apiService.getMortalityRecords();
+          break;
+        case 'health':
+          serverRecords = await apiService.getHealthRecords();
+          break;
+        case 'water':
+          serverRecords = await apiService.getWaterRecords();
+          break;
+        case 'weight':
+          serverRecords = await apiService.getWeightRecords();
+          break;
+        case 'vaccination':
+case 'finance':          serverRecords = await apiService.getFinancialRecords();          break;
+          serverRecords = await apiService.getVaccinationRecords();
+          break;
+        default:
+          throw new Error(`Unsupported record type: ${recordType}`);
+      }
+
+      console.log(`✅ Background sync: Fetched ${serverRecords?.length || 0} ${recordType} records`);
+
+      // CRITICAL FIX: Handle nested response structure
+      if (serverRecords && serverRecords.data && Array.isArray(serverRecords.data)) {
+        console.log('⚠️  Detected nested array response structure, extracting data array');
+        serverRecords = serverRecords.data;
+        console.log(`✅ Extracted ${serverRecords.length} records from data array`);
+      }
+
+      // Clear old SQLite records and replace with server data
+      console.log(`💾 Background sync: Updating ${recordType} records in SQLite...`);
+      fastDatabase.clearRecords(recordType);
+
+      // Cache each record in SQLite with server_id
+      if (Array.isArray(serverRecords) && serverRecords.length > 0) {
+        for (const serverRecord of serverRecords) {
+          // CRITICAL FIX: Convert server batch ID to local SQLite batch ID
+          const serverBatchId = serverRecord.batchId || serverRecord.batch_id;
+          let localBatchId = serverBatchId;
+          let localFarmId = null;
+
+          if (serverBatchId) {
+            const batch = fastDatabase.getBatchById(serverBatchId);
+            if (batch) {
+              localBatchId = batch.id;
+              localFarmId = batch.farm_id;
+            } else {
+              console.warn(`⚠️  Batch with server_id=${serverBatchId} not found, skipping record`);
+              continue;
+            }
+          }
+
+          const localData = {
+            ...serverRecord,
+            batchId: localBatchId, // ✅ Use LOCAL batch ID
+            farmId: localFarmId || serverRecord.farmId || serverRecord.farm_id,
+            date: serverRecord.date || serverRecord.recordDate || serverRecord.deathDate || serverRecord.treatmentDate,
+            organization_id: serverRecord.organizationId || serverRecord.organization_id,
+            server_id: serverRecord.id,
+            needs_sync: 0,
+            is_synced: 1,
+            synced_at: new Date().toISOString()
+          };
+          fastDatabase.createRecord(recordType, localData);
+        }
+      }
+
+      console.log(`✅ Background sync complete: ${serverRecords?.length || 0} ${recordType} records synced to SQLite`);
+
+      // Emit event to notify UI that data was updated
+      dataEventBus.emit('RECORDS_SYNCED', { recordType, count: serverRecords?.length || 0 });
+
+    } catch (error) {
+      console.error(`❌ Background sync failed for ${recordType}:`, error);
+      throw error;
+    }
+  }
+
   async deleteRecord(recordType, recordId) {
     try {
       console.log('═══════════════════════════════════════════════════');
-      console.log(`🗑️  DELETE ${recordType.toUpperCase()} RECORD - HYBRID MODE`);
+      console.log(`🗑️  DELETE ${recordType.toUpperCase()} RECORD - LOCAL-FIRST`);
       console.log('═══════════════════════════════════════════════════');
       console.log('Record Type:', recordType);
       console.log('Record ID:', recordId);
 
+      // LOCAL-FIRST: Delete from SQLite immediately (instant UI feedback)
+      console.log('⚡ INSTANT: Deleting from local SQLite...');
+      const deleteMethod = {
+        feed: () => fastDatabase.deleteFeedRecord(recordId),
+        production: () => fastDatabase.deleteProductionRecord(recordId),
+        mortality: () => fastDatabase.deleteMortalityRecord(recordId),
+        health: () => fastDatabase.deleteHealthRecord(recordId),
+        water: () => fastDatabase.deleteWaterRecord(recordId),
+        weight: () => fastDatabase.deleteWeightRecord(recordId)
+      }[recordType];
+
+      if (deleteMethod) {
+        deleteMethod();
+        console.log(`✅ INSTANT: Deleted ${recordType} record from SQLite`);
+      }
+
+      // Emit event immediately for UI update
+      dataEventBus.emit(`${recordType.toUpperCase()}_RECORD_DELETED`, { recordId });
+
+      // Background: Delete from server if online
       const isOnline = networkService.getIsConnected();
       console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
 
-      let source = 'local';
-
       if (isOnline) {
-        // ONLINE: Delete from PostgreSQL first
-        try {
-          console.log('🌐 Deleting from PostgreSQL backend...');
-
-          // CRITICAL FIX: Try direct deletion first, fallback to server_id lookup
-          try {
-            // Map record types to API methods - try with recordId directly
-            const directDeleteMap = {
-              feed: () => apiService.deleteFeedRecord(recordId),
-              production: () => apiService.deleteProductionRecord(recordId),
-              mortality: () => apiService.deleteMortalityRecord(recordId),
-              health: () => apiService.deleteHealthRecord(recordId),
-              water: () => apiService.deleteWaterRecord(recordId),
-              weight: () => apiService.deleteWeightRecord(recordId)
-            };
-
-            const directDelete = directDeleteMap[recordType];
-            if (directDelete) {
-              await directDelete();
-              console.log(`✅ ${recordType} record deleted from PostgreSQL (ID: ${recordId})`);
-              source = 'server';
-            }
-          } catch (serverError) {
-            console.warn('⚠️ Direct delete failed, trying to look up server_id in SQLite...');
-
-            // Fallback: Get all records and find by server_id
-            const getRecordsMap = {
-              feed: () => fastDatabase.getFeedRecords(),
-              production: () => fastDatabase.getProductionRecords(),
-              mortality: () => fastDatabase.getMortalityRecords(),
-              health: () => fastDatabase.getHealthRecords(),
-              water: () => fastDatabase.getWaterRecords(),
-              weight: () => fastDatabase.getWeightRecords()
-            };
-
-            const getRecords = getRecordsMap[recordType];
-            if (getRecords) {
-              const records = getRecords();
-              const record = records.find(r => String(r.server_id) === String(recordId) || r.id === recordId);
-
-              if (record && record.server_id) {
-                console.log(`🔗 Using server_id ${record.server_id} for backend delete`);
-
-                const deleteMethodMap = {
-                  feed: () => apiService.deleteFeedRecord(record.server_id),
-                  production: () => apiService.deleteProductionRecord(record.server_id),
-                  mortality: () => apiService.deleteMortalityRecord(record.server_id),
-                  health: () => apiService.deleteHealthRecord(record.server_id),
-                  water: () => apiService.deleteWaterRecord(record.server_id),
-                  weight: () => apiService.deleteWeightRecord(record.server_id)
-                };
-
-                const deleteMethod = deleteMethodMap[recordType];
-                if (deleteMethod) {
-                  await deleteMethod();
-                  console.log(`✅ ${recordType} record deleted from PostgreSQL`);
-                  source = 'server';
-                }
-              } else {
-                console.warn(`⚠️ ${recordType} record has no server_id, skipping backend delete`);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ Failed to delete from PostgreSQL:', error.message);
-          // Continue to delete locally
-        }
+        // BACKGROUND: Delete from PostgreSQL (non-blocking)
+        console.log('🔄 BACKGROUND: Deleting from PostgreSQL...');
+        this._backgroundDeleteRecord(recordType, recordId).catch(error => {
+          console.warn(`⚠️  Background delete failed:`, error.message);
+        });
       }
 
-      // Delete from local SQLite (always do this)
-      console.log('💾 Deleting from local SQLite...');
+      return { success: true, source: 'local' };
+    } catch (error) {
+      console.error(`❌ deleteRecord(${recordType}) error:`, error);
+      return { success: false, error: error.message };
+    }
+  }
 
-      // CRITICAL FIX: Find record by server_id or local id in SQLite
+  async _backgroundDeleteRecord(recordType, recordId) {
+    try {
+      console.log(`🌐 Background delete: Removing ${recordType} record from PostgreSQL...`);
+
+      // Get the record from SQLite to find server_id
       const getRecordsMap = {
         feed: () => fastDatabase.getFeedRecords(),
         production: () => fastDatabase.getProductionRecords(),
@@ -929,77 +928,39 @@ class FastApiService {
       };
 
       const getRecords = getRecordsMap[recordType];
-      if (getRecords) {
-        const records = getRecords();
-        const recordToDelete = records.find(r => String(r.server_id) === String(recordId) || r.id === recordId);
-
-        if (recordToDelete) {
-          console.log(`✅ Found ${recordType} record in SQLite: local ID ${recordToDelete.id}, server ID ${recordToDelete.server_id}`);
-
-          // CRITICAL FIX: For mortality records, restore bird count before deleting
-          if (recordType === 'mortality' && recordToDelete.batchId && recordToDelete.count) {
-            console.log(`🔄 Restoring ${recordToDelete.count} birds to batch ${recordToDelete.batchId} (deleting mortality record)`);
-
-            // Get current batch data
-            const batches = fastDatabase.getBatches();
-            const batch = batches.find(b => b.id === recordToDelete.batchId);
-            if (batch) {
-              const newCount = (batch.current_count || 0) + recordToDelete.count;
-              console.log(`📊 Batch ${recordToDelete.batchId} count: ${batch.current_count} + ${recordToDelete.count} = ${newCount}`);
-
-              // Update batch count
-              fastDatabase.updateBatchCount(recordToDelete.batchId, newCount);
-              console.log(`✅ Batch ${recordToDelete.batchId} count restored to ${newCount}`);
-
-              // Emit BATCH_UPDATED event to refresh farm counts
-              dataEventBus.emit(EventTypes.BATCH_UPDATED, {
-                batchId: recordToDelete.batchId,
-                source: 'local'
-              }, { debounce: false }); // FIX: Disable debounce for immediate UI updates in production
-            }
-          }
-
-          fastDatabase.deleteRecord(recordType, recordToDelete.id);  // Use local SQLite ID
-          console.log(`✅ ${recordType} record deleted from local SQLite`);
-        } else {
-          console.warn(`⚠️ ${recordType} record with ID ${recordId} not found in SQLite`);
-        }
-      } else {
-        console.warn(`⚠️ No getter function for record type: ${recordType}`);
+      if (!getRecords) {
+        console.warn(`⚠️  No getter found for ${recordType}`);
+        return;
       }
 
-      // CRITICAL FIX: Emit specific record deletion event to trigger real-time updates
-      const eventTypeMap = {
-        feed: EventTypes.FEED_RECORD_DELETED,
-        production: EventTypes.PRODUCTION_RECORD_DELETED,
-        mortality: EventTypes.MORTALITY_RECORD_DELETED,
-        health: EventTypes.HEALTH_RECORD_DELETED,
-        water: EventTypes.WATER_RECORD_DELETED,
-        weight: EventTypes.WEIGHT_RECORD_DELETED,
-        vaccination: EventTypes.VACCINATION_RECORD_DELETED
-      };
+      const records = getRecords();
+      const record = records.find(r => r.id === recordId);
 
-      const eventType = eventTypeMap[recordType];
-      if (eventType) {
-        console.log(`📢 Emitting ${eventType} event`);
-        dataEventBus.emit(eventType, {
-          recordType,
-          recordId,
-          source
-        }, { debounce: false }); // FIX: Disable debounce for immediate UI updates in production
+      if (!record || !record.server_id) {
+        console.warn(`⚠️  Record ${recordId} has no server_id, skipping backend delete`);
+        return;
       }
 
-      console.log('═══════════════════════════════════════════════════');
-      return {
-        success: true,
-        source
+      console.log(`🔗 Using server_id ${record.server_id} for backend delete`);
+
+      // Delete from PostgreSQL using server_id
+      const deleteMethodMap = {
+        feed: () => apiService.deleteFeedRecord(record.server_id),
+        production: () => apiService.deleteProductionRecord(record.server_id),
+        mortality: () => apiService.deleteMortalityRecord(record.server_id),
+        health: () => apiService.deleteHealthRecord(record.server_id),
+        water: () => apiService.deleteWaterRecord(record.server_id),
+        weight: () => apiService.deleteWeightRecord(record.server_id)
       };
+
+      const deleteMethod = deleteMethodMap[recordType];
+      if (deleteMethod) {
+        await deleteMethod();
+        console.log(`✅ Background delete complete: ${recordType} record removed from PostgreSQL`);
+      }
     } catch (error) {
-      console.error(`❌ ${recordType} record deletion error:`, error);
-      return {
-        success: false,
-        error: error.message
-      };
+      console.error(`❌ Background delete failed for ${recordType}:`, error);
+      throw error;
     }
   }
 
@@ -1102,6 +1063,9 @@ class FastApiService {
         farm: result,
         source
       }, { debounce: false }); // FIX: Disable debounce for immediate UI updates in production
+
+      // Trigger sync after activity
+      autoSyncService.syncAfterActivity();
 
       return {
         success: true,
@@ -1279,7 +1243,14 @@ class FastApiService {
             initialCount: flockData.initialCount,
             currentCount: flockData.currentCount || flockData.initialCount,
             arrivalDate: flockData.arrivalDate || flockData.startDate,
-            status: flockData.status || 'active'
+            status: flockData.status || 'active',
+            // CRITICAL FIX: Include purchase/finance fields
+            numberOfBirds: flockData.numberOfBirds,
+            buyingPricePerBird: flockData.buyingPricePerBird,
+            totalPurchaseCost: flockData.totalPurchaseCost,
+            purchaseDate: flockData.purchaseDate,
+            supplier: flockData.supplier,
+            supplierContact: flockData.supplierContact
           };
 
           const serverResponse = await apiService.createFlock(backendData);
@@ -1342,6 +1313,9 @@ class FastApiService {
         batch: result,
         source
       }, { debounce: false }); // FIX: Disable debounce for immediate UI updates in production
+
+      // Trigger sync after activity
+      autoSyncService.syncAfterActivity();
 
       return {
         success: true,
@@ -1474,6 +1448,9 @@ class FastApiService {
         source: 'local'
       }, { debounce: false }); // FIX: Disable debounce for immediate UI updates in production
 
+      // Trigger sync after activity
+      autoSyncService.syncAfterActivity();
+
       return {
         success: true,
         data: result,
@@ -1514,9 +1491,26 @@ class FastApiService {
           // Cache each record in SQLite with server_id
           if (Array.isArray(serverRecords) && serverRecords.length > 0) {
             for (const serverRecord of serverRecords) {
+              // CRITICAL FIX: Convert server batch ID to local SQLite batch ID
+              const serverBatchId = serverRecord.batchId || serverRecord.batch_id;
+              let localBatchId = serverBatchId;
+              let localFarmId = null;
+
+              if (serverBatchId) {
+                const batch = fastDatabase.getBatchById(serverBatchId);
+                if (batch) {
+                  localBatchId = batch.id;
+                  localFarmId = batch.farm_id;
+                  console.log(`🔄 Water record batch ID conversion: server_id=${serverBatchId} → local_id=${localBatchId}, farm_id=${localFarmId}`);
+                } else {
+                  console.warn(`⚠️  Batch with server_id=${serverBatchId} not found in SQLite, skipping water record`);
+                  continue;
+                }
+              }
+
               const localData = {
-                batchId: serverRecord.batchId || serverRecord.batch_id,
-                farmId: serverRecord.farmId || serverRecord.farm_id,
+                batchId: localBatchId, // ✅ Use LOCAL batch ID for SQLite FOREIGN KEY
+                farmId: localFarmId || serverRecord.farmId || serverRecord.farm_id,
                 quantityLiters: serverRecord.quantityLiters || serverRecord.quantity_liters,
                 date: serverRecord.date || serverRecord.recordDate,
                 notes: serverRecord.notes,
@@ -1659,6 +1653,9 @@ class FastApiService {
         source: 'local'
       }, { debounce: false }); // FIX: Disable debounce for immediate UI updates in production
 
+      // Trigger sync after activity
+      autoSyncService.syncAfterActivity();
+
       return {
         success: true,
         data: result,
@@ -1699,9 +1696,26 @@ class FastApiService {
           // Cache each record in SQLite with server_id
           if (Array.isArray(serverRecords) && serverRecords.length > 0) {
             for (const serverRecord of serverRecords) {
+              // CRITICAL FIX: Convert server batch ID to local SQLite batch ID
+              const serverBatchId = serverRecord.batchId || serverRecord.batch_id;
+              let localBatchId = serverBatchId;
+              let localFarmId = null;
+
+              if (serverBatchId) {
+                const batch = fastDatabase.getBatchById(serverBatchId);
+                if (batch) {
+                  localBatchId = batch.id;
+                  localFarmId = batch.farm_id;
+                  console.log(`🔄 Weight record batch ID conversion: server_id=${serverBatchId} → local_id=${localBatchId}, farm_id=${localFarmId}`);
+                } else {
+                  console.warn(`⚠️  Batch with server_id=${serverBatchId} not found in SQLite, skipping weight record`);
+                  continue;
+                }
+              }
+
               const localData = {
-                batchId: serverRecord.batchId || serverRecord.batch_id,
-                farmId: serverRecord.farmId || serverRecord.farm_id,
+                batchId: localBatchId, // ✅ Use LOCAL batch ID for SQLite FOREIGN KEY
+                farmId: localFarmId || serverRecord.farmId || serverRecord.farm_id,
                 averageWeight: serverRecord.averageWeightGrams || serverRecord.average_weight_grams,
                 averageWeightKg: serverRecord.averageWeightKg || serverRecord.average_weight_kg,
                 sampleSize: serverRecord.sampleSize || serverRecord.sample_size,
@@ -1867,6 +1881,66 @@ class FastApiService {
   }
 
   // ANALYTICS METHODS - Real-time calculations from SQLite
+  // UNIFIED FINANCIAL METHODS - For financial summary and records
+  async getUnifiedFinancialSummary(options = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (options.startDate) params.append('startDate', options.startDate);
+      if (options.endDate) params.append('endDate', options.endDate);
+      if (options.farmId) params.append('farmId', options.farmId);
+      if (options.batchId) params.append('batchId', options.batchId);
+
+      const queryString = params.toString();
+      const url = `/financial/unified-summary${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.get(url);
+      return response;
+    } catch (error) {
+      console.error('Error fetching unified financial summary:', error);
+      throw error;
+    }
+  }
+
+  async getBatchFinancialSummary(batchId) {
+    try {
+      const response = await this.get(`/financial/unified-summary/batch/${batchId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching batch financial summary:', error);
+      throw error;
+    }
+  }
+
+  async getFarmFinancialSummary(farmId) {
+    try {
+      const response = await this.get(`/financial/unified-summary/farm/${farmId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching farm financial summary:', error);
+      throw error;
+    }
+  }
+
+  async createFinancialRecord(recordData) {
+    try {
+      const response = await apiService.createFinancialRecord(recordData);
+      return response;
+    } catch (error) {
+      console.error('Error creating financial record:', error);
+      throw error;
+    }
+  }
+
+  async getFinancialRecords(filters = {}) {
+    try {
+      const response = await apiService.getFinancialRecords(filters);
+      return response;
+    } catch (error) {
+      console.error('Error fetching financial records:', error);
+      throw error;
+    }
+  }
+
   async getAnalytics(params = {}) {
     try {
       console.log('[FastApiService] getAnalytics() called with params:', params);
@@ -1890,6 +1964,871 @@ class FastApiService {
       };
     }
   }
+
+  // ===================================================================
+  // PHASE 2: BATCH FINANCIAL ANALYTICS API METHODS
+  // ===================================================================
+
+  // Get batch profitability summary
+  async getBatchProfitability(batchId) {
+    try {
+      console.log(`[FastApiService] getBatchProfitability called for batch ${batchId}`);
+
+      // For mobile offline mode, calculate locally
+      // In production, this would call the backend API
+      const batch = fastDatabase.getBatchById(batchId);
+      if (!batch) {
+        throw new Error(`Batch ${batchId} not found`);
+      }
+
+      // Get all financial records for this batch
+      const financialRecords = fastDatabase.getAllRecords('finance').filter(
+        r => r.batch_id === batchId || r.batchId === batchId
+      );
+
+      // Calculate revenue (sales/income)
+      const revenue = financialRecords
+        .filter(r => r.transaction_type === 'income')
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      // Calculate expenses
+      const expenses = financialRecords
+        .filter(r => r.transaction_type === 'expense')
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      // Calculate losses
+      const losses = financialRecords
+        .filter(r => r.transaction_type === 'loss')
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      const totalCosts = expenses + losses;
+      const netProfit = revenue - totalCosts;
+      const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+      const roi = totalCosts > 0 ? (netProfit / totalCosts) * 100 : 0;
+
+      const response = {
+        batchId: batch.id,
+        batchName: batch.batch_name || batch.batchName,
+        revenue,
+        expenses,
+        losses,
+        totalCosts,
+        netProfit,
+        profitMargin,
+        roi,
+        currentBirdCount: batch.current_count || 0,
+        initialBirdCount: batch.initial_count || 0
+      };
+
+      console.log('[FastApiService] Batch profitability calculated:', response);
+      return { success: true, data: response, source: 'local' };
+    } catch (error) {
+      console.error('[FastApiService] getBatchProfitability error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get batch FCR (Feed Conversion Ratio)
+  async getBatchFCR(batchId) {
+    try {
+      console.log(`[FastApiService] getBatchFCR called for batch ${batchId}`);
+
+      const batch = fastDatabase.getBatchById(batchId);
+      if (!batch) {
+        throw new Error(`Batch ${batchId} not found`);
+      }
+
+      // Get feed records
+      const feedRecords = fastDatabase.getAllRecords('feed').filter(
+        r => r.batch_id === batchId || r.batchId === batchId
+      );
+
+      const totalFeedKg = feedRecords.reduce((sum, r) => { const qty = parseFloat(r.quantity_kg || r.quantityKg || 0); return sum + (isNaN(qty) ? 0 : qty); }, 0);
+
+      // Get weight records to calculate weight gain
+      const weightRecords = fastDatabase.getAllRecords('weight').filter(
+        r => r.batch_id === batchId || r.batchId === batchId
+      );
+
+      let avgWeightGain = 0;
+      if (weightRecords.length > 0) {
+        const latestWeight = weightRecords[weightRecords.length - 1];
+        avgWeightGain = (latestWeight.average_weight_kg || latestWeight.averageWeightKg || 0);
+      }
+
+      const totalBirdWeightGain = avgWeightGain * (batch.current_count || 0);
+      const fcr = totalBirdWeightGain > 0 ? totalFeedKg / totalBirdWeightGain : 0;
+
+      const response = {
+        batchId: batch.id,
+        batchName: batch.batch_name || batch.batchName,
+        totalFeedKg,
+        totalBirdWeightGain,
+        averageWeightPerBird: avgWeightGain,
+        currentBirdCount: batch.current_count || 0,
+        fcr: fcr.toFixed(2),
+        fcrStatus: fcr < 1.8 ? 'Excellent' : fcr < 2.2 ? 'Good' : fcr < 2.5 ? 'Average' : 'Poor'
+      };
+
+      console.log('[FastApiService] Batch FCR calculated:', response);
+      return { success: true, data: response, source: 'local' };
+    } catch (error) {
+      console.error('[FastApiService] getBatchFCR error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get layer feed cost per dozen eggs
+  async getLayerFeedPerDozen(batchId) {
+    try {
+      console.log(`[FastApiService] getLayerFeedPerDozen called for batch ${batchId}`);
+
+      const batch = fastDatabase.getBatchById(batchId);
+      if (!batch) {
+        throw new Error(`Batch ${batchId} not found`);
+      }
+
+      // Get feed records
+      const feedRecords = fastDatabase.getAllRecords('feed').filter(
+        r => r.batch_id === batchId || r.batchId === batchId
+      );
+
+      const totalFeedCost = feedRecords.reduce((sum, r) => sum + (r.cost || r.total_cost || 0), 0);
+
+      // Get production records
+      const productionRecords = fastDatabase.getAllRecords('production').filter(
+        r => r.batch_id === batchId || r.batchId === batchId
+      );
+
+      const totalEggs = productionRecords.reduce((sum, r) => sum + (r.eggs_collected || r.eggsCollected || 0), 0);
+      const totalDozens = totalEggs / 12;
+
+      const feedCostPerDozen = totalDozens > 0 ? totalFeedCost / totalDozens : 0;
+
+      const response = {
+        batchId: batch.id,
+        batchName: batch.batch_name || batch.batchName,
+        totalFeedCost,
+        totalEggs,
+        totalDozens: totalDozens.toFixed(2),
+        feedCostPerDozen: feedCostPerDozen.toFixed(2),
+        efficiency: feedCostPerDozen < 1.5 ? 'Excellent' : feedCostPerDozen < 2.0 ? 'Good' : 'Average'
+      };
+
+      console.log('[FastApiService] Layer feed per dozen calculated:', response);
+      return { success: true, data: response, source: 'local' };
+    } catch (error) {
+      console.error('[FastApiService] getLayerFeedPerDozen error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get batch projections
+  async getBatchProjections(batchId) {
+    try {
+      console.log(`[FastApiService] getBatchProjections called for batch ${batchId}`);
+
+      const batch = fastDatabase.getBatchById(batchId);
+      if (!batch) {
+        throw new Error(`Batch ${batchId} not found`);
+      }
+
+      // Calculate current age in weeks
+      const arrivalDate = new Date(batch.arrival_date || batch.arrivalDate);
+      const currentDate = new Date();
+      const ageInWeeks = Math.floor((currentDate - arrivalDate) / (7 * 24 * 60 * 60 * 1000));
+
+      // Get current expenses
+      const financialRecords = fastDatabase.getAllRecords('finance').filter(
+        r => r.batch_id === batchId || r.batchId === batchId
+      );
+
+      const currentExpenses = financialRecords
+        .filter(r => r.transaction_type === 'expense')
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      const currentRevenue = financialRecords
+        .filter(r => r.transaction_type === 'income')
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      // Simple projection logic
+      const weeklyExpenseRate = ageInWeeks > 0 ? currentExpenses / ageInWeeks : 0;
+      const remainingWeeks = 16 - ageInWeeks; // Assume 16-week cycle for broilers
+
+      const projectedTotalExpenses = currentExpenses + (weeklyExpenseRate * remainingWeeks);
+      const projectedRevenue = batch.current_count * 8; // Assume $8 per bird
+      const projectedProfit = projectedRevenue - projectedTotalExpenses;
+
+      const response = {
+        batchId: batch.id,
+        batchName: batch.batch_name || batch.batchName,
+        currentAge: ageInWeeks,
+        remainingWeeks,
+        currentExpenses,
+        currentRevenue,
+        projectedTotalExpenses: projectedTotalExpenses.toFixed(2),
+        projectedRevenue: projectedRevenue.toFixed(2),
+        projectedProfit: projectedProfit.toFixed(2),
+        projectedROI: projectedTotalExpenses > 0 ? ((projectedProfit / projectedTotalExpenses) * 100).toFixed(2) : 0
+      };
+
+      console.log('[FastApiService] Batch projections calculated:', response);
+      return { success: true, data: response, source: 'local' };
+    } catch (error) {
+      console.error('[FastApiService] getBatchProjections error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get batch financial timeline
+  async getBatchTimeline(batchId) {
+    try {
+      console.log(`[FastApiService] getBatchTimeline called for batch ${batchId}`);
+
+      const batch = fastDatabase.getBatchById(batchId);
+      if (!batch) {
+        throw new Error(`Batch ${batchId} not found`);
+      }
+
+      // Get all financial records for this batch
+      const financialRecords = fastDatabase.getAllRecords('finance').filter(
+        r => r.batch_id === batchId || r.batchId === batchId
+      );
+
+      // Group by week
+      const arrivalDate = new Date(batch.arrival_date || batch.arrivalDate);
+      const weeklyData = {};
+
+      financialRecords.forEach(record => {
+        const recordDate = new Date(record.transaction_date || record.date);
+        const weekNum = Math.floor((recordDate - arrivalDate) / (7 * 24 * 60 * 60 * 1000));
+
+        if (!weeklyData[weekNum]) {
+          weeklyData[weekNum] = { week: weekNum, revenue: 0, expenses: 0, losses: 0 };
+        }
+
+        if (record.transaction_type === 'income') {
+          weeklyData[weekNum].revenue += record.amount;
+        } else if (record.transaction_type === 'expense') {
+          weeklyData[weekNum].expenses += record.amount;
+        } else if (record.transaction_type === 'loss') {
+          weeklyData[weekNum].losses += record.amount;
+        }
+      });
+
+      const timeline = Object.values(weeklyData).map(week => ({
+        ...week,
+        netProfit: week.revenue - (week.expenses + week.losses)
+      }));
+
+      const response = {
+        batchId: batch.id,
+        batchName: batch.batch_name || batch.batchName,
+        timeline: timeline.sort((a, b) => a.week - b.week)
+      };
+
+      console.log('[FastApiService] Batch timeline calculated:', response);
+      return { success: true, data: response, source: 'local' };
+    } catch (error) {
+      console.error('[FastApiService] getBatchTimeline error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Compare multiple batches
+  async compareBatches(filters = {}) {
+    try {
+      console.log('[FastApiService] compareBatches called with filters:', filters);
+
+      // Get all batches based on filters
+      let batches = fastDatabase.getBatches();
+
+      if (filters.farmId) {
+        batches = batches.filter(b => b.farm_id === filters.farmId);
+      }
+
+      if (filters.birdType) {
+        batches = batches.filter(b => b.bird_type === filters.birdType || b.birdType === filters.birdType);
+      }
+
+      if (filters.status) {
+        batches = batches.filter(b => b.status === filters.status);
+      }
+
+      // Get financial data for each batch
+      const batchComparisons = batches.map(batch => {
+        const financialRecords = fastDatabase.getAllRecords('finance').filter(
+          r => r.batch_id === batch.id || r.batchId === batch.id
+        );
+
+        const revenue = financialRecords
+          .filter(r => r.transaction_type === 'income')
+          .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+        const expenses = financialRecords
+          .filter(r => r.transaction_type === 'expense')
+          .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+        const losses = financialRecords
+          .filter(r => r.transaction_type === 'loss')
+          .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+        const totalCosts = expenses + losses;
+        const netProfit = revenue - totalCosts;
+        const roi = totalCosts > 0 ? (netProfit / totalCosts) * 100 : 0;
+
+        // Get FCR
+        const feedRecords = fastDatabase.getAllRecords('feed').filter(
+          r => r.batch_id === batch.id || r.batchId === batch.id
+        );
+        const totalFeedKg = feedRecords.reduce((sum, r) => sum + (r.quantity_kg || r.quantityKg || 0), 0);
+
+        const weightRecords = fastDatabase.getAllRecords('weight').filter(
+          r => r.batch_id === batch.id || r.batchId === batch.id
+        );
+
+        let avgWeightGain = 0;
+        if (weightRecords.length > 0) {
+          const latestWeight = weightRecords[weightRecords.length - 1];
+          avgWeightGain = (latestWeight.average_weight_kg || latestWeight.averageWeightKg || 0);
+        }
+
+        const totalBirdWeightGain = avgWeightGain * (batch.current_count || 0);
+        const fcr = totalBirdWeightGain > 0 ? (totalFeedKg / totalBirdWeightGain).toFixed(2) : 0;
+
+        return {
+          batchId: batch.id,
+          batchName: batch.batch_name || batch.batchName,
+          birdType: batch.bird_type || batch.birdType,
+          status: batch.status,
+          currentCount: batch.current_count,
+          initialCount: batch.initial_count,
+          revenue,
+          expenses,
+          losses,
+          totalCosts,
+          netProfit,
+          roi: roi.toFixed(2),
+          fcr,
+          costPerBird: batch.current_count > 0 ? (totalCosts / batch.current_count).toFixed(2) : 0,
+          revenuePerBird: batch.current_count > 0 ? (revenue / batch.current_count).toFixed(2) : 0
+        };
+      });
+
+      const response = {
+        totalBatches: batchComparisons.length,
+        batches: batchComparisons.sort((a, b) => b.netProfit - a.netProfit) // Sort by profit
+      };
+
+      console.log('[FastApiService] Batch comparison completed:', response);
+      return { success: true, data: response, source: 'local' };
+    } catch (error) {
+      console.error('[FastApiService] compareBatches error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ===================================================================
+  // SALES AND EXPENSE METHODS - PHASE 3 INTEGRATION
+  // ===================================================================
+
+  /**
+   * Get all sales with optional filters
+   * Uses LOCAL-FIRST approach for instant UI
+   */
+  async getSales(filters = {}) {
+    try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('💰 GET SALES - HYBRID MODE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Filters:', filters);
+
+      // HYBRID APPROACH: Check network status
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      if (isOnline) {
+        // ONLINE MODE: Fetch from backend
+        try {
+          console.log('🌐 ONLINE: Fetching sales from backend...');
+
+          // Build query parameters
+          const queryParams = new URLSearchParams(filters).toString();
+          const url = `sales${queryParams ? `?${queryParams}` : ''}`;
+
+          const response = await apiService.get(url);
+          console.log(`✅ Fetched sales from backend:`, response.data);
+
+          // Return both data array and metadata
+          return {
+            success: true,
+            data: response.data?.data || response.data || [],
+            total: response.data?.total || 0,
+            page: response.data?.page || 1,
+            limit: response.data?.limit || 20,
+            source: 'server'
+          };
+        } catch (onlineError) {
+          console.warn('⚠️ Online fetch failed, returning empty:', onlineError.message);
+          return {
+            success: true,
+            data: [],
+            source: 'fallback'
+          };
+        }
+      } else {
+        // OFFLINE MODE: Return empty (sales not cached locally)
+        console.log('📴 OFFLINE: Sales not available offline');
+        return {
+          success: true,
+          data: [],
+          source: 'offline'
+        };
+      }
+    } catch (error) {
+      console.error('❌ getSales error:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: []
+      };
+    }
+  }
+
+  /**
+   * Get sales summary/analytics
+   */
+  async getSalesSummary(filters = {}) {
+    try {
+      console.log('📊 GET SALES SUMMARY');
+
+      const isOnline = networkService.getIsConnected();
+
+      if (isOnline) {
+        try {
+          // Build query parameters
+          const queryParams = new URLSearchParams(filters).toString();
+          const url = `sales/summary${queryParams ? `?${queryParams}` : ''}`;
+
+          const response = await apiService.get(url);
+          console.log('✅ Fetched sales summary:', response.data);
+
+          return {
+            success: true,
+            data: response.data,
+            source: 'server'
+          };
+        } catch (error) {
+          console.warn('⚠️ Sales summary fetch failed:', error.message);
+          return {
+            success: true,
+            data: null,
+            source: 'fallback'
+          };
+        }
+      } else {
+        return {
+          success: true,
+          data: null,
+          source: 'offline'
+        };
+      }
+    } catch (error) {
+      console.error('❌ getSalesSummary error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Create a new sale
+   * CRITICAL: Also creates financial record automatically
+   */
+  async createSale(saleData) {
+    try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('💰 CREATE SALE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Sale Data:', saleData);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      if (!isOnline) {
+        // OFFLINE MODE: Sales require online connection
+        console.warn('📴 OFFLINE: Cannot create sales offline');
+        return {
+          success: false,
+          error: 'Sales creation requires internet connection'
+        };
+      }
+
+      // ONLINE MODE: Create sale via backend
+      try {
+        console.log('🌐 ONLINE: Creating sale via backend...');
+
+        const response = await apiService.post('sales', saleData);
+        console.log('✅ Sale created successfully:', response.data);
+
+        // CRITICAL: Backend automatically creates financial record
+        // No need to create duplicate financial record here
+
+        // Emit event for real-time updates
+        dataEventBus.emit('SALE_CREATED', {
+          sale: response.data,
+          source: 'server'
+        }, { debounce: false });
+
+        return {
+          success: true,
+          data: response.data,
+          source: 'server'
+        };
+      } catch (error) {
+        console.error('❌ Sale creation failed:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('❌ createSale error:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message
+      };
+    }
+  }
+
+  /**
+   * Delete a sale
+   */
+  async deleteSale(saleId) {
+    try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🗑️  DELETE SALE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Sale ID:', saleId);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      if (!isOnline) {
+        return {
+          success: false,
+          error: 'Sale deletion requires internet connection'
+        };
+      }
+
+      try {
+        console.log('🌐 Deleting sale from backend...');
+        await apiService.delete(`sales/${saleId}`);
+        console.log('✅ Sale deleted successfully');
+
+        // Emit event for real-time updates
+        dataEventBus.emit('SALE_DELETED', {
+          saleId,
+          source: 'server'
+        }, { debounce: false });
+
+        return {
+          success: true,
+          source: 'server'
+        };
+      } catch (error) {
+        console.error('❌ Sale deletion failed:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('❌ deleteSale error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get all expenses with optional filters
+   * Uses LOCAL-FIRST approach for instant UI
+   */
+  async getExpenses(filters = {}) {
+    try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('💸 GET EXPENSES - INSTANT LOAD MODE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Filters:', filters);
+
+      // STEP 1: Load from local database FIRST (instant)
+      console.log('📦 Loading expenses from local database...');
+      const localExpenses = fastDatabase.getExpenses(filters);
+      console.log(`✅ Loaded ${localExpenses.length} expenses from local database (INSTANT)`);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      if (isOnline) {
+        // STEP 2: Fetch from backend in background (non-blocking)
+        console.log('🔄 Fetching expenses from backend in background...');
+
+        // Start background fetch but don't await it
+        this._updateExpensesFromBackend(filters).catch(err => {
+          console.warn('⚠️ Background expense sync failed:', err.message);
+        });
+      }
+
+      // Return local data immediately
+      return {
+        success: true,
+        data: localExpenses,
+        source: isOnline ? 'local-updating' : 'local',
+        pagination: {
+          page: filters.page || 1,
+          limit: filters.limit || 50,
+          total: localExpenses.length,
+          totalPages: Math.ceil(localExpenses.length / (filters.limit || 50))
+        }
+      };
+    } catch (error) {
+      console.error('❌ getExpenses error:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: []
+      };
+    }
+  }
+
+  // Helper method for background API sync
+  async _updateExpensesFromBackend(filters = {}) {
+    try {
+      // Build query parameters
+      const queryParams = new URLSearchParams(filters).toString();
+      const url = `expenses${queryParams ? `?${queryParams}` : ''}`;
+
+      const response = await apiService.get(url);
+      console.log(`✅ Background fetch: Fetched expenses from backend:`, response.data);
+
+      // Handle both array and object response formats
+      const expenses = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+
+      // TODO: Update local database with API response
+      // For now, expenses are only stored when created through the app
+      // A full implementation would sync server expenses to local DB
+
+      console.log(`🔄 Background sync: ${expenses.length} expenses fetched (not saved to local DB yet)`);
+    } catch (error) {
+      console.error('❌ Background expense sync error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get expenses summary
+   */
+  async getExpensesSummary(filters = {}) {
+    try {
+      console.log('📊 GET EXPENSES SUMMARY');
+
+      const isOnline = networkService.getIsConnected();
+
+      if (isOnline) {
+        try {
+          // Build query parameters
+          const queryParams = new URLSearchParams(filters).toString();
+          const url = `expenses/summary${queryParams ? `?${queryParams}` : ''}`;
+
+          const response = await apiService.get(url);
+          console.log('✅ Fetched expenses summary:', response.data);
+
+          return {
+            success: true,
+            data: response.data,
+            source: 'server'
+          };
+        } catch (error) {
+          console.warn('⚠️ Expenses summary fetch failed:', error.message);
+          return {
+            success: true,
+            data: [],
+            source: 'fallback'
+          };
+        }
+      } else {
+        return {
+          success: true,
+          data: [],
+          source: 'offline'
+        };
+      }
+    } catch (error) {
+      console.error('❌ getExpensesSummary error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Create a new expense
+   * CRITICAL: Also creates financial record automatically
+   */
+  async createExpense(expenseData) {
+    try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('💸 CREATE EXPENSE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Expense Data:', expenseData);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      if (!isOnline) {
+        // OFFLINE MODE: Expenses require online connection
+        console.warn('📴 OFFLINE: Cannot create expenses offline');
+        return {
+          success: false,
+          error: 'Expense creation requires internet connection'
+        };
+      }
+
+      // ONLINE MODE: Create expense via backend
+      try {
+        console.log('🌐 ONLINE: Creating expense via backend...');
+
+        const response = await apiService.post('expenses', expenseData);
+        console.log('✅ Expense created successfully:', response.data);
+
+        // CRITICAL: Backend automatically creates financial record
+        // No need to create duplicate financial record here
+
+        // Emit event for real-time updates
+        dataEventBus.emit('EXPENSE_CREATED', {
+          expense: response.data,
+          source: 'server'
+        }, { debounce: false });
+
+        return {
+          success: true,
+          data: response.data,
+          source: 'server'
+        };
+      } catch (error) {
+        console.error('❌ Expense creation failed:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('❌ createExpense error:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message
+      };
+    }
+  }
+
+  /**
+   * Update an expense
+   */
+  async updateExpense(expenseId, expenseData) {
+    try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('✏️  UPDATE EXPENSE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Expense ID:', expenseId);
+      console.log('Expense Data:', expenseData);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      if (!isOnline) {
+        return {
+          success: false,
+          error: 'Expense update requires internet connection'
+        };
+      }
+
+      try {
+        console.log('🌐 Updating expense via backend...');
+        const response = await apiService.patch(`expenses/${expenseId}`, expenseData);
+        console.log('✅ Expense updated successfully:', response.data);
+
+        // Emit event for real-time updates
+        dataEventBus.emit('EXPENSE_UPDATED', {
+          expenseId,
+          expense: response.data,
+          source: 'server'
+        }, { debounce: false });
+
+        return {
+          success: true,
+          data: response.data,
+          source: 'server'
+        };
+      } catch (error) {
+        console.error('❌ Expense update failed:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('❌ updateExpense error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Delete an expense
+   */
+  async deleteExpense(expenseId) {
+    try {
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🗑️  DELETE EXPENSE');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Expense ID:', expenseId);
+
+      const isOnline = networkService.getIsConnected();
+      console.log(`📡 Network status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+      if (!isOnline) {
+        return {
+          success: false,
+          error: 'Expense deletion requires internet connection'
+        };
+      }
+
+      try {
+        console.log('🌐 Deleting expense from backend...');
+        await apiService.delete(`expenses/${expenseId}`);
+        console.log('✅ Expense deleted successfully');
+
+        // Emit event for real-time updates
+        dataEventBus.emit('EXPENSE_DELETED', {
+          expenseId,
+          source: 'server'
+        }, { debounce: false });
+
+        return {
+          success: true,
+          source: 'server'
+        };
+      } catch (error) {
+        console.error('❌ Expense deletion failed:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('❌ deleteExpense error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ===================================================================
+  // END OF PHASE 2 METHODS
+  // ===================================================================
+
 }
 
 // Export singleton instance

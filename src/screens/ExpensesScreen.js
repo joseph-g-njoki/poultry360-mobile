@@ -64,6 +64,13 @@ const ExpensesScreen = ({ navigation, route }) => {
     }, [])
   );
 
+  // Reload expenses when filter or search changes (fixes race condition)
+  useEffect(() => {
+    if (isMountedRef.current) {
+      loadExpenses(false);
+    }
+  }, [filter.category, searchQuery]);
+
   const loadExpenses = async (showLoading = true) => {
     try {
       if (showLoading && isMountedRef.current) {
@@ -138,6 +145,7 @@ const ExpensesScreen = ({ navigation, route }) => {
 
   const getCategoryIcon = (category) => {
     const icons = {
+      batch_purchase: 'cart-outline',
       feed: 'nutrition',
       medication: 'medical',
       labor: 'people',
@@ -153,6 +161,7 @@ const ExpensesScreen = ({ navigation, route }) => {
 
   const getCategoryColor = (category) => {
     const colors = {
+      batch_purchase: '#4CAF50',
       feed: '#FF9800',
       medication: '#F44336',
       labor: '#2196F3',
@@ -282,7 +291,7 @@ const ExpensesScreen = ({ navigation, route }) => {
 
         {/* Filter Pills */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles(theme).filterContainer}>
-          {['all', 'feed', 'medication', 'labor', 'utilities', 'equipment', 'other'].map((cat) => (
+          {['all', 'batch_purchase', 'feed', 'medication', 'labor', 'utilities', 'equipment', 'other'].map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[
@@ -293,7 +302,6 @@ const ExpensesScreen = ({ navigation, route }) => {
               ]}
               onPress={() => {
                 setFilter({ ...filter, category: cat === 'all' ? null : cat });
-                setTimeout(() => loadExpenses(false), 100);
               }}
             >
               <Text

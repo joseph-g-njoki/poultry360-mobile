@@ -34,6 +34,8 @@ class SyncService {
       'health_records',
       'water_records',
       'weight_records',
+      'vaccination_records',  // CRITICAL FIX: Added vaccination records to sync
+      'financial_records',    // CRITICAL FIX: Added financial records to sync
       'expenses',
       'sales'
     ];
@@ -99,6 +101,18 @@ class SyncService {
         update: '/weight-records',
         delete: '/weight-records',
         get: '/weight-records'
+      },
+      vaccination_records: {
+        create: '/health-records/vaccinations',
+        update: '/health-records/vaccinations',
+        delete: '/health-records/vaccinations',
+        get: '/health-records/vaccinations'
+      },
+      financial_records: {
+        create: '/financial-records',
+        update: '/financial-records',
+        delete: '/financial-records',
+        get: '/financial-records'
       },
       expenses: {
         create: '/expenses',
@@ -821,7 +835,8 @@ class SyncService {
         console.log(`🕚 Last sync: ${new Date(lastSyncTime).toLocaleString()}`);
       }
 
-      for (const tableName of this.syncOrder) {
+      // PERFORMANCE FIX: Download all tables in parallel instead of sequentially
+      const downloadPromises = this.syncOrder.map(async (tableName) => {
         try {
           console.log(`📥 Downloading ${tableName}...`);
 
@@ -862,9 +877,9 @@ class SyncService {
                   serverData = await apiService.getWeightRecords();
                   break;
                 default:
-                  console.log(`ℹ️  Skipping ${tableName} - no API endpoint`);
-                  downloadResults[tableName] = { skipped: true };
-                  continue;
+                  // These tables are synced through the unified /v1/sync endpoint, not individual downloads
+                  // console.log(`📦 ${tableName} will be synced via unified sync endpoint`);
+                  return { tableName, result: { skipped: true, reason: 'unified_sync' } };
               }
 
               break; // Success, exit retry loop
@@ -883,55 +898,93 @@ class SyncService {
           // CRASH FIX: Handle all possible data formats
           if (Array.isArray(serverData) && serverData.length > 0) {
             await this.mergeServerData(tableName, serverData);
-            totalDownloaded += serverData.length;
 
             const downloadTime = Date.now() - downloadStart;
-            downloadResults[tableName] = {
-              count: serverData.length,
-              downloadTime,
-              attempts: downloadAttempts
-            };
-
             console.log(`✅ Downloaded ${serverData.length} records for ${tableName} in ${downloadTime}ms`);
+            return {
+              tableName,
+              result: {
+                count: serverData.length,
+                downloadTime,
+                attempts: downloadAttempts
+              },
+              count: serverData.length
+            };
           } else if (Array.isArray(serverData) && serverData.length === 0) {
             // Empty array is valid - no data yet
-            downloadResults[tableName] = {
-              count: 0,
-              downloadTime: Date.now() - downloadStart,
-              attempts: downloadAttempts
-            };
             console.log(`ℹ️  No ${tableName} data available (empty array)`);
+            return {
+              tableName,
+              result: {
+                count: 0,
+                downloadTime: Date.now() - downloadStart,
+                attempts: downloadAttempts
+              },
+              count: 0
+            };
           } else if (serverData === null || serverData === undefined) {
             // Null/undefined is valid - no data
-            downloadResults[tableName] = {
-              count: 0,
-              downloadTime: Date.now() - downloadStart,
+            return {
+              tableName,
+              result: {
+                count: 0,
+                downloadTime: Date.now() - downloadStart,
               attempts: downloadAttempts
+              },
+              count: 0
             };
             console.log(`ℹ️  No ${tableName} data available (null)`);
+            return {
+              tableName,
+              result: {
+                count: 0,
+                downloadTime: Date.now() - downloadStart,
+                attempts: downloadAttempts
+              },
+              count: 0
+            };
           } else {
             // SYNC FIX: Invalid data format is an error, but don't let it fail entire sync
             console.warn(`⚠️  Invalid data format for ${tableName}:`, typeof serverData);
-            downloadResults[tableName] = {
+            return {
+              tableName,
+              result: {
+                count: 0,
+                error: 'Invalid data format',
+                dataType: typeof serverData,
+                canContinue: true // Not a critical error
+              },
               count: 0,
-              error: 'Invalid data format',
-              dataType: typeof serverData,
-              canContinue: true // Not a critical error
+              error: true
             };
-            // Don't increment totalErrors for non-critical issues
           }
 
         } catch (error) {
           console.error(`❌ Error downloading ${tableName}:`, error);
-          downloadResults[tableName] = { error: error.message };
-          totalErrors++;
-
           // Continue with other tables even if one fails
           if (error.message.includes('network') || error.message.includes('timeout')) {
             // For network errors, we might want to stop entirely
             console.error('❌ Network error detected, stopping download');
             throw error;
           }
+          return {
+            tableName,
+            result: { error: error.message },
+            count: 0,
+            error: true
+          };
+        }
+      });
+
+      // PERFORMANCE FIX: Wait for all downloads to complete in parallel
+      const results = await Promise.all(downloadPromises);
+
+      // Aggregate results
+      for (const item of results) {
+        if (item) {
+          downloadResults[item.tableName] = item.result;
+          if (item.count) totalDownloaded += item.count;
+          if (item.error) totalErrors++;
         }
       }
 
@@ -1092,9 +1145,9 @@ class SyncService {
         break;
 
       case 'poultry_batches':
-        // Backend uses 'batchName' which maps to 'batch_name' in DB
-        if (serverRecord.batchName) mapped.batch_name = serverRecord.batchName;
-        
+        // Backend uses 'batchName' which maps to 'batch_number' in DB (FIXED)
+        if (serverRecord.batchName) mapped.batch_number = serverRecord.batchName;
+
         if (serverRecord.initialCount) mapped.initial_count = serverRecord.initialCount;
         if (serverRecord.currentCount) mapped.current_count = serverRecord.currentCount;
         if (serverRecord.hatchDate) mapped.hatch_date = serverRecord.hatchDate;
@@ -1103,10 +1156,16 @@ class SyncService {
         if (serverRecord.farmId) mapped.farm_id = serverRecord.farmId;
         // CRITICAL FIX: Map birdType to breed (backend sends birdType, mobile has breed column)
         if (serverRecord.birdType) mapped.breed = serverRecord.birdType;
-        // CRITICAL FIX: Map arrivalDate to arrival_date (backend sends arrivalDate, mobile uses arrival_date)
-        if (serverRecord.arrivalDate) mapped.arrival_date = serverRecord.arrivalDate;
+        // CRITICAL FIX: Map arrivalDate to date_received (backend sends arrivalDate, mobile uses date_received)
+        if (serverRecord.arrivalDate) mapped.date_received = serverRecord.arrivalDate;
         // CRITICAL FIX: Map ageWeeks to age_weeks
         if (serverRecord.ageWeeks) mapped.age_weeks = serverRecord.ageWeeks;
+        // CRITICAL FIX: Map financial fields (snake_case)
+        if (serverRecord.buyingPricePerBird) mapped.buying_price_per_bird = serverRecord.buyingPricePerBird;
+        if (serverRecord.totalPurchaseCost) mapped.total_purchase_cost = serverRecord.totalPurchaseCost;
+        if (serverRecord.purchaseDate) mapped.purchase_date = serverRecord.purchaseDate;
+        if (serverRecord.supplierContact) mapped.supplier_contact = serverRecord.supplierContact;
+        if (serverRecord.numberOfBirds) mapped.number_of_birds = serverRecord.numberOfBirds;
 
         // Clean up ALL unmapped camelCase fields for poultry_batches
         delete mapped.batchName;
@@ -1708,14 +1767,22 @@ class SyncService {
         break;
 
       case 'poultry_batches':
-        if (localRecord.batch_name) mapped.batchName = localRecord.batch_name;
-        if (localRecord.batch_number) mapped.batchNumber = localRecord.batch_number;
+        // FIXED: Use batch_number (not batch_name) as the canonical field
+        if (localRecord.batch_number) mapped.batchName = localRecord.batch_number;
         if (localRecord.initial_count) mapped.initialCount = localRecord.initial_count;
         if (localRecord.current_count) mapped.currentCount = localRecord.current_count;
         if (localRecord.hatch_date) mapped.hatchDate = localRecord.hatch_date;
         if (localRecord.acquisition_date) mapped.acquisitionDate = localRecord.acquisition_date;
         if (localRecord.expected_end_date) mapped.expectedEndDate = localRecord.expected_end_date;
         if (localRecord.farm_id) mapped.farmId = localRecord.farm_id;
+        // FIXED: Map date_received to arrivalDate for backend
+        if (localRecord.date_received) mapped.arrivalDate = localRecord.date_received;
+        // FIXED: Map financial fields to backend camelCase
+        if (localRecord.buying_price_per_bird) mapped.buyingPricePerBird = localRecord.buying_price_per_bird;
+        if (localRecord.total_purchase_cost) mapped.totalPurchaseCost = localRecord.total_purchase_cost;
+        if (localRecord.purchase_date) mapped.purchaseDate = localRecord.purchase_date;
+        if (localRecord.supplier_contact) mapped.supplierContact = localRecord.supplier_contact;
+        if (localRecord.number_of_birds) mapped.numberOfBirds = localRecord.number_of_birds;
 
         // Clean up local field names
         delete mapped.batch_name;
@@ -1726,6 +1793,12 @@ class SyncService {
         delete mapped.acquisition_date;
         delete mapped.expected_end_date;
         delete mapped.farm_id;
+        delete mapped.date_received;
+        delete mapped.buying_price_per_bird;
+        delete mapped.total_purchase_cost;
+        delete mapped.purchase_date;
+        delete mapped.supplier_contact;
+        delete mapped.number_of_birds;
         break;
 
       case 'feed_records':

@@ -62,7 +62,7 @@
       "androidCollapsedTitle": "Poultry360"
     },
     "extra": {
-      "apiUrl": "https://poultry360-api.onrender.com/api",
+      "apiUrl": "http://192.168.88.124:3001/api",
       "enableOfflineMode": true,
       "enableNotifications": true,
       "privacyPolicyUrl": "https://raw.githubusercontent.com/joseph-g-njoki/poultry360/master/mobile/poultry360-mobile/privacy-policy.html",
@@ -70,7 +70,6 @@
         "projectId": "253dd711-96ec-41d0-95a2-1916c95d4f74"
       }
     },
-    "privacy": "public",
     "description": "Poultry360 is a comprehensive farm management app for poultry farmers. Track daily records, manage batches, monitor finances, and analyze performance with real-time insights and offline support.",
     "owner": "jose_sanji"
   }
